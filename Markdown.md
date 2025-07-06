@@ -28,15 +28,21 @@ Có thể tạo mục con bằng dấu "-", khoảng trắng hoặc số
 
 ## 3. Tạo menu liên kết đến các phần trong bài viết
 
-[1. Menu 1](#custom_name_1)
+1. [Menu 1](#custom_name_1)
 
-[2. Menu 2](#custom_name_2)
+2. [Menu 2](#custom_name_2)
 
-[3. Menu 3](#custom_name_3)
+    1. [Menu 2.1](#sub_1)
+
+    2. [Menu 2.2](#sub_2)
+
+3. [Menu 3](#custom_name_3)
 
 
 #### <a name="custom_name_1"></a> 1. Tiêu đề 1
 #### <a name="custom_name_2"></a> 2. Tiêu đề 2
+##### <a name="sub_1"></a> 2.1 Tiêu đề 2.1
+##### <a name="sub_2"></a> 2.2 Tiêu đề 2.2
 #### <a name="custom_name_3"></a> 3. Tiêu đề 3
 
 ---
