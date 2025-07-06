@@ -1,13 +1,12 @@
+# Các chế độ của card mạng trong Virtualbox
+
 [Các options cho card mạng trong VirtualBox](#part1)
 
 [Mối liên hệ giữa card mạng trên máy ảo và máy thật](#part2)
 
-[Cấp phát IP cho máy ảo](#part3)
+[Cách Virtualbox cấp phát IP cho máy ảo](#part3)
 
 [SSH vào máy ảo khi ở chế độ NAT](#part4)
-
-
-# Các chế độ của card mạng trong Virtualbox
 
 ## <a name="part1"></a>Các options cho card mạng trong VirtualBox
 1. NAT (Network Address Translation):
@@ -45,7 +44,7 @@ Khi tạo card mạng (network adapter) cho máy ảo trong VirtualBox, không p
 | Not Attached | Không | Không kết nối vào đâu cả.
 
 
-## <a name="part3"></a>Cấp phát IP cho máy ảo
+## <a name="part3"></a>Cách Virtualbox cấp phát IP cho máy ảo
 #### Ở chế độ Bridged Adapter
 - Khi cấu hình card mạng của máy ảo VirtualBox ở chế độ Bridged Adapter, IP của máy ảo sẽ do DHCP server của mạng thật (thường là router hoặc switch trong mạng LAN) cấp phát nếu bạn để máy ảo ở chế độ nhận IP động (DHCP)
 
