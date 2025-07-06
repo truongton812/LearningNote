@@ -1,4 +1,5 @@
-#<center>Các chế độ của card mạng trong Virtualbox</center>
+# Các chế độ của card mạng trong Virtualbox
+
 ## Các options cho card mạng trong VirtualBox
 1. NAT (Network Address Translation):
 Máy ảo có thể truy cập Internet thông qua card mạng của máy chủ vật lý, nhưng các máy khác trong mạng không truy cập được vào máy ảo. Đây là chế độ mặc định.
