@@ -58,7 +58,7 @@ Khi tạo card mạng (network adapter) cho máy ảo trong VirtualBox, không p
 
 ## SSH vào máy ảo khi ở chế độ NAT
 
-##### Nguyên nhân bạn không SSH được vào máy ảo VirtualBox với chế độ NAT
+#### Nguyên nhân bạn không SSH được vào máy ảo VirtualBox với chế độ NAT
 - Khi bạn chọn chế độ NAT cho card mạng của máy ảo, VirtualBox sẽ tạo một thiết bị NAT ảo, hoạt động giống như một router riêng biệt giữa máy ảo và máy host. 
 Địa chỉ của thiết bị NAT ảo này là 10.0.2.2, cũng là địa chỉ gateway mặc định mà máy ảo sử dụng
 Vai trò của thiết bị NAT ảo là:
@@ -66,7 +66,7 @@ Vai trò của thiết bị NAT ảo là:
     - Định tuyến lưu lượng giữa máy ảo và mạng ngoài: khi máy ảo gửi dữ liệu ra ngoài Internet, thiết bị NAT ảo này sẽ nhận dữ liệu từ máy ảo, sau đó chuyển tiếp dữ liệu đó ra ngoài thông qua card mạng vật lý của máy host. 
 - Thiết bị NAT ảo này sẽ thực hiện chức năng dịch địa chỉ (NAT), cho phép máy ảo truy cập Internet nhưng kết nối trực tiếp từ bên ngoài không thể đến được máy ảo. Do NAT chỉ cho phép kết nối một chiều: Máy ảo gửi gói tin ra ngoài, NAT sẽ ghi nhớ và cho phép trả lời quay lại. Nhưng nếu có một kết nối mới từ ngoài vào (ví dụ: bạn SSH từ host vào máy ảo), NAT sẽ không biết chuyển gói tin này đến đâu, nên sẽ chặn lại.
 
-##### Cách để SSH vào máy ảo khi dùng chế độ NAT
+#### Cách để SSH vào máy ảo khi dùng chế độ NAT
 - Để thực hiện SSH vào máy ảo ở chế độ NAT, cần cấu hình chuyển tiếp cổng (port forwarding). Port forwarding là cách bạn "mở một cánh cửa" trên máy host, chuyển tiếp các kết nối đến một cổng cụ thể (ví dụ: 2222) vào đúng cổng dịch vụ (ví dụ: 22/SSH) trên máy ảo
 - Cách làm: 
     - Tắt máy ảo
@@ -82,3 +82,4 @@ Vai trò của thiết bị NAT ảo là:
     ```bash
         ssh -p 2222 <user>@127.0.0.1
     ```
+- Khi thêm rule để thực hiện port-forwarding trong VirtualBox với chế độ NAT, bạn đang thêm rule cho thiết bị NAT ảo. Rule port-forwarding giúp thiết bị NAT ảo biết rằng: “Nếu có kết nối đến cổng X trên máy host, hãy chuyển tiếp (forward) kết nối đó đến cổng Y trên máy ảo.”
