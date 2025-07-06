@@ -1,14 +1,14 @@
 # Các chế độ của card mạng trong Virtualbox
 
-[Các options cho card mạng trong VirtualBox](#part1)
+[1. Các options cho card mạng trong VirtualBox](#part1)
 
-[Mối liên hệ giữa card mạng trên máy ảo và máy thật](#part2)
+[2. Mối liên hệ giữa card mạng trên máy ảo và máy thật](#part2)
 
-[Cách Virtualbox cấp phát IP cho máy ảo](#part3)
+[3. Cách Virtualbox cấp phát IP cho máy ảo](#part3)
 
-[SSH vào máy ảo khi ở chế độ NAT](#part4)
+[4. SSH vào máy ảo khi ở chế độ NAT](#part4)
 
-## <a name="part1"></a>Các options cho card mạng trong VirtualBox
+## <a name="part1"></a>1. Các options cho card mạng trong VirtualBox
 1. NAT (Network Address Translation):
 Máy ảo có thể truy cập Internet thông qua card mạng của máy chủ vật lý, nhưng các máy khác trong mạng không truy cập được vào máy ảo. Đây là chế độ mặc định.
 
@@ -30,7 +30,7 @@ Chế độ đặc biệt, ít dùng, cho phép sử dụng driver mạng tùy c
 8. Not Attached:
 Card mạng được tạo ra nhưng không kết nối với bất kỳ mạng nào, giống như rút dây mạng ra khỏi card.
 
-## <a name="part2"></a>Mối liên hệ giữa card mạng trên máy ảo và máy thật
+## <a name="part2"></a>2. Mối liên hệ giữa card mạng trên máy ảo và máy thật
 
 
 Khi tạo card mạng (network adapter) cho máy ảo trong VirtualBox, không phải lúc nào trên máy host cũng sinh ra một card mạng tương ứng. Việc này phụ thuộc vào loại chế độ mạng (network mode) mà bạn chọn cho card mạng của máy ảo:
@@ -44,7 +44,7 @@ Khi tạo card mạng (network adapter) cho máy ảo trong VirtualBox, không p
 | Not Attached | Không | Không kết nối vào đâu cả.
 
 
-## <a name="part3"></a>Cách Virtualbox cấp phát IP cho máy ảo
+## <a name="part3"></a>3. Cách Virtualbox cấp phát IP cho máy ảo
 #### Ở chế độ Bridged Adapter
 - Khi cấu hình card mạng của máy ảo VirtualBox ở chế độ Bridged Adapter, IP của máy ảo sẽ do DHCP server của mạng thật (thường là router hoặc switch trong mạng LAN) cấp phát nếu bạn để máy ảo ở chế độ nhận IP động (DHCP)
 
@@ -64,7 +64,7 @@ Khi tạo card mạng (network adapter) cho máy ảo trong VirtualBox, không p
     - Tại mục Network CIDR, nhập dải IP mong muốn, ví dụ: 192.168.100.0/24 thay vì 10.0.2.0/24.
 
 
-## <a name="part4"></a>SSH vào máy ảo khi ở chế độ NAT
+## <a name="part4"></a>4. SSH vào máy ảo khi ở chế độ NAT
 
 #### Nguyên nhân bạn không SSH được vào máy ảo VirtualBox với chế độ NAT
 - Khi bạn chọn chế độ NAT cho card mạng của máy ảo, VirtualBox sẽ tạo một thiết bị NAT ảo, hoạt động giống như một router riêng biệt giữa máy ảo và máy host. 
