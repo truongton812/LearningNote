@@ -1,52 +1,21 @@
-#ArgoCD
+# ArgoCD
 
-Mối liên hệ giữa Application và Project trong ArgoCD
-Application và Project là hai khái niệm cốt lõi trong ArgoCD, có mối liên hệ chặt chẽ với nhau để tổ chức, quản lý và kiểm soát việc triển khai ứng dụng trên Kubernetes.
+### 1. Application
 
-1. Project (AppProject)
-Project là đơn vị tổ chức cao nhất, dùng để nhóm các Application lại với nhau.
-
-Mỗi Project định nghĩa các giới hạn và quyền kiểm soát cho các Application thuộc về nó, bao gồm:
-
-Các repository Git được phép sử dụng.
-
-Các cụm (cluster) và namespace được phép triển khai.
-
-Loại resource nào được phép deploy.
-
-RBAC (Role-Based Access Control) cho từng project, giúp phân quyền chi tiết cho từng nhóm hoặc người dùng.
-
-Mặc định, ArgoCD sẽ tạo một Project tên là default. Nếu không chỉ định, Application sẽ thuộc về Project này.
-
-2. Application
 Application là đại diện cho một ứng dụng cụ thể mà bạn muốn triển khai lên Kubernetes.
-
 Application chứa các thông tin:
+- Nguồn (source): Git repo, Helm chart, Kustomize, v.v.
+- Đích (destination): Cụm Kubernetes và namespace sẽ triển khai.
+- Project mà Application này thuộc về.
 
-Nguồn (source): Git repo, Helm chart, Kustomize, v.v.
-
-Đích (destination): Cụm Kubernetes và namespace sẽ triển khai.
-
-Project mà Application này thuộc về.
+Việc triển khai 1 Application đồng nghĩa với việc triển khai các resource từ git path lên cụm k8s
 
 Mỗi Application chỉ thuộc về một Project duy nhất. Nếu không chỉ định, nó sẽ nằm trong Project default.
 
-3. Mối liên hệ giữa Application và Project
-Application	Project
-Đại diện cho một app cụ thể	Đơn vị nhóm các Application
-Chỉ định nguồn và đích deploy	Quy định repo, cluster, namespace được phép
-Thuộc về một Project duy nhất	Quản lý quyền, giới hạn cho toàn bộ app trong project
-Không thể tồn tại ngoài Project	Có thể chứa nhiều Application
-Khi tạo một Application, bạn phải chỉ định nó thuộc Project nào (trực tiếp trong YAML hoặc qua UI/CLI).
+Ví dụ YAML
 
-Project đóng vai trò như “namespace logic” để phân chia quyền, hạn chế phạm vi triển khai và kiểm soát bảo mật cho các Application bên trong nó.
-
-Việc tổ chức Application theo Project giúp quản lý hiệu quả hơn trong môi trường multi-team, multi-environment, đảm bảo mỗi nhóm chỉ có quyền trên phạm vi của mình.
-
-4. Ví dụ YAML
+```yaml
 Application:
-
-text
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -59,9 +28,23 @@ spec:
   destination:
     server: 'https://kubernetes.default.svc'
     namespace: default
-Project:
+```
 
-text
+### 2. Project (AppProject)
+
+Project là đơn vị tổ chức cao nhất, dùng để nhóm các Application lại với nhau.
+Mỗi Project định nghĩa các giới hạn và quyền kiểm soát cho các Application thuộc về nó, bao gồm:
+- Các repository Git được phép sử dụng -> Project có thể chỉ định danh sách các Git repository mà các Application thuộc project này được phép lấy manifest (YAML, Helm chart, Kustomize, v.v.) để deploy. Nếu một Application trỏ đến repo ngoài danh sách cho phép, ArgoCD sẽ từ chối deploy. Cấu hình bằng trường sourceRepos, có thể dùng pattern hoặc wildcard (* và !) để cho phép tất cả, hoặc liệt kê cụ thể từng repo.
+- Các cụm (cluster) và namespace mà Application được phép deploy vào. Giúp giới hạn phạm vi ảnh hưởng của Application, tránh việc deploy nhầm sang cluster hoặc namespace không mong muốn. Cấu hình bằng trường destinations trong AppProject, gồm các cặp server (địa chỉ API của cluster) và namespace. Có thể dùng * để cho phép tất cả, hoặc chỉ định cụ thể.
+- Loại resource mà Application được phép tạo hoặc chỉnh sửa, ví dụ: chỉ cho phép deploy Deployment, Service, không cho phép tạo Pod trực tiếp hoặc ClusterRole. Tác dụng là đảm bảo Application không thể tạo ra các resource có thể gây rủi ro bảo mật hoặc vượt quyền kiểm soát. Cấu hình bằng trường namespaceResourceWhitelist và clusterResourceWhitelist trong AppProject, liệt kê các nhóm API (apiGroups) và loại resource (kinds) được phép.
+- RBAC (Role-Based Access Control) cho từng project, giúp phân quyền chi tiết cho từng nhóm hoặc người dùng. Ý nghĩa: Project cho phép thiết lập quyền truy cập chi tiết cho từng nhóm người dùng hoặc service account đối với các Application trong project đó. Tác dụng: Phân quyền rõ ràng, ví dụ: nhóm A chỉ được xem, nhóm B được tạo/sửa Application, nhóm C được sync/deploy, v.v. Cấu hình: Thiết lập qua ArgoCD RBAC policy, có thể gán quyền theo project, theo user hoặc nhóm (group).
+
+Mặc định, ArgoCD sẽ tạo một Project tên là default. Nếu không chỉ định, Application sẽ thuộc về Project này.
+
+Ví dụ YAML
+
+```yaml
+Project:
 apiVersion: argoproj.io/v1alpha1
 kind: AppProject
 metadata:
@@ -72,9 +55,5 @@ spec:
   destinations:
     - namespace: '*'
       server: '*'
-5. Tổng kết
-Application là đối tượng triển khai, Project là nhóm quản lý các Application.
+```
 
-Mỗi Application phải thuộc về một Project.
-
-Project kiểm soát phạm vi, quyền và bảo mật cho các Application bên trong nó, giúp tổ chức triển khai hiệu quả và an toàn hơn
