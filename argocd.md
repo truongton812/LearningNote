@@ -15,11 +15,12 @@ Mỗi Application chỉ thuộc về một Project duy nhất. Nếu không ch�
 Ví dụ YAML
 
 ```yaml
-Application:
+
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
   name: my-app
+  namespace: argocd #Đây là namespace mặc định mà ArgoCD được cài đặt và quản lý các resource Application. Nếu bạn muốn tạo resource Application ở namespace khác, bạn cần cấu hình lại ArgoCD để cho phép quản lý Application ở namespace đó
 spec:
   project: my-project   # Chỉ định Project
   source:
