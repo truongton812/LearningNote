@@ -57,3 +57,50 @@ spec:
       server: '*'
 ```
 
+### 3.ApplicationSet 
+
+- Là một Custom Resource (CRD) cho phép bạn tự động sinh ra nhiều đối tượng Application từ một định nghĩa duy nhất, giúp quản lý và triển khai hàng loạt ứng dụng hoặc cùng một ứng dụng lên nhiều cluster, namespace một cách tự động và đồng nhất.
+- Đặc điểm nổi bật của ApplicationSet:
+  - Tự động sinh Application: ApplicationSet controller sẽ tự động tạo ra các resource Application dựa trên template và các tham số đầu vào (parameters) do bạn định nghĩa trong ApplicationSet.
+  - Quản lý đa cụm (multi-cluster) và đa môi trường: Bạn có thể dễ dàng triển khai cùng một ứng dụng lên nhiều cluster hoặc nhiều namespace khác nhau chỉ với một ApplicationSet.
+  - Hỗ trợ nhiều nguồn sinh (generator):
+      - List generator: Định nghĩa danh sách cụm/namespace cố định.
+      - Cluster generator: Tự động lấy danh sách cluster đã đăng ký trong ArgoCD.
+      - Git generator: Sinh Application dựa trên cấu trúc thư mục hoặc file trong Git repository.
+      - Matrix generator: Kết hợp nhiều generator để sinh ra tập hợp ứng dụng phức tạp hơn.
+  - Quản lý tập trung: Thay vì quản lý từng Application riêng lẻ, bạn chỉ cần cập nhật ApplicationSet, mọi Application con sẽ được cập nhật theo.
+  - Phù hợp cho monorepo và multi-tenant: Dễ dàng áp dụng với các repo chứa nhiều ứng dụng hoặc môi trường chia sẻ nhiều team.
+
+Ví dụ minh họa
+Khai báo một ApplicationSet để deploy ứng dụng "guestbook" lên ba cluster khác nhau:
+
+```yaml
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: guestbook
+spec:
+  generators:
+    - list:
+        elements:
+          - cluster: engineering-dev
+            url: https://1.2.3.4
+          - cluster: engineering-prod
+            url: https://2.4.6.8
+          - cluster: finance-preprod
+            url: https://9.8.7.6
+  template:
+    metadata:
+      name: '{{.cluster}}-guestbook'
+    spec:
+      project: my-project
+      source:
+        repoURL: https://github.com/infra-team/cluster-deployments.git
+        targetRevision: HEAD
+        path: guestbook/{{.cluster}}
+      destination:
+        server: '{{.url}}'
+        namespace: guestbook
+```
+
+Kết quả là ArgoCD sẽ tự động tạo ra 3 Application, mỗi Application tương ứng với một cluster được định nghĩa trong danh sách
