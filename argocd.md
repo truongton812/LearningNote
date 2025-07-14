@@ -105,3 +105,172 @@ spec:
 ```
 
 Kết quả là ArgoCD sẽ tự động tạo ra 3 Application, mỗi Application tương ứng với một cluster được định nghĩa trong danh sách
+
+### 4. Kustomization
+
+Kustomize không phải là một Custom Resource (CRD) của Kubernetes.
+
+Kustomize là một công cụ giúp bạn quản lý và tùy biến các file cấu hình YAML của Kubernetes một cách linh hoạt, đặc biệt khi triển khai ứng dụng trên nhiều môi trường khác nhau như dev, staging, production.
+
+Kustomize không tạo ra resource mới trong cluster như các loại CRD (Custom Resource Definition). Thay vào đó, nó xử lý các file YAML trên máy của bạn (hoặc trong pipeline CI/CD), tạo ra các manifest đã được "biến đổi" (customized), rồi bạn dùng kubectl apply để deploy các manifest này lên Kubernetes.
+
+Cách hoạt động của Kustomize:
+
+Bạn tổ chức các file YAML (Deployment, Service, ConfigMap, ...) theo thư mục, rồi tạo một file đặc biệt tên là kustomization.yaml để định nghĩa cách kết hợp, ghi đè, thêm label, đổi namespace, patch, v.v..
+
+Khi chạy lệnh kubectl apply -k <thư mục>, Kustomize sẽ đọc file kustomization.yaml, xử lý các file YAML theo hướng dẫn, và trả về bộ manifest đã được tùy biến
+
+Khi bạn chạy lệnh:
+
+```bash
+kubectl apply -k <thư_mục>
+```
+
+kubectl sẽ không tự động đọc và áp dụng tất cả các file YAML trong thư mục đó.
+Thay vào đó, nó sẽ thực hiện theo quy trình sau:
+
+1. Chỉ đọc file kustomization.yaml
+kubectl (thông qua Kustomize) sẽ tìm file kustomization.yaml trong thư mục mà bạn chỉ định.
+
+File này đóng vai trò là "entry point" (điểm bắt đầu) để xác định các tài nguyên cần xử lý.
+
+2. Chỉ xử lý các file được liệt kê trong kustomization.yaml
+Trong file kustomization.yaml, bạn phải khai báo rõ ràng các file resource mà bạn muốn sử dụng, ví dụ:
+
+resources:
+  - deployment.yaml
+  - service.yaml
+Kustomize sẽ chỉ đọc và xử lý các file được liệt kê trong phần resources (hoặc các trường khác như patches, configMapGenerator, ... nếu có), bỏ qua các file YAML còn lại trong thư mục mà không được tham chiếu.
+
+3. Không tự động áp dụng tất cả file YAML
+Nếu có file YAML trong thư mục nhưng không được liệt kê trong kustomization.yaml, file đó sẽ không được áp dụng khi bạn chạy lệnh kubectl apply -k ....
+
+4. Kết quả
+Toàn bộ manifest cuối cùng được sinh ra sẽ là tập hợp các resource mà bạn đã liệt kê trong kustomization.yaml, sau khi đã áp dụng các tuỳ biến (patch, label, namespace, ...).
+
+---
+
+Ý nghĩa của "xử lý" khi Kustomize gom các resource lại
+Khi nói Kustomize "gom các resource lại để xử lý", ý nghĩa của "xử lý" ở đây là thực hiện một loạt thao tác tự động trên các manifest Kubernetes (các file YAML) mà bạn đã liệt kê trong phần resources của file kustomization.yaml. Cụ thể, các bước "xử lý" này bao gồm:
+
+1. Tổng hợp (Aggregation)
+Kustomize sẽ đọc tất cả các file hoặc thư mục manifest được chỉ định trong resources, gom chúng thành một tập hợp duy nhất để chuẩn bị cho các bước tiếp theo.
+
+2. Biến đổi (Transformation)
+Áp dụng các thay đổi (customization) mà bạn khai báo trong file kustomization.yaml lên các resource vừa gom lại. Các thao tác phổ biến:
+
+Thêm namespace: Tự động gán namespace nếu resource chưa có.
+
+Thêm label/annotation: Chèn thêm label hoặc annotation cho tất cả resource.
+
+Patch: Áp dụng các bản vá (patch) để chỉnh sửa một phần nội dung resource, ví dụ sửa image, replica, env,...
+
+Thay thế biến (variable substitution): Thay các giá trị động vào manifest.
+
+Tạo mới resource động: Sinh ra ConfigMap hoặc Secret từ configMapGenerator hoặc secretGenerator.
+
+3. Kết xuất (Output)
+Sau khi đã tổng hợp và biến đổi, Kustomize xuất ra một bản manifest hoàn chỉnh duy nhất, đã được áp dụng tất cả các thay đổi, sẵn sàng để deploy lên Kubernetes.
+
+---
+
+Hướng dẫn dùng Kustomize để tạo manifest cho nhiều môi trường
+1. Kiến trúc thư mục chuẩn với Kustomize
+Để quản lý manifest cho nhiều môi trường (dev, staging, prod), bạn nên tổ chức cấu trúc thư mục như sau:
+
+text
+my-app/
+├── base/
+│   ├── deployment.yaml
+│   ├── service.yaml
+│   └── kustomization.yaml
+└── overlays/
+    ├── dev/
+    │   ├── kustomization.yaml
+    │   └── patch.yaml
+    ├── staging/
+    │   ├── kustomization.yaml
+    │   └── patch.yaml
+    └── prod/
+        ├── kustomization.yaml
+        └── patch.yaml
+base/: Chứa các manifest dùng chung cho mọi môi trường.
+
+overlays/: Mỗi thư mục con là một môi trường, chứa các patch hoặc config riêng biệt.
+
+2. Nội dung các file cơ bản
+a. base/kustomization.yaml
+text
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - deployment.yaml
+  - service.yaml
+b. overlays/dev/kustomization.yaml
+text
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+
+patchesStrategicMerge:
+  - patch.yaml
+nameSuffix: -dev
+patchesStrategicMerge: Dùng để ghi đè các giá trị (ví dụ số replicas, image, env...) cho môi trường dev.
+
+nameSuffix: Thêm hậu tố vào tên resource để phân biệt môi trường.
+
+c. overlays/dev/patch.yaml
+text
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-app
+spec:
+  replicas: 1
+  template:
+    spec:
+      containers:
+        - name: my-app
+          image: my-image:dev
+Patch này sẽ ghi đè số replicas và image cho môi trường dev.
+
+Tương tự cho staging và prod, chỉ cần thay đổi giá trị phù hợp (ví dụ replicas, image tag, biến môi trường...).
+3. Sinh manifest cho từng môi trường
+Để build manifest cho môi trường dev:
+
+bash
+kustomize build overlays/dev > manifest-dev.yaml
+Cho staging:
+
+bash
+kustomize build overlays/staging > manifest-staging.yaml
+Cho prod:
+
+bash
+kustomize build overlays/prod > manifest-prod.yaml
+Có thể apply trực tiếp lên cluster:
+
+bash
+kubectl apply -k overlays/dev
+4. Một số tính năng hữu ích khác
+commonLabels: Thêm label chung cho toàn bộ resource của môi trường.
+
+configMapGenerator/secretGenerator: Sinh ConfigMap/Secret riêng cho từng môi trường.
+
+patchesStrategicMerge/patchesJson6902: Hỗ trợ patch mạnh mẽ theo nhu cầu.
+
+5. Bảng tổng kết
+Thư mục/file	Vai trò
+base/	Chứa manifest gốc dùng chung
+overlays/dev/	Chứa patch và config riêng cho dev
+overlays/staging/	Chứa patch và config riêng cho staging
+overlays/prod/	Chứa patch và config riêng cho prod
+kustomization.yaml	File cấu hình chính của từng layer
+patch.yaml	File patch ghi đè các thông số cần khác biệt
+6. Lưu ý
+Không cần tạo lại toàn bộ manifest cho từng môi trường, chỉ cần patch phần khác biệt.
+
+Khi thay đổi ở base, mọi môi trường sẽ nhận được thay đổi chung, giảm lặp code và rủi
