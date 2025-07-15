@@ -233,3 +233,35 @@ patch.yaml	File patch ghi đè các thông số cần khác biệt
 Không cần tạo lại toàn bộ manifest cho từng môi trường, chỉ cần patch phần khác biệt.
 
 Khi thay đổi ở base, mọi môi trường sẽ nhận được thay đổi chung, giảm lặp code và rủi
+
+---
+
+Vì sao cả base và overlay đều cần file kustomization.yaml?
+1. Vai trò của kustomization.yaml trong base
+Base là nơi chứa cấu hình gốc, dùng chung cho mọi môi trường (dev, staging, prod...).
+
+File base/kustomization.yaml liệt kê các resource gốc (deployment, service, configmap,...) và có thể định nghĩa thêm các customizations cơ bản.
+
+File này giúp Kustomize biết cần gom những file nào lại thành một bộ cấu hình hoàn chỉnh ban đầu.
+
+2. Vai trò của kustomization.yaml trong overlay
+Overlay là thư mục chứa các chỉnh sửa, bổ sung hoặc ghi đè dành riêng cho từng môi trường.
+
+File overlays/dev/kustomization.yaml (hoặc tương tự cho từng môi trường) sẽ:
+
+Tham chiếu đến base (thông qua trường resources hoặc bases).
+
+Chỉ định các patch, biến môi trường, labels, annotation, v.v. đặc thù cho môi trường đó.
+
+Nhờ file này, bạn có thể áp dụng các thay đổi mà không làm ảnh hưởng đến cấu hình gốc.
+
+3. Lý do cần cả hai file
+Mỗi cấp (base và overlay) là một đơn vị cấu hình độc lập, Kustomize sẽ gom và xử lý từng cấp thông qua file kustomization.yaml tương ứng.
+
+Khi bạn build overlay, Kustomize sẽ:
+
+Đọc file kustomization.yaml trong overlay để biết cần lấy base nào và áp dụng patch gì.
+
+Đọc tiếp file kustomization.yaml trong base để biết các resource gốc cần gom lại.
+
+Kết hợp, biến đổi và xuất ra manifest hoàn chỉnh cho môi trường bạn chọn.
