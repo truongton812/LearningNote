@@ -108,7 +108,6 @@ Kết quả là ArgoCD sẽ tự động tạo ra 3 Application, mỗi Applicati
 
 ### 4. Kustomization
 
-
 Kustomize là một công cụ giúp quản lý và tùy biến các file cấu hình YAML của Kubernetes một cách linh hoạt, đặc biệt khi triển khai ứng dụng trên nhiều môi trường khác nhau như dev, staging, production.
 
 Lưu ý Kustomize không phải là một Custom Resource (CRD) của Kubernetes. Kustomize không tạo ra resource mới trong cluster như các loại CRD (Custom Resource Definition).
@@ -118,10 +117,11 @@ Cách hoạt động của Kustomize:
 - Khi chạy lệnh kubectl apply -k <thư mục>, Kustomize sẽ tìm và đọc file kustomization.yaml trong thư mục đó, xử lý các file YAML (được liệt kê trong mục resources của kustomization.yaml) theo các chỉ định do người dùng khai báo, và trả về bộ manifest đã được tùy biến. Nếu có file YAML trong thư mục nhưng không được liệt kê trong kustomization.yaml, file đó sẽ không được áp dụng khi bạn chạy lệnh kubectl apply -k ....
 - Các thao tác phổ biến mà kustomize có thể xử lý:
   - Thêm namespace: Tự động gán namespace nếu resource chưa có.
-  - Thêm label/annotation: Chèn thêm label hoặc annotation cho tất cả resource.
-  - Patch: Áp dụng các bản vá (patch) để chỉnh sửa một phần nội dung resource, ví dụ sửa image, số lượng replica, env,...
+  - Thêm label/annotation: Chèn thêm label hoặc annotation cho tất cả resource. (commonLabels)
+  - Patch: Áp dụng các bản vá (patch) để chỉnh sửa một phần nội dung resource, ví dụ sửa image, số lượng replica, env,... (patchesStrategicMerge/patchesJson6902)
   - Thay thế biến (variable substitution): Thay các giá trị động vào manifest.
   - Tạo mới resource động: Sinh ra ConfigMap hoặc Secret từ configMapGenerator hoặc secretGenerator.
+  - Thêm hậu tố hoặc tiền tố vào tên resource (nameSuffix/namePrefix)
 
 #### Hướng dẫn dùng Kustomize để tạo manifest cho nhiều môi trường
 
@@ -201,92 +201,43 @@ Hoặc có thể apply trực tiếp lên cluster bằng lệnh
 ```bash
 kubectl apply -k overlays/dev
 ```
-4. Một số tính năng hữu ích khác
-commonLabels: Thêm label chung cho toàn bộ resource của môi trường.
 
-configMapGenerator/secretGenerator: Sinh ConfigMap/Secret riêng cho từng môi trường.
 
-patchesStrategicMerge/patchesJson6902: Hỗ trợ patch mạnh mẽ theo nhu cầu.
+#### File kustomization.yaml cần phải có cả trong base và overlay
 
-5. Bảng tổng kết
-Thư mục/file	Vai trò
-base/	Chứa manifest gốc dùng chung
-overlays/dev/	Chứa patch và config riêng cho dev
-overlays/staging/	Chứa patch và config riêng cho staging
-overlays/prod/	Chứa patch và config riêng cho prod
-kustomization.yaml	File cấu hình chính của từng layer
-patch.yaml	File patch ghi đè các thông số cần khác biệt
-6. Lưu ý
-Không cần tạo lại toàn bộ manifest cho từng môi trường, chỉ cần patch phần khác biệt.
-
-Khi thay đổi ở base, mọi môi trường sẽ nhận được thay đổi chung, giảm lặp code và rủi
-
----
-
-Vì sao cả base và overlay đều cần file kustomization.yaml?
 1. Vai trò của kustomization.yaml trong base
+   
 Base là nơi chứa cấu hình gốc, dùng chung cho mọi môi trường (dev, staging, prod...).
-
 File base/kustomization.yaml liệt kê các resource gốc (deployment, service, configmap,...) và có thể định nghĩa thêm các customizations cơ bản.
-
 File này giúp Kustomize biết cần gom những file nào lại thành một bộ cấu hình hoàn chỉnh ban đầu.
 
 2. Vai trò của kustomization.yaml trong overlay
+   
 Overlay là thư mục chứa các chỉnh sửa, bổ sung hoặc ghi đè dành riêng cho từng môi trường.
-
 File overlays/dev/kustomization.yaml (hoặc tương tự cho từng môi trường) sẽ:
-
-Tham chiếu đến base (thông qua trường resources hoặc bases).
-
-Chỉ định các patch, biến môi trường, labels, annotation, v.v. đặc thù cho môi trường đó.
-
-Nhờ file này, bạn có thể áp dụng các thay đổi mà không làm ảnh hưởng đến cấu hình gốc.
+- Tham chiếu đến base (thông qua trường resources hoặc bases).
+- Chỉ định các patch, biến môi trường, labels, annotation, v.v. đặc thù cho môi trường đó.
+-> Nhờ file này, bạn có thể áp dụng các thay đổi mà không làm ảnh hưởng đến cấu hình gốc.
 
 3. Lý do cần cả hai file
+   
 Mỗi cấp (base và overlay) là một đơn vị cấu hình độc lập, Kustomize sẽ gom và xử lý từng cấp thông qua file kustomization.yaml tương ứng.
-
 Khi bạn build overlay, Kustomize sẽ:
+- Đọc file kustomization.yaml trong overlay để biết cần lấy base nào và áp dụng patch gì.
+- Đọc tiếp file kustomization.yaml trong base để biết các resource gốc cần gom lại.
+- Kết hợp, biến đổi và xuất ra manifest hoàn chỉnh cho môi trường bạn chọn.
 
-Đọc file kustomization.yaml trong overlay để biết cần lấy base nào và áp dụng patch gì.
-
-Đọc tiếp file kustomization.yaml trong base để biết các resource gốc cần gom lại.
-
-Kết hợp, biến đổi và xuất ra manifest hoàn chỉnh cho môi trường bạn chọn.
-
----
-
-Trong file kustomization.yaml của thư mục overlay, trường resources không bắt buộc chỉ tham chiếu đến thư mục base, mà có thể tham chiếu trực tiếp đến từng file cụ thể trong base, miễn là các file đó nằm trong phạm vi truy cập hợp lệ (thường là cùng repo hoặc không bị hạn chế bởi chính sách bảo mật).
+#### Trường resources trong file kustomization.yaml của thư mục overlay
+   
+- Trong file kustomization.yaml của thư mục overlay, trường resources không bắt buộc chỉ tham chiếu đến thư mục base, mà có thể tham chiếu trực tiếp đến từng file cụ thể trong base, miễn là các file đó nằm trong phạm vi truy cập hợp lệ (thường là cùng repo hoặc không bị hạn chế bởi chính sách bảo mật).
 Tuy nhiên, cách phổ biến nhất vẫn là tham chiếu đến cả thư mục base. Khi đó, toàn bộ các resource được liệt kê trong base/kustomization.yaml sẽ được overlay kế thừa.
 
-Cách tham chiếu	Được phép	Ưu điểm	Nhược điểm
-Thư mục base	Có	Đơn giản, kế thừa toàn bộ	Có thể dư thừa resource
-Từng file cụ thể	Có	Linh hoạt, chọn lọc	Dễ thiếu sót nếu quên file
+- Khi trường resources trong overlay tham chiếu ít hoặc nhiều resource hơn base
+  - Overlay tham chiếu ít resource hơn so với base: Khi overlay chỉ tham chiếu một phần resource của base (ví dụ chỉ lấy deployment.yaml mà không lấy service.yaml), kết quả build cuối cùng chỉ chứa các resource mà overlay đã chỉ định. Các resource khác có trong base nhưng không được overlay liệt kê sẽ không xuất hiện trong manifest đầu ra của overlay.
+  - Overlay tham chiếu nhiều resource hơn so với base: Overlay hoàn toàn có thể bổ sung thêm resource mới (ví dụ: thêm file monitoring.yaml hoặc volume.yaml chỉ cho môi trường prod/dev). Khi đó, manifest build ra sẽ là tổng hợp của các resource từ base (nếu có) và các resource mới mà overlay bổ sung.
 
----
+#### Lưu ý khi sử dụng ArgoCD Application
 
-khi trường resources trong overlay tham chiếu ít hoặc nhiều resource hơn base
-1. Overlay tham chiếu ít resource hơn so với base
-Khi overlay chỉ tham chiếu một phần resource của base (ví dụ chỉ lấy deployment.yaml mà không lấy service.yaml), kết quả build cuối cùng chỉ chứa các resource mà overlay đã chỉ định.
+- Luôn trỏ spec.source.path ArgoCD Application vào đúng thư mục overlay của môi trường bạn muốn deploy (ví dụ: overlays/dev, overlays/prod), không để path trỏ vào thư mục mẹ chứa cả base và overlays để tránh lỗi và đảm bảo cấu hình môi trường chính xác theo thiết kế Kustomize
 
-Các resource khác có trong base nhưng không được overlay liệt kê sẽ không xuất hiện trong manifest đầu ra của overlay.
-
-Điều này giúp bạn kiểm soát chính xác resource nào sẽ được deploy cho từng môi trường hoặc mục đích sử dụng cụ thể.
-
-2. Overlay tham chiếu nhiều resource hơn so với base
-Overlay hoàn toàn có thể bổ sung thêm resource mới (ví dụ: thêm file monitoring.yaml hoặc volume.yaml chỉ cho môi trường prod/dev).
-
-Khi đó, manifest build ra sẽ là tổng hợp của các resource từ base (nếu có) và các resource mới mà overlay bổ sung.
-
-Điều này rất hữu ích khi cần thêm các thành phần chỉ có ở một số môi trường nhất định mà không làm thay đổi base chung
-
----
-
-Luôn trỏ path ArgoCD Application vào đúng thư mục overlay của môi trường bạn muốn deploy, không để path trỏ vào thư mục mẹ chứa cả base và overlays để tránh lỗi và đảm bảo cấu hình môi trường chính xác theo thiết kế Kustomize
-
-3. Cách sử dụng đúng
-Bạn nên trỏ spec.source.path của Application đến overlay cụ thể (ví dụ: overlays/dev, overlays/prod). File kustomization.yaml trong overlay này sẽ sử dụng base một cách chuẩn hóa, patch lại thích hợp cho môi trường mong muốn.
-
-Khi đó, ArgoCD sẽ build manifest đúng logic Kustomize cho từng môi trường, tránh deploy thừa, thiếu, hoặc lỗi.
-
-Nếu bạn trỏ vào cả thư mục cha chứa nhiều overlay, ArgoCD sẽ không biết chọn môi trường nào và có thể gây nhầm lẫn lớn trong quá trình deploy.
 
