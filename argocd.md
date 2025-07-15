@@ -292,4 +292,14 @@ Khi đó, manifest build ra sẽ là tổng hợp của các resource từ base 
 
 Điều này rất hữu ích khi cần thêm các thành phần chỉ có ở một số môi trường nhất định mà không làm thay đổi base chung
 
+---
+
+Luôn trỏ path ArgoCD Application vào đúng thư mục overlay của môi trường bạn muốn deploy, không để path trỏ vào thư mục mẹ chứa cả base và overlays để tránh lỗi và đảm bảo cấu hình môi trường chính xác theo thiết kế Kustomize
+
+3. Cách sử dụng đúng
+Bạn nên trỏ spec.source.path của Application đến overlay cụ thể (ví dụ: overlays/dev, overlays/prod). File kustomization.yaml trong overlay này sẽ sử dụng base một cách chuẩn hóa, patch lại thích hợp cho môi trường mong muốn.
+
+Khi đó, ArgoCD sẽ build manifest đúng logic Kustomize cho từng môi trường, tránh deploy thừa, thiếu, hoặc lỗi.
+
+Nếu bạn trỏ vào cả thư mục cha chứa nhiều overlay, ArgoCD sẽ không biết chọn môi trường nào và có thể gây nhầm lẫn lớn trong quá trình deploy.
 
