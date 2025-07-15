@@ -123,12 +123,13 @@ Cách hoạt động của Kustomize:
   - Thay thế biến (variable substitution): Thay các giá trị động vào manifest.
   - Tạo mới resource động: Sinh ra ConfigMap hoặc Secret từ configMapGenerator hoặc secretGenerator.
 
-##### Hướng dẫn dùng Kustomize để tạo manifest cho nhiều môi trường
+#### Hướng dẫn dùng Kustomize để tạo manifest cho nhiều môi trường
 
 1. Kiến trúc thư mục chuẩn với Kustomize
-2. 
+
 Để quản lý manifest cho nhiều môi trường (dev, staging, prod), bạn nên tổ chức cấu trúc thư mục như sau:
 
+```
 my-app/ 
 ├── base/ 
 │   ├── deployment.yaml 
@@ -144,16 +145,15 @@ my-app/
     └── prod/ 
         ├── kustomization.yaml 
         └── patch.yaml 
-        
+```
 base/: Chứa các manifest dùng chung cho mọi môi trường.
 
 overlays/: Mỗi thư mục con là một môi trường, chứa các patch hoặc config riêng biệt.
 
 2. Nội dung các file cơ bản
    
-a. base/kustomization.yaml
-
 ```yaml
+base/kustomization.yaml
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
@@ -161,22 +161,19 @@ resources:
   - service.yaml
 ```
 
-b. overlays/dev/kustomization.yaml
-
 ```yaml
+overlays/dev/kustomization.yaml
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - ../../base
-
 patchesStrategicMerge: #Dùng để ghi đè các giá trị (ví dụ số replicas, image, env...) cho môi trường dev.
   - patch.yaml
 nameSuffix: -dev #Thêm hậu tố vào tên resource để phân biệt môi trường.
 ```
 
-c. overlays/dev/patch.yaml
-
 ```yaml
+overlays/dev/patch.yaml #File Patch này sẽ ghi đè số replicas và image cho môi trường dev.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -189,27 +186,17 @@ spec:
         - name: my-app
           image: my-image:dev
 ```
-Patch này sẽ ghi đè số replicas và image cho môi trường dev.
 
 Tương tự cho staging và prod, chỉ cần thay đổi giá trị phù hợp (ví dụ replicas, image tag, biến môi trường...).
 
 3. Sinh manifest cho từng môi trường
-Để build manifest cho môi trường dev:
-```bash
-kustomize build overlays/dev > manifest-dev.yaml
-```
-Cho staging:
 
 ```bash
-kustomize build overlays/staging > manifest-staging.yaml
+kustomize build overlays/dev > manifest-dev.yaml #build manifest cho môi trường dev
+kustomize build overlays/staging > manifest-staging.yaml #build manifest cho môi trường staging
+kustomize build overlays/prod > manifest-prod.yaml #build manifest cho môi trường dev
 ```
-Cho prod:
-
-```bash
-kustomize build overlays/prod > manifest-prod.yaml
-```
-
-Có thể apply trực tiếp lên cluster:
+Hoặc có thể apply trực tiếp lên cluster bằng lệnh
 
 ```bash
 kubectl apply -k overlays/dev
