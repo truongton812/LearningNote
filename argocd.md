@@ -58,7 +58,7 @@ spec:
       server: '*'
 ```
 
-### 3.ApplicationSet 
+### 3. ApplicationSet 
 
 - Là một Custom Resource (CRD) cho phép bạn tự động sinh ra nhiều đối tượng Application từ một định nghĩa duy nhất, giúp quản lý và triển khai hàng loạt ứng dụng hoặc cùng một ứng dụng lên nhiều cluster, namespace một cách tự động và đồng nhất.
 - Đặc điểm nổi bật của ApplicationSet:
