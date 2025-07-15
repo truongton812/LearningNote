@@ -265,3 +265,13 @@ Khi bạn build overlay, Kustomize sẽ:
 Đọc tiếp file kustomization.yaml trong base để biết các resource gốc cần gom lại.
 
 Kết hợp, biến đổi và xuất ra manifest hoàn chỉnh cho môi trường bạn chọn.
+
+---
+
+Trong file kustomization.yaml của thư mục overlay, trường resources không bắt buộc chỉ tham chiếu đến thư mục base, mà có thể tham chiếu trực tiếp đến từng file cụ thể trong base, miễn là các file đó nằm trong phạm vi truy cập hợp lệ (thường là cùng repo hoặc không bị hạn chế bởi chính sách bảo mật).
+Tuy nhiên, cách phổ biến nhất vẫn là tham chiếu đến cả thư mục base. Khi đó, toàn bộ các resource được liệt kê trong base/kustomization.yaml sẽ được overlay kế thừa.
+
+Cách tham chiếu	Được phép	Ưu điểm	Nhược điểm
+Thư mục base	Có	Đơn giản, kế thừa toàn bộ	Có thể dư thừa resource
+Từng file cụ thể	Có	Linh hoạt, chọn lọc	Dễ thiếu sót nếu quên file
+
