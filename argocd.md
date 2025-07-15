@@ -275,3 +275,21 @@ Cách tham chiếu	Được phép	Ưu điểm	Nhược điểm
 Thư mục base	Có	Đơn giản, kế thừa toàn bộ	Có thể dư thừa resource
 Từng file cụ thể	Có	Linh hoạt, chọn lọc	Dễ thiếu sót nếu quên file
 
+---
+
+khi trường resources trong overlay tham chiếu ít hoặc nhiều resource hơn base
+1. Overlay tham chiếu ít resource hơn so với base
+Khi overlay chỉ tham chiếu một phần resource của base (ví dụ chỉ lấy deployment.yaml mà không lấy service.yaml), kết quả build cuối cùng chỉ chứa các resource mà overlay đã chỉ định.
+
+Các resource khác có trong base nhưng không được overlay liệt kê sẽ không xuất hiện trong manifest đầu ra của overlay.
+
+Điều này giúp bạn kiểm soát chính xác resource nào sẽ được deploy cho từng môi trường hoặc mục đích sử dụng cụ thể.
+
+2. Overlay tham chiếu nhiều resource hơn so với base
+Overlay hoàn toàn có thể bổ sung thêm resource mới (ví dụ: thêm file monitoring.yaml hoặc volume.yaml chỉ cho môi trường prod/dev).
+
+Khi đó, manifest build ra sẽ là tổng hợp của các resource từ base (nếu có) và các resource mới mà overlay bổ sung.
+
+Điều này rất hữu ích khi cần thêm các thành phần chỉ có ở một số môi trường nhất định mà không làm thay đổi base chung
+
+
