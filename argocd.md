@@ -311,7 +311,7 @@ patch.json
 3. patches
 Đặc điểm: Trường tổng quát (hiện đại, nền tảng các phiên bản Kustomize mới) cho phép khai báo patch kiểu YAML (strategic) hoặc JSON6902, cả dạng file ngoài hoặc inline. Nên dùng khi bạn cần tối ưu code base cho team: quản lý patch tập trung, dùng linh hoạt cả hai loại patch trên, tận dụng full sức mạnh của từng tình huống. Ưu tiên dùng trên các bản Kustomize mới
 
-Ưu điểm: Kết hợp cả hai phương pháp trên trong một trường duy nhất, có thể target resource theo nhiều cách nâng cao. Cho phép khai báo patch và target trực tiếp trong kustomization.yaml mà không cần file ngoài nếu muốn.
+Ưu điểm: Kết hợp cả hai phương pháp trên trong một trường duy nhất, có thể target resource theo nhiều cách nâng cao. Cho phép khai báo patch và target trực tiếp trong kustomization.yaml mà không cần file ngoài nếu muốn (2 cách trên chỉ có thể khai báo qua file ngoài, không thể khai báo inline)
 
 Ví dụ
 
@@ -327,6 +327,18 @@ patches:
     target:
       kind: Deployment
       name: my-nginx
+
+  # Strategic merge patch inline
+  - target:
+      kind: Deployment
+      name: my-nginx
+    patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: my-nginx
+      spec:
+        replicas: 3
 
   # JSON6902 patch dùng file YAML (nội dung JSON)
   - path: patch_memory.yaml
