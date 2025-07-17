@@ -300,10 +300,10 @@ patchesJson6902:
 patch.json
 
 ```yaml
-- op: replace
+- op: replace #ngoài replace thì còn add, remove, move, copy, test
   path: /spec/replicas
   value: 3
-- op: replace
+- op: replace #ngoài replace thì còn add, remove, move, copy, test
   path: /spec/template/spec/containers/0/image
   value: nginx:stable
 ```
