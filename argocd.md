@@ -240,4 +240,127 @@ Tuy nhiên, cách phổ biến nhất vẫn là tham chiếu đến cả thư m�
 
 - Luôn trỏ spec.source.path ArgoCD Application vào đúng thư mục overlay của môi trường bạn muốn deploy (ví dụ: overlays/dev, overlays/prod), không để path trỏ vào thư mục mẹ chứa cả base và overlays để tránh lỗi và đảm bảo cấu hình môi trường chính xác theo thiết kế Kustomize
 
+#### patchesStrategicMerge, patchesJson6902 và patches
+
+Khi cần chỉnh sửa (patch) resource trong Kustomize overlays, có thể khai báo trong file kustomization bằng 1 trong 3 cách: patchesStrategicMerge, patchesJson6902 hoặc patches. Mỗi cách có ưu điểm và tình huống sử dụng riêng.
+
+1. patchesStrategicMerge
+Đặc điểm: Dùng các file YAML, chỉ cần khai báo trường muốn thay đổi; phần chưa đề cập vẫn giữ nguyên như trong base. Nên dùng khi muốn đổi hoặc bổ sung các trường đơn giản, kiểu cấu trúc (ví dụ thay replica, sửa image...), nhất là với object hoặc array nhỏ.
+
+Ưu điểm: Dễ viết, không cần hiểu sâu về path JSON, dễ cho team member cùng bảo trì.
+Nhược điểm: Không mạnh khi thao tác sâu với array hoặc cần thêm/xóa phần tử cụ thể trong một list (ví dụ, xóa 1 environment variable nhất định trong container).
+
+Ví dụ
+
+kustomization.yaml
+
+```yaml
+resources:
+  - deployment.yaml
+patchesStrategicMerge:
+  - patch.yaml
+```
+
+patch.yaml
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-nginx
+spec:
+  replicas: 4
+  template:
+    spec:
+      containers:
+        - name: my-nginx
+          image: nginx:alpine
+```
+
+2. patchesJson6902
+Đặc điểm: Dùng file JSON (hoặc inline), khai báo patch theo chuẩn RFC 6902 (các thao tác add, remove, replace, move, copy, test). Nên dùng khi muốn thay đổi chính xác/truy cập sâu vào cấu trúc resource, đặc biệt là patch vào các mảng (xóa hoặc sửa phần tử cụ thể), hoặc xóa hẳn một trường.
+
+Ưu điểm: Cực kỳ chính xác, thao tác tốt với array và nested field.
+Nhược điểm: Cú pháp phức tạp và khó đọc với người mới, phải xác định đúng path.
+Ví dụ
+
+kustomization.yaml:
+```yaml
+resources:
+  - deployment.yaml
+patchesJson6902:
+  - target:
+      group: apps
+      version: v1
+      kind: Deployment
+      name: my-nginx
+    path: patch.json
+```
+
+patch.json
+
+```yaml
+- op: replace
+  path: /spec/replicas
+  value: 3
+- op: replace
+  path: /spec/template/spec/containers/0/image
+  value: nginx:stable
+```
+
+3. patches
+Đặc điểm: Trường tổng quát (hiện đại, nền tảng các phiên bản Kustomize mới) cho phép khai báo patch kiểu YAML (strategic) hoặc JSON6902, cả dạng file ngoài hoặc inline. Nên dùng khi bạn cần tối ưu code base cho team: quản lý patch tập trung, dùng linh hoạt cả hai loại patch trên, tận dụng full sức mạnh của từng tình huống. Ưu tiên dùng trên các bản Kustomize mới
+
+Ưu điểm: Kết hợp cả hai phương pháp trên trong một trường duy nhất, có thể target resource theo nhiều cách nâng cao. Cho phép khai báo patch và target trực tiếp trong kustomization.yaml mà không cần file ngoài nếu muốn.
+
+Ví dụ
+
+kustomization.yaml
+
+```yaml
+resources:
+  - deployment.yaml
+
+patches:
+  # Strategic merge patch dùng file YAML
+  - path: increase_replicas.yaml
+    target:
+      kind: Deployment
+      name: my-nginx
+
+  # JSON6902 patch dùng file YAML (nội dung JSON)
+  - path: patch_memory.yaml
+    target:
+      group: apps
+      version: v1
+      kind: Deployment
+      name: my-nginx
+
+  # JSON6902 patch inline
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/image
+        value: httpd:alpine
+    target:
+      kind: Deployment
+      name: my-nginx
+```
+
+Patch YAML (increase_replicas.yaml):
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-nginx
+spec:
+  replicas: 6
+```
+
+Patch JSON (patch_memory.yaml)
+
+```yaml
+- op: replace
+  path: /spec/template/spec/containers/0/resources/limits/memory
+  value: 512Mi
+```
 
