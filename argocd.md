@@ -123,7 +123,7 @@ Cách hoạt động của Kustomize:
   - Tạo mới resource động: Sinh ra ConfigMap hoặc Secret từ configMapGenerator hoặc secretGenerator.
   - Thêm hậu tố hoặc tiền tố vào tên resource (nameSuffix/namePrefix)
 
-#### Hướng dẫn dùng Kustomize để tạo manifest cho nhiều môi trường
+#### 4.1. Hướng dẫn dùng Kustomize để tạo manifest cho nhiều môi trường
 
 1. Kiến trúc thư mục chuẩn với Kustomize
 
@@ -203,7 +203,7 @@ kubectl apply -k overlays/dev
 ```
 
 
-#### File kustomization.yaml cần phải có cả trong base và overlay
+#### 4.2. File kustomization.yaml cần phải có cả trong base và overlay
 
 1. Vai trò của kustomization.yaml trong base
    
@@ -227,7 +227,7 @@ Khi bạn build overlay, Kustomize sẽ:
 - Đọc tiếp file kustomization.yaml trong base để biết các resource gốc cần gom lại.
 - Kết hợp, biến đổi và xuất ra manifest hoàn chỉnh cho môi trường bạn chọn.
 
-#### Trường resources trong file kustomization.yaml của thư mục overlay
+#### 4.3. Trường resources trong file kustomization.yaml của thư mục overlay
    
 - Trong file kustomization.yaml của thư mục overlay, trường resources không bắt buộc chỉ tham chiếu đến thư mục base, mà có thể tham chiếu trực tiếp đến từng file cụ thể trong base, miễn là các file đó nằm trong phạm vi truy cập hợp lệ (thường là cùng repo hoặc không bị hạn chế bởi chính sách bảo mật).
 Tuy nhiên, cách phổ biến nhất vẫn là tham chiếu đến cả thư mục base. Khi đó, toàn bộ các resource được liệt kê trong base/kustomization.yaml sẽ được overlay kế thừa.
@@ -236,11 +236,11 @@ Tuy nhiên, cách phổ biến nhất vẫn là tham chiếu đến cả thư m�
   - Overlay tham chiếu ít resource hơn so với base: Khi overlay chỉ tham chiếu một phần resource của base (ví dụ chỉ lấy deployment.yaml mà không lấy service.yaml), kết quả build cuối cùng chỉ chứa các resource mà overlay đã chỉ định. Các resource khác có trong base nhưng không được overlay liệt kê sẽ không xuất hiện trong manifest đầu ra của overlay.
   - Overlay tham chiếu nhiều resource hơn so với base: Overlay hoàn toàn có thể bổ sung thêm resource mới (ví dụ: thêm file monitoring.yaml hoặc volume.yaml chỉ cho môi trường prod/dev). Khi đó, manifest build ra sẽ là tổng hợp của các resource từ base (nếu có) và các resource mới mà overlay bổ sung.
 
-#### Lưu ý khi sử dụng ArgoCD Application
+#### 4.4. Lưu ý khi sử dụng ArgoCD Application
 
 - Luôn trỏ spec.source.path ArgoCD Application vào đúng thư mục overlay của môi trường bạn muốn deploy (ví dụ: overlays/dev, overlays/prod), không để path trỏ vào thư mục mẹ chứa cả base và overlays để tránh lỗi và đảm bảo cấu hình môi trường chính xác theo thiết kế Kustomize
 
-#### patchesStrategicMerge, patchesJson6902 và patches
+#### 4.5. patchesStrategicMerge, patchesJson6902 và patches
 
 Khi cần chỉnh sửa (patch) resource trong Kustomize overlays, có thể khai báo trong file kustomization bằng 1 trong 3 cách: patchesStrategicMerge, patchesJson6902 hoặc patches. Mỗi cách có ưu điểm và tình huống sử dụng riêng.
 
@@ -375,4 +375,26 @@ Patch JSON (patch_memory.yaml)
   path: /spec/template/spec/containers/0/resources/limits/memory
   value: 512Mi
 ```
+#### 4.6. Loại bỏ (bỏ bớt) resource trong base khi sử dụng overlay với Kustomize
 
+Cách làm:
+- Tạo một file patch với chỉ thị $patch: delete để "xóa" resource không mong muốn khỏi overlay.
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: <tên service trong base>
+$patch: delete
+```
+
+- Khai báo patch này trong phần patches (hoặc patchesStrategicMerge/patchesJson6902 tùy phong cách) của kustomization.yaml trong overlay.
+```yaml
+resources:
+  - ../../base
+patches:
+  - path: delete-service.yaml
+    target:
+      kind: Service
+      name: <tên service trong base>
+```
