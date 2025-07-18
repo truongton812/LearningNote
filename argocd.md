@@ -398,3 +398,74 @@ patches:
       kind: Service
       name: <tên service trong base>
 ```
+
+#### 4.7. configMapGenerator và secretGenerator trong Kustomize
+
+1. configMapGenerator trong Kustomize
+- Mục đích: Dùng để tạo nhanh các ConfigMap (nguồn cấu hình không nhạy cảm) từ file, chuỗi key-value hoặc biến môi trường (.env) cho các ứng dụng trên Kubernetes mà không cần tự viết YAML thủ công. Khi nội dung của configmap thay đổi, Kustomize sẽ tự động tạo version mới của ConfigMap với tên có hậu tố hash (ví dụ: example-configmap-abcdf1234). Đồng thời manifest của các Pod sử dụng configMap này cũng được thay đổi để sử dụng version mới của ConfigMap -> điều này trigger rolling updates tự động cho các Pods đang sử dụng configMap đó
+ 
+- Cách sử dụng: định nghĩa trong file kustomization.yaml với ba dạng phổ biến:
+
+Từ file:
+
+```yaml
+configMapGenerator:
+  - name: example-configmap
+    files:
+      - application.properties
+```
+Từ biến môi trường (.env):
+
+```yaml
+configMapGenerator:
+  - name: frontend-configmap
+    envs:
+      - .env #Nội dung file .env sẽ thành các key-value trong ConfigMap.
+```
+
+Từ literal:
+
+```yaml
+configMapGenerator:
+  - name: example-configmap
+    literals:
+      - FOO=Bar
+      - DEBUG=true
+```
+- Có thể dùng thuộc tính generatorOptions để thêm nhãn, annotation hoặc tắt việc gắn hash khi cần.
+
+
+2. secretGenerator trong Kustomize
+Mục đích: Dùng để tạo ra Kubernetes Secret (dữ liệu nhạy cảm như mật khẩu, TLS cert…) từ file, biến môi trường hoặc literal, trực tiếp từ Kustomize mà không phải tự encode sang base64 và viết YAML thủ công.
+
+Cách sử dụng: Định nghĩa trong file kustomization.yaml với các dạng nguồn dữ liệu tương tự ConfigMap:
+
+Từ file:
+```yaml
+secretGenerator:
+  - name: my-secret
+    files:
+      - password.txt
+```
+
+Từ biến môi trường (.env):
+
+```yaml
+secretGenerator:
+  - name: my-secret-env
+    envs:
+      - .env
+```
+
+Từ literal:
+
+```yaml
+secretGenerator:
+  - name: database-password
+    literals:
+      - password=pass
+```
+
+- Secret cũng được tạo mới với hậu tố hash mỗi khi dữ liệu thay đổi để thuận tiện quản lý và cập nhật Pod tự động nếu cần.
+- Nếu tắt tính năng hậu tố hash, cần chủ động cập nhật pod để nhận secret mới.
+- Dữ liệu trong Secret luôn được tự động base64 hóa.
