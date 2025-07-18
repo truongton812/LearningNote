@@ -1,0 +1,93 @@
+
+
+1. Chart (Helm Chart)
+Chart là một gói (package) chứa mọi thứ cần thiết để triển khai một ứng dụng hoặc một tập hợp tài nguyên trên Kubernetes.
+
+Một chart là một thư mục có cấu trúc chuẩn, bao gồm các thành phần:
+
+Chart.yaml: thông tin metadata về chart (tên, phiên bản, mô tả, phụ thuộc…)
+
+values.yaml: các biến cấu hình mặc định, cho phép tùy biến khi cài đặt ứng dụng
+
+Thư mục templates/: chứa các file mẫu (template) định nghĩa các resource của Kubernetes (Deployment, Service, Ingress, v.v…), sử dụng ngôn ngữ Go template để sinh ra manifest hoàn chỉnh dựa trên các giá trị cấu hình.
+
+Thư mục charts/: chứa các subchart (phụ thuộc)
+
+Các file hướng dẫn và test tùy chọn
+
+2. Repo (Helm Repository)
+Repo trong Helm (hay còn gọi là Helm Repository) là một kho lưu trữ các Helm charts.
+
+Repo đóng vai trò là nơi lưu trữ tập trung, cho phép bạn publish, version, chia sẻ và tải về các ứng dụng đã được đóng gói dưới dạng chart.
+
+Repo thường được triển khai như một server HTTP, chứa file index.yaml với metadata về tất cả các charts có trong repo cũng như các file chart đã đóng gói.
+
+Bạn có thể sử dụng lệnh Helm (helm repo add, helm repo list, helm repo update) để quản lý các repo, tìm kiếm hoặc cài đặt charts một cách dễ dàng.
+
+Repo có thể là repo công khai (ví dụ: Artifact Hub, Bitnami) hoặc repo cá nhân của một tổ chức để triển khai các ứng dụng nội bộ.
+
+Một repo có thể chứa nhiều chart.
+
+Cụ thể, repo (chart repository) là một kho lưu trữ tập trung chứa các gói chart đã được đóng gói (định dạng .tgz) cùng với file index.yaml—tập hợp metadata liệt kê và trỏ tới từng chart có trong repo đó. Mỗi chart sẽ là một gói ứng dụng khác nhau (ví dụ: nginx, mysql, redis...), có thể được phân phối, quản lý version một cách độc lập trong cùng một repo.
+
+Khi bạn tạo một repo Helm (ví dụ trên GitHub hoặc một hosting HTTP), bạn chỉ cần thêm các file đóng gói chart vào repo, cập nhật lại file index.yaml, thì tất cả các chart này sẽ được cộng đồng hoặc hệ thống tìm kiếm và sử dụng thông qua lệnh helm CLI
+
+Ví dụ:
+Khi muốn triển khai Nginx lên Kubernetes bằng Helm, bạn có thể thêm repo Bitnami vào Helm, sau đó cài đặt chart Nginx từ repo đó:
+
+bash
+helm repo add bitnami https://charts.bitnami.com/bitnami
+helm install my-nginx bitnami/nginx
+Lúc này, Helm sẽ lấy chart Nginx từ repo Bitnami, áp dụng thông tin cấu hình trong values.yaml, sinh ra các manifest K8S, và triển khai Nginx lên cluster
+
+---
+
+1. helm repo list -> xem các repo đã thêm vào helm. Repo là nơi lưu trữ helm chart
+2. helm repo add <ten_repo> <url> -> thêm repo vào helm. Trong đó <ten_repo> là tên trên local của helm chart, còn url là nơi lưu trữ chart
+3. helm repo remove <ten_repo> -> xóa repo
+4. helm repo update -> khi thêm repo vào helm thì helm sẽ truy cập vào url để pull các thông tin của chart về lưu trữ trên máy local, và helm chỉ lấy thông tin thay đổi trên remote lưu về local khi ta chạy lệnh update
+5. helm search repo <ten_repo> -> xem thông tin các chart trong repo. Thêm option --versions để xem thông tin version của các chart
+6. helm install <release-name> <chart> [flags] -> triển khai (deploy) một ứng dụng lên Kubernetes. Trong đó:
+- Release name là tên bạn gán cho một lần triển khai (release) của Helm chart lên Kubernetes. Nó giúp Helm theo dõi, quản lý và phân biệt các lần triển khai ứng dụng. Release name là duy nhất trong một namespace trên Kubernetes. Nếu bạn không chỉ định release name, Helm có thể tự sinh tên ngẫu nhiên:
+- <chart> có thể là tên chart từ repo (VD bitnami/nginx), file chart đóng gói (VD ./mychart-1.0.0.tgz), thư mục chart (VD ./mychart/) hoặc URL
+- Các flag có thể sử dụng: --namespace : triển khai lên ns nào  (mặc định là default)
+                           --version: Chỉ định phiên bản của chart cần cài (theo tag hoặc range)
+7. helm ls -> liệt kê các release đã triển khai bằng helm
+8. helm upgrade <release-name> <chart> --version  -> upgrade chart lên version khác, lúc này revision sẽ tăng 1 đơn vị
+9. helm history <release-name> -> xem lịch sử upgrade của release
+10. helm rollback <release-name> <revision> -> rollback release về version thấp hơn. Lưu ý khi rollback revision vẫn tăng 1 đơn vị
+11. helm uninstall <release-name> -> gỡ release ra khỏi cụm k8s
+12. helm get all <release-name> -> in ra tất cả các resources của chart đã cài đặt kèm file value
+13. helm get manifest <release-name> -> chỉ lấy ra manifest của resources
+14. helm get values <release-name> -> chỉ lấy ra file value của release
+15. helm create <chart-name> -> tạo ra 1 chart mới với structure chuẩn (chart.yaml, charts, templates, values.yaml)
+16. helm lint -> kiểm tra xem chart viết có lỗi không
+17. helm template --release-name <release-name> <chart_path> -f values.yaml -n default -> generate ra manifest của chart (chỉ gen ra chứ không deploy)
+18. helm dependency list -> xem các dependencies khai báo trong file chart.yaml (lưu ý cần đứng trong root directory của chart để chạy lệnh này)
+19. helm dependency build -> build các dependencies khai báo trong file chart.yaml và lưu vào trong thư mục charts dưới dạng <name-version>.tgz
+20. helm dependency update -> khi update các dependencies khai báo trong file chart.yaml thì ta chạy lệnh này sẽ sinh ra file <name-version>.tgz mới trong thư mục charts
+Chatgpt: Lệnh này sẽ tự động tải về các chart phụ thuộc và lưu vào thư mục charts/ của chart chính, đồng thời tạo file Chart.lock chứa thông tin chính xác về phiên bản thực tế của từng chart phụ thuộc
+21. helm package <path_to_chart> -d <directory> -> đóng gói 1 chart và lưu vào <directory> để up lên repo (nếu không chỉ định directory thì lưu vào thư mục hiện tại)
+22. helm repo index <path_to_chart> -> tạo file index.yaml. Cần có file này mới push được lên repo
+23. helm repo add <chart-name> <repo-url>
+
+---
+
+Trường dependencies trong file Chart.yaml dùng để khai báo các chart khác mà chart hiện tại phụ thuộc vào. Đây là cách để bạn xác định “subchart” hoặc “dependency chart” mà ứng dụng của bạn cần, giúp tự động hóa quá trình cài đặt và đảm bảo đầy đủ các thành phần cần thiết khi triển khai ứng dụng trên Kubernetes
+Lợi ích và ứng dụng
+Tự động hóa: Triển khai đầy đủ các thành phần phức hợp (ví dụ: ứng dụng chính + database, redis, prometheus…) chỉ với một chart cha.
+
+Quản lý version: Dễ dàng kiểm soát phiên bản chart phụ thuộc bằng trường version.
+
+Tái sử dụng: Dùng lại các chart phổ biến từ cộng đồng hoặc nội bộ như một module nhỏ.
+
+VD
+```
+dependencies:
+  - name: mysql
+    version: "9.3.4"
+    repository: "https://charts.bitnami.com/bitnami"
+  - name: redis
+    version: "~14.0.0"
+    repository: "https://charts.bitnami.com/bitnami"
+```
