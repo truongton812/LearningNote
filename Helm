@@ -45,14 +45,14 @@ Lúc này, Helm sẽ lấy chart Nginx từ repo Bitnami, áp dụng thông tin 
 1. helm repo list -> xem các repo đã thêm vào helm. Repo là nơi lưu trữ helm chart
 2. helm repo add <ten_repo> <url> -> thêm repo vào helm. Trong đó <ten_repo> là tên trên local của helm chart, còn url là nơi lưu trữ chart
 3. helm repo remove <ten_repo> -> xóa repo
-4. helm repo update -> khi thêm repo vào helm thì helm sẽ truy cập vào url để pull các thông tin của chart về lưu trữ trên máy local, và helm chỉ lấy thông tin thay đổi trên remote lưu về local khi ta chạy lệnh update
-5. helm search repo <ten_repo> -> xem thông tin các chart trong repo. Thêm option --versions để xem thông tin version của các chart
+4. helm repo update -> update list các chart trong repo
+5. helm search repo <pattern> -> Tìm trong các repo hiện đang có theo pattern (bất kỳ pattern gì xuất hiện sẽ được list ra). Thêm option --versions để xem thông tin version của các chart
 6. helm install <release-name> <chart> [flags] -> triển khai (deploy) một ứng dụng lên Kubernetes. Trong đó:
 - Release name là tên bạn gán cho một lần triển khai (release) của Helm chart lên Kubernetes. Nó giúp Helm theo dõi, quản lý và phân biệt các lần triển khai ứng dụng. Release name là duy nhất trong một namespace trên Kubernetes. Nếu bạn không chỉ định release name, Helm có thể tự sinh tên ngẫu nhiên:
-- <chart> có thể là tên chart từ repo (VD bitnami/nginx), file chart đóng gói (VD ./mychart-1.0.0.tgz), thư mục chart (VD ./mychart/) hoặc URL
+- <chart> có thể là tên chart từ repo (VD bitnami/nginx, lưu ý ở đây là tên repo trên máy local), file chart đóng gói (VD ./mychart-1.0.0.tgz), thư mục chart (VD ./mychart/) hoặc URL
 - Các flag có thể sử dụng: --namespace : triển khai lên ns nào  (mặc định là default)
-                           --version: Chỉ định phiên bản của chart cần cài (theo tag hoặc range)
-7. helm ls -> liệt kê các release đã triển khai bằng helm
+                           --version: Chỉ định phiên bản của chart cần cài (theo tag hoặc range). Nếu không chỉ định thì sẽ cài bản latest
+7. helm ls -> liệt kê các release đã triển khai bằng helm. Thêm option --namespace để xem ở 1 ns cụ thể
 8. helm upgrade <release-name> <chart> --version  -> upgrade chart lên version khác, lúc này revision sẽ tăng 1 đơn vị
 9. helm history <release-name> -> xem lịch sử upgrade của release
 10. helm rollback <release-name> <revision> -> rollback release về version thấp hơn. Lưu ý khi rollback revision vẫn tăng 1 đơn vị
