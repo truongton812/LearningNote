@@ -53,7 +53,7 @@ Lúc này, Helm sẽ lấy chart Nginx từ repo Bitnami, áp dụng thông tin 
 - Các flag có thể sử dụng: --namespace : triển khai lên ns nào  (mặc định là default)
                            --version: Chỉ định phiên bản của chart cần cài (theo tag hoặc range). Nếu không chỉ định thì sẽ cài bản latest
 7. helm ls -> liệt kê các release đã triển khai bằng helm. Thêm option --namespace để xem ở 1 ns cụ thể
-8. helm upgrade <release-name> <chart> --version  -> upgrade chart lên version khác, lúc này revision sẽ tăng 1 đơn vị
+8. helm upgrade <release-name> <chart> --version 1.0.0 --set "image.tag=0.1.0" -> upgrade chart lên version khác, đồng thời set giá trị cho image.tag, lúc này revision sẽ tăng 1 đơn vị
 9. helm history <release-name> -> xem lịch sử upgrade của release
 10. helm rollback <release-name> <revision> -> rollback release về version thấp hơn. Lưu ý khi rollback revision vẫn tăng 1 đơn vị
 11. helm uninstall <release-name> -> gỡ release ra khỏi cụm k8s
