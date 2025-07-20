@@ -131,7 +131,10 @@ Parent charts values.yaml can be overriden by user-supplied value file (-f myval
 User-supplied value file (-f myvalues.yaml) can be overriden by --set parameters
 ---
 Comment trong helm: {{/* comment */}}
+
 Helm builtin object
+
+
 Root object là dot (.) 
 Dưới root object có 6 builtin object:
 - .Release: thông tin của release. Các biến hay dùng: .Release.Name, .Release.Namespace, .Release.Revision
@@ -143,9 +146,11 @@ Dưới root object có 6 builtin object:
 Khi gọi root object bằng syntax {{ . }} thì sẽ in 1 map của 6 object con
 Lưu ý quan trọng: range(.) và with(.) thì dấu . sẽ là current context
 
+Dùng function | toYaml để parse dễ đọc hơn
+
 ---
 Các function của .Files
-- Get: function Get của .Files được dùng để lấy nội dung của một file bất kỳ trong chart (trừ các file trong thư mục templates/). Cú pháp {{ .Files.Get "relative/path/to/file }}. VD: {{ .Files.Get "files/config.init" }} -> đọc nội dung file files/config.init.
+- Get: function Get của .Files được dùng để lấy nội dung của một file bất kỳ trong chart (trừ các file trong thư mục templates/). Cú pháp {{ .Files.Get "relative/path/to/file }}. VD: {{ .Files.Get "files/config.init" }} -> đọc nội dung file files/config.init. Ứng dụng: lấy nội dung của file đưa vào ConfigMap
 - .Glob(path/to/file) đọc nhiều file. Nếu chỉ dùng Glob thì sẽ ra kiểu data dành cho computer, phải chuyển thành human data bằng Config hoặc Secret
   File Glob as Config: {{ (.Files.Glob "config-files/*").AsConfig }} -> hiển thị dưới dạng yaml
   File Glob as Secret: {{ (.Files.Glob "config-files/*").AsSecrets }} -> hiển thị dưới dạng base64
