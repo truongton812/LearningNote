@@ -145,7 +145,16 @@ Lưu ý quan trọng: range(.) và with(.) thì dấu . sẽ là current context
 
 ---
 Các function của .Files
-- Get: để lấy file name. Cú pháp .Files.Get. VD: .Files.Get config.init -> đọc vào file config.init . Lưu ý chỉ đọc được file ở root ** (cần check lại thông tin này) **
+- Get: để đọc file. Cú pháp .Files.Get. VD: .Files.Get config.init -> đọc nội dung file config.init . Lưu ý chỉ đọc được file ở root **(cần check lại thông tin này)**
+- .Glob(path/to/file) đọc nhiều file. Nếu chỉ dùng Glob thì sẽ ra kiểu data dành cho computer, phải chuyển thành human data bằng Config hoặc Secret
+  File Glob as Config: {{ (.Files.Glob "config-files/*").AsConfig }} -> hiển thị dưới dạng yaml
+  File Glob as Secret: {{ (.Files.Glob "config-files/*").AsSecrets }} -> hiển thị dưới dạng base64
+- .Line: ghép tất cả nội dung của file thành 1 dòng, mỗi dòng giờ sẽ thành 1 phần tử của array
+You can loop through Lines using a range function:
+
+data:
+  some-file.txt: {{ range .Files.Lines "foo/bar.txt" }}
+    {{ . }}{{ end }}
 ---
 Cách code
 Nối chuỗi: {{ a_var }}-{{ b_var }} -> kết quả a_var-b_var
