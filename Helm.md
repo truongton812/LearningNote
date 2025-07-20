@@ -164,5 +164,23 @@ data:
 ```
 ---
 Cách code
-Nối chuỗi: {{ a_var }}-{{ b_var }} -> kết quả a_var-b_var
-include
+Helm dùng cú pháp của Go.
+Ký hiệu "{{ }}" gọi là template Action
+Anything in between Template Action {{ .Chart.Name }} is called Action Element. Action Element chỉ có thể là function hoặc builtin object của helm
+Anything in between Template Action {{ .Chart.Name }} will be rendered by helm template engine and replace necessary values
+Anything outside of the template action will be printed as it is.
+
+- Nối chuỗi: {{ a_var }}-{{ b_var }} -> kết quả a_var-b_var
+---
+Các function thông dụng
+- Pipe: dùng để thực hiện 1 chuỗi các hành động, output của hành động trước sẽ là input của hành động sau. VD {{ .Release.Service | quote | upper | squote }} 
+
+- quote và squote function: dùng để thêm dấu " hoặc '. Có thể đặt trước hoặc dùng qua pipe. VD {{ quote .Release.Service }} hoặc {{ .Release.Service | quote }}
+- default: dùng để khai giá trị mặc định, nếu không ghi đè từ file values hoặc option -f hoặc --set thì helm sẽ dùng giá trị mặc định này. Lưu ý nếu string là "", null, hoặc không khai báo thì sẽ bị default ghi đè, nếu numeric là 0, null hoặc không khai báo thì sẽ bị default ghi đè. Tương tự Lists: [], Dicts: {}, Boolean: false
+  Syntax: default "foo" .Bar -> coi như function default sẽ cần 2 arguments
+- {{- .Chart.name }}: If a hyphen is added before the statement, {{- .Chart.name }} then the leading whitespace will be ignored during the rendering (xóa tất cả khoảng trắng đằng trước)
+  {{ .Chart.name -}}: If a hyphen is added after the statement, {{ .Chart.name -}} then the trailing whitespace will be ignored during the rendering (xóa tất cả khoảng trắng đằng sau)
+Lưu ý: nếu ta dùng khoảng trắng để bắt đầu và ngay sau đó đặt template Action thì kết quả generate ra sẽ không có khoảng trắng nào. Nhưng chỉ cần đặt ký tự bất kỳ để bắt đầu, sau đó là khoảng trắng và sau đó là template Action thì kết quả genrate ra sẽ có khoảng trắng
+- indent và nindent: indent dùng để thêm khoảng trắng, nindent dùng để xuống dòng và thêm khoảng trắng. VD {{ .Chart.Name | indent 4 }}
+- include (bổ sung sau)
+- 
