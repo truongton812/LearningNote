@@ -177,7 +177,7 @@ Các function thông dụng
 
 - quote và squote function: dùng để thêm dấu " hoặc '. Có thể đặt trước hoặc dùng qua pipe. VD {{ quote .Release.Service }} hoặc {{ .Release.Service | quote }}
 - default: dùng để khai giá trị mặc định, nếu không ghi đè từ file values hoặc option -f hoặc --set thì helm sẽ dùng giá trị mặc định này. Lưu ý nếu string là "", null, hoặc không khai báo thì sẽ bị default ghi đè, nếu numeric là 0, null hoặc không khai báo thì sẽ bị default ghi đè. Tương tự Lists: [], Dicts: {}, Boolean: false
-  Syntax: default "foo" .Bar -> coi như function default sẽ cần 2 arguments
+  Syntax: default "foo" .Bar -> coi như function default sẽ cần 2 arguments 
 - {{- .Chart.name }}: If a hyphen is added before the statement, {{- .Chart.name }} then the leading whitespace will be ignored during the rendering (xóa tất cả khoảng trắng đằng trước)
   {{ .Chart.name -}}: If a hyphen is added after the statement, {{ .Chart.name -}} then the trailing whitespace will be ignored during the rendering (xóa tất cả khoảng trắng đằng sau)
 Lưu ý: nếu ta dùng khoảng trắng để bắt đầu và ngay sau đó đặt template Action thì kết quả generate ra sẽ không có khoảng trắng nào. Nhưng chỉ cần đặt ký tự bất kỳ để bắt đầu, sau đó là khoảng trắng và sau đó là template Action thì kết quả genrate ra sẽ có khoảng trắng
@@ -186,3 +186,18 @@ Lưu ý: nếu ta dùng khoảng trắng để bắt đầu và ngay sau đó đ
 
 - - include (bổ sung sau)
 - 
+- if else trong helm
+{{- if eq .Values.myapp.env "prod" }}
+  replicas: 4 
+{{- else if eq .Values.myapp.env "qa" }}  
+  replicas: 2
+{{- else }}  
+  replicas: 1
+{{- end }}
+
+Dấu "-" để xóa khoảng cách dòng 
+
+- and: trả về true chỉ khi cả 2 cùng true. Syntax: and .Arg1 .Arg2
+  {{- if and .Values.myapp.retail.enableFeature (eq .Values.myapp.env "prod") }}
+
+Tham khảo thêm các logic function khác (Helm includes numerous logic and control flow functions including and, coalesce, default, empty, eq, fail, ge, gt, le, lt, ne, not, or, and required.) tại https://helm.sh/docs/chart_template_guide/function_list/ 
