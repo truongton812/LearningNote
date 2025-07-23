@@ -201,3 +201,46 @@ Dấu "-" để xóa khoảng cách dòng
   {{- if and .Values.myapp.retail.enableFeature (eq .Values.myapp.env "prod") }}
 
 Tham khảo thêm các logic function khác (Helm includes numerous logic and control flow functions including and, coalesce, default, empty, eq, fail, ge, gt, le, lt, ne, not, or, and required.) tại https://helm.sh/docs/chart_template_guide/function_list/ 
+
+- or: trả về true khi 1 trong 2 bằng true. Syntax: or. Arg1 .Arg2
+- not: đảo ngược boolean của argument. Syntax: not .Arg
+  VD: {{ if not (eq .Values.myapp.env "prod") }}
+- with (là flow control): chỉ định context, thường dùng để chỉ định 1 context mà nhiều action dùng
+  VD
+```
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }} #lúc này dấu chấm (.) sẽ là context thay thế cho .Values.podAnnotations       
+      {{- end }}
+```
+context có thể dùng ở bất kỳ đâu trong template, VD trong if else
+Khi dùng with để lấy root object thì gọi bằng $.
+
+- range trong helm: là for, dùng để lặp 1 list
+syntax:
+```
+{{- range .Values.namespaces }}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .name }}
+---  
+{{- end }}
+```
+values.yaml
+```
+namespaces:
+  - name: myapp1
+  - name: myapp2
+  - name: myapp3
+```
+
+#### helm variable
+thường dùng với with, range action và named template
+cách định nghĩa variable: {{ $<ten_var> := <gia_tri> }}
+VD: {{ $chartname := .Chart.Name }}
+cách gọi: {{ $<ten_var> }}
+lưu ý quan trọng: nếu define variable trong with thì variable đấy sẽ lấy context của with, còn ngoài with thì là lấy Root làm context
+
