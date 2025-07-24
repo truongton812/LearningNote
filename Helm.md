@@ -217,7 +217,9 @@ Tham khảo thêm các logic function khác (Helm includes numerous logic and co
 ```
 context có thể dùng ở bất kỳ đâu trong template, VD trong if else, range,...
 Khi dùng with để lấy root object thì gọi bằng $.
-
+Lưu ý có 2 cách để gọi root object khi dùng trong with, range
+- C1 là dùng $.
+- C2 là đặt variable ngoài scope của with hoặc range
 
 #### helm variable
 thường dùng với with, range action và named template
