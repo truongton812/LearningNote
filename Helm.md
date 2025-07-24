@@ -215,13 +215,22 @@ Tham khảo thêm các logic function khác (Helm includes numerous logic and co
         {{- toYaml . | nindent 8 }} #lúc này dấu chấm (.) sẽ là context thay thế cho .Values.podAnnotations       
       {{- end }}
 ```
-context có thể dùng ở bất kỳ đâu trong template, VD trong if else
+context có thể dùng ở bất kỳ đâu trong template, VD trong if else, range,...
 Khi dùng with để lấy root object thì gọi bằng $.
 
-- range trong helm: là for, dùng để lặp 1 list
-syntax:
+
+#### helm variable
+thường dùng với with, range action và named template
+cách định nghĩa variable: {{ $<ten_var> := <gia_tri> }}
+VD: {{ $chartname := .Chart.Name }}
+cách gọi: {{ $<ten_var> }}
+lưu ý quan trọng: nếu define variable trong with thì variable đấy sẽ lấy context của with, còn ngoài with thì là lấy Root làm context
+
+#### range
+- range trong helm: là for, dùng để lặp 1 list. Khi khai báo range phải khai báo cả context, không thể dùng Root
+- Example 1
 ```
-{{- range .Values.namespaces }}
+{{- range .Values.namespaces }} 
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -234,13 +243,53 @@ values.yaml
 namespaces:
   - name: myapp1
   - name: myapp2
-  - name: myapp3
+  - name: myapp3 #lưu ý các key phải là "name", nếu dùng key khác thì vòng loop đấy không nhận được giá trị (<no value>)
+```
+Example 2: range + helm variable
+```
+# values.yaml
+# Flow Control: Range with List and Helm Variables
+environments:
+  - name: dev
+  - name: qa
+  - name: uat  
+  - name: prod    
+```
+```
+# Range with List
+{{- range $environment := .Values.environments }}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ $environment.name }}
+---  
+{{- end }}           
+```
+Examlple 3: range with dictionary
+```
+values.yaml
+myapps:
+  config1: 
+    appName: myapp1
+    appType: webserver
+    appTech: HTML
+    appDb: mysql
+  config2: 
+    appName: myapp2
+    appType: webserver
+    appTech: HTML
+    appDb: mysql
 ```
 
-#### helm variable
-thường dùng với with, range action và named template
-cách định nghĩa variable: {{ $<ten_var> := <gia_tri> }}
-VD: {{ $chartname := .Chart.Name }}
-cách gọi: {{ $<ten_var> }}
-lưu ý quan trọng: nếu define variable trong with thì variable đấy sẽ lấy context của with, còn ngoài with thì là lấy Root làm context
-
+```
+configmap.yaml
+{{- $chartname := .Chart.Name }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-{{ .Chart.Name }}-configmap2
+data:
+{{- range $key, $value := .Values.myapps.config2 }}
+{{- $key | nindent 2 }}: {{ $value }}-{{ $chartname }}
+{{- end }}
+```
