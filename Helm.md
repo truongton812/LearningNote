@@ -339,6 +339,8 @@ ví dụ khác:
 {{- printf "%s-%s" .Release.Name .Chart.Name }}
 Kết quả in ra sẽ là .Release.Nam nối với .Chart.Name bằng dầu "-"
 
+ví dụ khác
+{{ prrintf "%s has %d dogs" .Name .numberDogs }}
 
 printf rất tiện dụng khi bạn muốn kết hợp giá trị biến vào trong một chuỗi có định dạng cụ thể, ví dụ thêm đơn vị, format số, nối chuỗi có cấu trúc. Đây là hàm được dùng phổ biến trong Helm để tùy biến các giá trị cấu hình sâu sát với yêu cầu định dạng Kubernetes.
 
@@ -346,6 +348,25 @@ Print function kết hợp với named template
 ```
 {{/* Kubernetes Resource Name: String Concat with Hyphen */}}
 {{- define "helmbasics.resourceName" }}
-{{- printf "%s-%s" .Release.Name .Chart.Name }} #%s trong hàm printf của Helm dùng để định dạng và chèn một biến hoặc giá trị ở dạng chuỗi vào chuỗi định dạng. Các ký tự định dạng khác trong printf bao gồm %d (số nguyên), %f (số thực), %v (giá trị theo định dạng mặc định)
+{{- printf "%s-%s" .Release.Name .Chart.Name }} # %s trong hàm printf của Helm dùng để định dạng và chèn một biến hoặc giá trị ở dạng chuỗi vào chuỗi định dạng. Các ký tự định dạng khác trong printf bao gồm %d (số nguyên), %f (số thực), %v (giá trị theo định dạng mặc định)
 {{- end }}
 ```
+Cách gọi trong template
+{{ include "helmbasics.resourceName" . }} #phải pass scope do ở trên dùng 2 builtin object là .Release và .Chart, (không hiểu sao không dùng được "template" mà phải dùng "include")
+
+Các define này cũng có thể khai báo trong templates/_helper.tpl
+
+Template trong template
+VD: templates/_helper.tpl
+{{/* Common Labels */}}
+{{- define "helmbasics.labels"}}
+    app.kubernetes.io/managed-by: helm
+    app: nginx
+    chartname: {{ .Chart.Name }}
+    template-in-template: {{ include "helmbasics.resourceName" . }}
+{{- end }}
+
+{{/* Kubernetes Resource Name: String Concat with Hyphen */}}
+{{- define "helmbasics.resourceName" }}
+{{- printf "%s-%s" .Release.Name .Chart.Name }}
+{{- end }}
