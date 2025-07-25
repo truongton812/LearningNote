@@ -96,7 +96,9 @@ Lúc này, Helm sẽ lấy chart Nginx từ repo Bitnami, áp dụng thông tin 
                            --version: Chỉ định phiên bản của chart cần cài (theo tag hoặc range). Nếu không chỉ định thì sẽ cài bản latest
                            --atomic: xóa release khi quá trình installation thất bại (nếu không chỉ định thì release sẽ ở trạng thái failed)
                            --set: ghi đè các giá trị mặc định đã được định nghĩa sẵn trong file values.yaml. Nếu --set <key>=null thì sẽ xóa key đấy.
-7. helm ls -> liệt kê các release đã triển khai bằng helm. Thêm option --namespace để xem ở 1 ns cụ thể
+7. helm ls -> liệt kê các release đã triển khai bằng helm (kèm revision, appversion, chart version). Thêm option --namespace để xem ở 1 ns cụ thể
+8. helm show/inspect chart <chart_directory> hoặc <chart.tgz> -> xem thông tin chart (appversion, chart version, name,...) trong thư mục chart hoặc chart được đóng gói thành file tar, lệnh này sẽ xem được thông tin ngay cả khi chart chưa được install
+8. helm show/inspect value <chart.tgz> -> xem thông tin file value.yaml của file chart.tgz, hữu ích khi không cần giải nén hoặc install file lên thành release
 8. helm upgrade <release-name> <chart> --version 1.0.0 --set "image.tag=0.1.0" -> upgrade chart lên version khác, đồng thời set giá trị cho image.tag, lúc này revision sẽ tăng 1 đơn vị. Lưu ý nếu không chỉ định version thì version của chart vẫn giữ nguyên, chỉ có image là thay đổi
 Option --set là để thay thế giá trị trong file values.yaml
 9. helm history <release-name> -> xem lịch sử upgrade của release
@@ -115,7 +117,7 @@ Option --set là để thay thế giá trị trong file values.yaml
 22. helm dependency build -> build các dependencies khai báo trong file chart.yaml và lưu vào trong thư mục charts dưới dạng <name-version>.tgz
 23. helm dependency update -> khi update các dependencies khai báo trong file chart.yaml thì ta chạy lệnh này sẽ sinh ra file <name-version>.tgz mới trong thư mục charts
 Chatgpt: Lệnh này sẽ tự động tải về các chart phụ thuộc và lưu vào thư mục charts/ của chart chính, đồng thời tạo file Chart.lock chứa thông tin chính xác về phiên bản thực tế của từng chart phụ thuộc
-24. helm package <path_to_chart> -d <directory> -> đóng gói 1 chart và lưu vào <directory> để up lên repo (nếu không chỉ định directory thì lưu vào thư mục hiện tại)
+24. helm package <path_to_chart> -d <directory> -> đóng gói 1 chart và lưu vào <directory> để up lên repo (nếu không chỉ định directory thì lưu vào thư mục hiện tại). Nếu sau này ta có update chart và muốn lưu thành version mới thì ta sửa thông tin chart version trong chart.yaml rồi chạy lại lệnh helm package, hoặc nếu không sửa chart.yaml thì có thể chỉ định option --version và --app-version khi chạy lệnh helm package (tuy nhiên không nên vì sẽ khó quản lý version)
 25. helm repo index <path_to_chart> -> tạo file index.yaml. Cần có file này mới push được lên repo
 26. helm repo add <chart-name> <repo-url>
 27. Option --dry-run: dùng để lấy manifest cuối cùng sẽ được triển khai chứ không chạy thật. VD áp dụng cho helm install, helm upgrade, helm template, helm uninstall
@@ -356,8 +358,9 @@ Cách gọi trong template
 
 Các define này cũng có thể khai báo trong templates/_helper.tpl
 
-Template trong template
+Template trong template: để tránh duplicate code
 VD: templates/_helper.tpl
+```
 {{/* Common Labels */}}
 {{- define "helmbasics.labels"}}
     app.kubernetes.io/managed-by: helm
@@ -370,3 +373,4 @@ VD: templates/_helper.tpl
 {{- define "helmbasics.resourceName" }}
 {{- printf "%s-%s" .Release.Name .Chart.Name }}
 {{- end }}
+```
