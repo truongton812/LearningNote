@@ -318,3 +318,34 @@ Tổng kết: Best practice khi dùng named template
 - Đặt named template trong template/_helpers.tpl
 - Luôn chỉ định context khi gọi named template
 - Dùng include thay vì dùng template
+
+#### printf function
+
+Printf fucntion là 1 function quan trọng, Hàm printf trong Helm là một hàm template dùng để định dạng và in ra chuỗi theo một mẫu định dạng
+syntax:
+{{ printf "format string" arg1 arg2 ... }}
+Ý nghĩa:
+
+"format string" là chuỗi định dạng, có thể chứa các %d, %s, %f... để đại diện cho các kiểu dữ liệu số nguyên, chuỗi, số thực,...
+
+arg1, arg2, ... là các giá trị sẽ được đưa vào chuỗi định dạng đó.
+
+Một ví dụ thực tế hỏi về printf trong Helm cho thấy cách dùng để thêm ký tự "m" cho giá trị CPU units lấy từ values.yaml:
+
+{{- printf "%dm" .Values.cpuUnits }}
+Nếu cpuUnits là 1024 thì kết quả là "1024m"
+
+ví dụ khác:
+{{- printf "%s-%s" .Release.Name .Chart.Name }}
+Kết quả in ra sẽ là .Release.Nam nối với .Chart.Name bằng dầu "-"
+
+
+printf rất tiện dụng khi bạn muốn kết hợp giá trị biến vào trong một chuỗi có định dạng cụ thể, ví dụ thêm đơn vị, format số, nối chuỗi có cấu trúc. Đây là hàm được dùng phổ biến trong Helm để tùy biến các giá trị cấu hình sâu sát với yêu cầu định dạng Kubernetes.
+
+Print function kết hợp với named template
+```
+{{/* Kubernetes Resource Name: String Concat with Hyphen */}}
+{{- define "helmbasics.resourceName" }}
+{{- printf "%s-%s" .Release.Name .Chart.Name }} #%s trong hàm printf của Helm dùng để định dạng và chèn một biến hoặc giá trị ở dạng chuỗi vào chuỗi định dạng. Các ký tự định dạng khác trong printf bao gồm %d (số nguyên), %f (số thực), %v (giá trị theo định dạng mặc định)
+{{- end }}
+```
