@@ -374,3 +374,31 @@ VD: templates/_helper.tpl
 {{- printf "%s-%s" .Release.Name .Chart.Name }}
 {{- end }}
 ```
+#### helm chart dependency
+là các thành phần hoặc charts khác mà một chart cần có để hoạt động 
+Trong Helm, dependencies của một chart được khai báo trong phần dependencies của file Chart.yaml. Các dependencies này sẽ được Helm tự động tải về và quản lý bên trong thư mục charts/ của chart chính khi thực hiện các lệnh như helm dependency update, giúp bạn dễ dàng tích hợp các dịch vụ bên ngoài hoặc các thành phần phụ trợ cần thiết cho ứng dụng, ví dụ như Redis, MySQL
+
+`copy từ trên xuống`
+
+b. chart.yaml: thông tin metadata về chart (tên, phiên bản, phiên bản của application (thường là docker image tag), mô tả, dependencies)
+Trường dependencies trong file Chart.yaml dùng để khai báo các chart khác mà chart hiện tại phụ thuộc vào. Đây là cách để bạn xác định “subchart” hoặc “dependency chart” mà ứng dụng của bạn cần, giúp tự động hóa quá trình cài đặt và đảm bảo đầy đủ các thành phần cần thiết khi triển khai ứng dụng trên Kubernetes
+Lợi ích và ứng dụng
+Tự động hóa: Triển khai đầy đủ các thành phần phức hợp (ví dụ: ứng dụng chính + database, redis, prometheus…) chỉ với một chart cha.
+
+Quản lý version: Dễ dàng kiểm soát phiên bản chart phụ thuộc bằng trường version.
+
+Tái sử dụng: Dùng lại các chart phổ biến từ cộng đồng hoặc nội bộ như một module nhỏ.
+
+VD
+```
+dependencies:
+  - name: mysql
+    version: "9.3.4"
+    repository: "https://charts.bitnami.com/bitnami"
+  - name: redis
+    version: "~14.0.0"
+    repository: "https://charts.bitnami.com/bitnami"
+```
+
+
+e. Thư mục charts/: chứa các chart khác mà chart hiện tại cần dùng, để ở dạng <name>.tgz. Là nơi CHỨA các package/chart phụ đã được tải về, ta có thể tải các file .tgz thủ công về sau đó copy vào thư mục này (hữu dụng khi dùng cho môi trường không có Internet hoặc cần cố định phiên bản). Đây cũng là nơi chứa dependency được khai báo trong trường dependencies của file Chart.yaml sẽ được Helm tự động tải về và lưu trong thư mục charts/ khi bạn chạy lệnh helm dependency update
