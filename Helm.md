@@ -542,6 +542,7 @@ childchart2: #lưu ý nếu trong dependency có sử dụng alias thì ở đâ
 Global value
 - Là value dùng được cho cả parent chart và sub chart. Ta define global value trong parent chart values.yaml và dùng trong sub chart
 - Cách thực hiện: do muốn dùng global value nên trong folder charts/ không phải là file .tgz mà là thư mục có cấu trúc của 1 chart -> cần thực hiện download file tgz về thư mục charts/ và giải nén ra bằng lệnh
+- Tại sao cần untar sub chart: lý do là để có thể custom các chart được build sẵn cho phù hợp với nhu cầu
 ```
 helm pull https://stacksimplify.github.io/helm-charts/mychart4-0.1.0.tgz --untar
 ```
@@ -574,3 +575,40 @@ global:
   replicaCount: 4
 ```
 Sau này khi muốn gọi global value thì dùng cú pháp {{ .Values.global.replicaCount }} thay vì {{ .Values.replicaCount }} (áp dụng cho cả file values.yaml của parent chart và sub chart)
+
+---
+helm dependency import value
+Dùng để export value từ file values.yaml của child chart và import value đấy vào values.yaml của parent chartd, từ đố template của parent chart có thể access các giá trị của child chart
+a. import value explicit
+Đầu tiên cần export value từ chart con ra
+```
+#charts/mychart1/values.yaml
+exports:
+  mychart1Data:
+    mychart1appInfo:
+      appName: kapp1
+      appType: MicroService
+      appDescription: Used for listing products
+```
+Sau đó import vào trong parent chart thông qua file Chart.yaml
+```
+- name: mychart1
+  version: "0.1.0"
+  repository: "file://charts/mychart1"
+  alias: childchart1
+  tags: 
+    - frontend
+  import-values:
+    - mychart1Data # Explicit Values Import Usecase
+```
+
+Từ giờ ta đã có thể dùng các value này trong parent chart. Lưu ý quan trọng: `sau khi đã import vào chart cha thì ta gọi trực tiếp "key" để lấy giá trị chứ không sử dụng import name`
+
+```
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name:  {{ include "parentchart.fullname" . }}-import-explicit
+data:
+{{- toYaml .Values.mychart1appInfo | nindent 2 }}
+```
