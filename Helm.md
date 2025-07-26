@@ -645,4 +645,6 @@ data:
 Điểm khác nhau khi access vào giá trị của chart con bằng 2 cách:
 - Khi explicit import thì access trực tiếp vào key, không qua mapping name
 - Khi implicit import thì phải access thông qua mapping name
+- Nếu parent chart có explicit import từ sub chart mà sub chart bị disable (ko được triển khai) thì giá trị parent chart nhận được là null
+- Nếu parent chart có implicit import từ sub chart mà sub chart bị disable (ko được triển khai) thì sẽ không triển khai được release (báo lỗi)
 CHÁN R NGHỈ THÔI
