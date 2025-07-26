@@ -449,9 +449,128 @@ dependencies:
 - name: mychart4
   version: "0.1.0"
   repository: "https://stacksimplify.github.io/helm-charts/"
-  alias: childchart4qa  #mychart4 xuất hiện hai lần, nhưng alias khác nhau là childchart4dev và childchart4qa. Điều này giúp bạn deploy ra hai dịch vụ cùng kiểu nhưng gán cho mỗi dịch vụ một bộ tên cấu hình và management riêng biệt trong Helm.
+  alias: childchart4qa  #mychart4 xuất hiện hai lần, nhưng alias khác nhau là childchart4dev và childchart4qa. Điều này giúp bạn deploy ra hai dịch vụ cùng kiểu nhưng gán cho mỗi dịch vụ một bộ tên cấu hình và management riêng biệt trong Helm. Lưu ý khi chạy helm dep update thì chỉ tạo ra 1 file mychart4.tgz trong thư mục charts/ dù cho có khai báo nhiều lần
 - name: mychart2
   version: "0.4.0"
   repository: "https://stacksimplify.github.io/helm-charts/"
   alias: childchart2
 ```
+---
+
+helm dependency condition: dùng để for enabling or disabling Sub Charts or Child Charts
+Cách làm: define 1 trường trong values.yaml để enable/disable chart
+```
+#values.yaml
+mychart4:
+  enabled: false
+mychart2:
+  enabled: true
+```
+```
+dependencies:
+- name: mychart4
+  version: "0.1.0"
+  repository: "https://stacksimplify.github.io/helm-charts/"
+  alias: childchart4
+  condition: mychart4.enabled #đặt là gì cũng được, chỉ cần trả về true (chart được enable) hoặc false (chart bị disable). Lưu ý nếu không khai báo trong values.yaml thì mặc định chart sẽ được enable -> tóm lại: mặc định các chart khai trong dependency sẽ được enable, nếu muốn disable phải khai trong values.yaml
+- name: mychart2
+  version: "0.4.0"
+  repository: "https://stacksimplify.github.io/helm-charts/"
+  alias: childchart2
+  condition: mychart2.enabled
+```
+---
+denpendency + tags
+Tag dùng để group các chart lại và enable hoặc disable cùng nhau, hữu ích nếu có nhiều sub chart
+```
+dependencies:
+- name: mychart4
+  version: "0.1.0"
+  repository: "https://stacksimplify.github.io/helm-charts/"
+  alias: childchart4dev
+  #condition: childchart4dev.enabled
+  tags: 
+    - frontend #mychart4 sẽ thuộc group frontend
+- name: mychart2
+  version: "0.4.0"
+  repository: "https://stacksimplify.github.io/helm-charts/"
+  alias: childchart2
+  #condition: childchart2.enabled
+  tags: 
+    - backend #mychart4 sẽ thuộc group backend
+```
+Để disable hoặc enable 1 group, ta khai báo trong values.yaml
+```
+tags:
+  frontend: false
+  backend: false
+```
+---
+helm dependency - overriding sub chart value from parent chart
+Cách để pass value cho sub chart từ file values.yaml của parent chart
+Điều kiện: phải khai báo condition trong dependency
+```
+apiVersion: v2
+name: parentchart
+description: Learn Helm Dependency Concepts
+type: application
+version: 0.1.0
+appVersion: "1.16.0"
+dependencies:
+- name: mychart4
+  version: "0.1.0"
+  repository: "https://stacksimplify.github.io/helm-charts/"
+  condition: mychart4.enabled
+- name: mychart2
+  version: "0.4.0"
+  repository: "https://stacksimplify.github.io/helm-charts/"
+  condition: mychart2.enabled
+  alias: childchart2
+```
+trong file value.yaml, tất cả những giá trị dưới enabled sẽ được truyền cho sub chart
+```
+mychart4: 
+  enabled: true
+  replicaCount: 3
+childchart2: #lưu ý nếu trong dependency có sử dụng alias thì ở đây phải khai báo bằng alias, dùng chart name sẽ không được
+  enabled: true  
+  replicaCount: 3
+  image:
+    repository: nginx
+```
+---
+Global value
+- Là value dùng được cho cả parent chart và sub chart. Ta define global value trong parent chart values.yaml và dùng trong sub chart
+- Cách thực hiện: do muốn dùng global value nên trong folder charts/ không phải là file .tgz mà là thư mục có cấu trúc của 1 chart -> cần thực hiện download file tgz về thư mục charts/ và giải nén ra bằng lệnh
+```
+helm pull https://stacksimplify.github.io/helm-charts/mychart4-0.1.0.tgz --untar
+```
+dependency của chart.yaml cần trỏ về thư mục
+```
+apiVersion: v2
+name: parentchart
+description: Learn Helm Dependency Concepts
+type: application
+version: 0.1.0
+appVersion: "1.16.0"
+dependencies:
+- name: mychart4
+  version: "0.1.0"
+  repository: "file://charts/mychart4"
+  alias: childchart4
+  tags: 
+    - frontend
+- name: mychart2
+  version: "0.4.0"
+  repository: "file://charts/mychart2"
+  alias: childchart2
+  tags: 
+    - backend
+```
+Trong file values.yaml của parent chart khai báo global value
+```
+#parentchart/values.yaml
+global:
+  replicaCount: 4
+```
+Sau này khi muốn gọi global value thì dùng cú pháp {{ .Values.global.replicaCount }} thay vì {{ .Values.replicaCount }} (áp dụng cho cả file values.yaml của parent chart và sub chart)
