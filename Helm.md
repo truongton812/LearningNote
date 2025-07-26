@@ -186,7 +186,7 @@ Lưu ý: nếu ta dùng khoảng trắng để bắt đầu và ngay sau đó đ
 - indent và nindent: indent dùng để thêm khoảng trắng, nindent dùng để xuống dòng và thêm khoảng trắng. VD {{ .Chart.Name | indent 4 }}
 - toYaml: là template function dùng để convert list, slice, array,dict hoặc object thành yaml. VD  {{- toYaml .Values.resources | nindent 10}}. Nếu không có toYaml thì kết quả sẽ là 1 map[limits:map[cpu:500m memory:128Mi] requests:map[cpu:250m memory:64Mi]]
 
-- - include (bổ sung sau)
+
 - 
 - if else trong helm
 {{- if eq .Values.myapp.env "prod" }}
@@ -313,7 +313,7 @@ Named template có thể khai báo trực tiếp ở đầu template (cho dễ n
 
 Cách gọi named template
 C1: {{ template "<named_template>" }} . VD {{ template "helmbasics.labels" }}
-C2: {{ include "<named_template>" }}. VD {{ include "helmbasics.labels" }}. Ưu điểm của C2 là có thê dùng pipeline vd  {{ include "helmbasics.labels" . | upper }}
+C2: {{ include "<named_template>" . }}. VD {{ include "helmbasics.labels" }}. Ưu điểm của C2 là có thê dùng pipeline vd  {{ include "helmbasics.labels" . | upper }}
 Lưu ý nếu trong named template chỉ có key-value thì không cần chỉ định context, tuy nhiên nếu có template action thì cần chỉ định context khi gọi, nếu không sẽ bị empty. VD {{ template "helmbasics.labels" . }}
 
 Tổng kết: Best practice khi dùng named template
@@ -578,7 +578,8 @@ Sau này khi muốn gọi global value thì dùng cú pháp {{ .Values.global.re
 
 ---
 helm dependency import value
-Dùng để export value từ file values.yaml của child chart và import value đấy vào values.yaml của parent chartd, từ đố template của parent chart có thể access các giá trị của child chart
+Dùng để export value từ file values.yaml của child chart và import value đấy vào values.yaml của parent chart, từ đó template của parent chart có thể access các giá trị của child chart
+(không hiểu tại sao cần phải access vào giá trị trong file values.yaml của child chart)
 a. import value explicit
 Đầu tiên cần export value từ chart con ra
 ```
@@ -602,7 +603,7 @@ Sau đó import vào trong parent chart thông qua file Chart.yaml
     - mychart1Data # Explicit Values Import Usecase
 ```
 
-Từ giờ ta đã có thể dùng các value này trong parent chart. Lưu ý quan trọng: `sau khi đã import vào chart cha thì ta gọi trực tiếp "key" để lấy giá trị chứ không sử dụng import name`
+Từ giờ ta đã có thể dùng các value này trong parent chart. Lưu ý quan trọng: `sau khi đã import vào chart cha thì ta gọi trực tiếp "key" để lấy giá trị chứ không sử dụng mapping name`
 
 ```
 apiVersion: v1
@@ -612,3 +613,36 @@ metadata:
 data:
 {{- toYaml .Values.mychart1appInfo | nindent 2 }}
 ```
+b. import value implicit
+Cách này thì không cần define export explicit trong file values.yaml của sub chart 
+
+```
+#Chart.yaml
+- name: mychart2
+  version: "0.4.0"
+  repository: "file://charts/mychart2"
+  alias: childchart2
+  tags: 
+    - backend
+  import-values: # Implicit Values Usecase
+    - child: service  #đây là key trong file values.yaml của child chart
+      parent: mychart2service  #đây là mapping name, parent chart sẽ access giá trị từ child chart bằng name này
+    - child: image 
+      parent: mychart2image
+```
+Sau đó gọi trong template của parent chart
+```
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name:  {{ include "parentchart.fullname" . }}-import-implicit
+data:
+  serviceType: {{ .Values.mychart2service.type }} #phải access thông qua mapping name
+  servicePort: {{ .Values.mychart2service.port | quote}}
+  servicenodePort: {{ .Values.mychart2service.nodePort | quote }}
+  imageRepository: {{ .Values.mychart2image.repository }}
+```
+Điểm khác nhau khi access vào giá trị của chart con bằng 2 cách:
+- Khi explicit import thì access trực tiếp vào key, không qua mapping name
+- Khi implicit import thì phải access thông qua mapping name
+CHÁN R NGHỈ THÔI
