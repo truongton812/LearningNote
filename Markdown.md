@@ -61,9 +61,13 @@ Dùng 3 dấu "---"
 
 # 6. Tạo ký tự đặc biệt
 
-Dùng 2 dấu "`" để bôi nền 1 chữ  : Bold something `hello`
+Dùng 2 dấu "`" để bôi nền 1 chữ  : 
 
-Dùng 2 dấu "**" để in đậm, nghiêng và kẻ ngang: How to bold a character **Bold** and italic *Italic* and delete ~~delete~~
+VD: Bold something `hello`
+
+Dùng 2 dấu "**" để in đậm, nghiêng và kẻ ngang: 
+
+VD: How to bold a character **Bold** and italic *Italic* and delete ~~delete~~
 
 ---
 
