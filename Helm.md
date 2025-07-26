@@ -377,6 +377,7 @@ VD: templates/_helper.tpl
 #### helm chart dependency
 là các thành phần hoặc charts khác mà một chart cần có để hoạt động 
 Trong Helm, dependencies của một chart được khai báo trong phần dependencies của file Chart.yaml. Các dependencies này sẽ được Helm tự động tải về và quản lý bên trong thư mục charts/ của chart chính khi thực hiện các lệnh như helm dependency update, giúp bạn dễ dàng tích hợp các dịch vụ bên ngoài hoặc các thành phần phụ trợ cần thiết cho ứng dụng, ví dụ như Redis, MySQL
+Trong thư mục charts/ có thể là các file .tgz hoặc là các thư mục sub chart có cấu trúc giống parent chart
 
 `copy từ trên xuống`
 
