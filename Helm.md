@@ -392,13 +392,39 @@ Tái sử dụng: Dùng lại các chart phổ biến từ cộng đồng hoặc
 VD
 ```
 dependencies:
-  - name: mysql
+  - name: mysql #phải đúng tên chart trong bitnami repo
     version: "9.3.4"
     repository: "https://charts.bitnami.com/bitnami"
   - name: redis
     version: "~14.0.0"
     repository: "https://charts.bitnami.com/bitnami"
 ```
-
+Lưu ý version của dependency có thể khai báo động, không cần fix cứng
+VD
+version: "= 9.10.8"  -> fix cứng
+version: "!= 9.10.8" -> không dùng version này
+version: ">= 9.10.8" -> chỉ dùng version lớn hơn 9.10.8
+version: "<= 9.10.8"
+version: "> 9.10.8"   
+version: "< 9.10.8"
+version: ">= 9.10.8 < 9.11.0"  
+version: ^9.10.1  -> major bắt buộc là 9, minor phải lớn  hơn 10 và patch lớn hơn 1 (is equivalent to >= 9.10.1, < 10.0.0)
+version: ^9.10.x  -> major bắt buộc là 9, minor phải lớn  hơn 10 và patch sao cũng được (is equivalent to >= 9.10.0, < 10.0.0   
+version: ^9.10    is equivalent to >= 9.10, < 10
+version: ^9.x     is equivalent to >= 9.0.0, < 10        
+version: ^0       is equivalent to >= 0.0.0, < 1.0.0
+version: ~9.10.1  -> major và minor bằng 9 và 10, lấy bất kỳ patch nào (is equivalent to >= 9.10.1, < 9.11.0 # Patch-level version match)
+version: ~9.10    is equivalent to >= 9.10, < 9.11
+version: ~9       is equivalent to >= 9, < 10
+version: ^9.x     is equivalent to >= 9.0.0, < 10        
+version: ^0       is equivalent to >= 0.0.0, < 1.0.0
 
 e. Thư mục charts/: chứa các chart khác mà chart hiện tại cần dùng, để ở dạng <name>.tgz. Là nơi CHỨA các package/chart phụ đã được tải về, ta có thể tải các file .tgz thủ công về sau đó copy vào thư mục này (hữu dụng khi dùng cho môi trường không có Internet hoặc cần cố định phiên bản). Đây cũng là nơi chứa dependency được khai báo trong trường dependencies của file Chart.yaml sẽ được Helm tự động tải về và lưu trong thư mục charts/ khi bạn chạy lệnh helm dependency update
+
+Các lệnh làm việc với dependency:
+21. helm dependency list -> xem các dependencies khai báo trong file chart.yaml (lưu ý cần đứng trong root directory của chart để chạy lệnh này) (lưu ý là chi list ra chứ không thật sự download)
+22. helm dependency build -> rebuild thư mục charts/ dựa trên file chart.lock
+23. helm dependency update -> khi update các dependencies khai báo trong file chart.yaml thì ta chạy lệnh này sẽ sinh ra file <name-version>.tgz mới trong thư mục charts
+Chatgpt: Lệnh này sẽ tự động tải về các chart phụ thuộc và lưu vào thư mục charts/ của chart chính, đồng thời tạo file Chart.lock (là file chung nằm ở root) chứa thông tin chính xác về phiên bản thực tế của từng chart phụ thuộc
+
+Điểm khác nhau: helm dep update làm việc với file chart.yaml, helm dep build làm việc với file chart.lock. Tức nếu ta có thay đổi file chart.yaml thế nào đi nữa mà không thay đổi file chart.lock thì khi chạy lệnh helm dep build, dependency trong charts/ vẫn giữ nguyên. Tuy nhiên nếu ta xóa file chart.lock đi thì lệnh helm dep build sẽ đọc vào chart.yaml `cần check lại thông tin này`
