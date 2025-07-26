@@ -394,7 +394,7 @@ VD
 dependencies:
   - name: mysql #phải đúng tên chart trong bitnami repo
     version: "9.3.4"
-    repository: "https://charts.bitnami.com/bitnami"
+    repository: "https://charts.bitnami.com/bitnami" #hoặc có thể thay url bằng @<tên_repo_trên_local>. VD repository: @myrepo . Cách này ko recommended do không thể share giữa các máy
   - name: redis
     version: "~14.0.0"
     repository: "https://charts.bitnami.com/bitnami"
@@ -427,4 +427,31 @@ Các lệnh làm việc với dependency:
 23. helm dependency update -> khi update các dependencies khai báo trong file chart.yaml thì ta chạy lệnh này sẽ sinh ra file <name-version>.tgz mới trong thư mục charts
 Chatgpt: Lệnh này sẽ tự động tải về các chart phụ thuộc và lưu vào thư mục charts/ của chart chính, đồng thời tạo file Chart.lock (là file chung nằm ở root) chứa thông tin chính xác về phiên bản thực tế của từng chart phụ thuộc
 
-Điểm khác nhau: helm dep update làm việc với file chart.yaml, helm dep build làm việc với file chart.lock. Tức nếu ta có thay đổi file chart.yaml thế nào đi nữa mà không thay đổi file chart.lock thì khi chạy lệnh helm dep build, dependency trong charts/ vẫn giữ nguyên. Tuy nhiên nếu ta xóa file chart.lock đi thì lệnh helm dep build sẽ đọc vào chart.yaml `cần check lại thông tin này`
+Điểm khác nhau: helm dep update làm việc với file chart.yaml, helm dep build làm việc với file chart.lock. Nếu ta thay đổi file chart.yaml mà không thay đổi file chart.lock thì khi chạy lệnh helm dep build sẽ báo lỗi "chart.lock không đồng bộ với chart.yaml". 
+nếu ta xóa file chart.lock đi thì lệnh helm dep build sẽ đọc vào trở thành lệnh helm dep update
+
+---
+helm dependency alias: useful khi cần add 1 chart nhiều lần vào file chart.yaml
+Chatgpt: alias trong phần khai báo dependencies của Chart.yaml đóng vai trò đặt tên "bí danh" (alias) cho các chart phụ thuộc khi bạn muốn sử dụng cùng một chart nhiều lần trong cùng một chart cha. Dù cùng trỏ đến cùng một chart (mychart4, version 0.1.0), nhờ alias mà khi Helm triển khai, mỗi instance sẽ được nhận diện bằng tên alias riêng biệt, đồng thời bạn có thể cấu hình giá trị (values) khác nhau cho từng instance.
+VD:
+```
+apiVersion: v2
+name: parentchart
+description: Learn Helm Dependency Concepts
+type: application
+version: 0.1.0
+appVersion: "1.16.0"
+dependencies:
+- name: mychart4 #cần dùng alias do chart name không thể giống nhau
+  version: "0.1.0"
+  repository: "https://stacksimplify.github.io/helm-charts/"
+  alias: childchart4dev
+- name: mychart4
+  version: "0.1.0"
+  repository: "https://stacksimplify.github.io/helm-charts/"
+  alias: childchart4qa  #mychart4 xuất hiện hai lần, nhưng alias khác nhau là childchart4dev và childchart4qa. Điều này giúp bạn deploy ra hai dịch vụ cùng kiểu nhưng gán cho mỗi dịch vụ một bộ tên cấu hình và management riêng biệt trong Helm.
+- name: mychart2
+  version: "0.4.0"
+  repository: "https://stacksimplify.github.io/helm-charts/"
+  alias: childchart2
+```
