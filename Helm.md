@@ -88,7 +88,8 @@ Lúc này, Helm sẽ lấy chart Nginx từ repo Bitnami, áp dụng thông tin 
 3. helm repo remove <ten_repo> -> xóa repo
 4. helm repo update -> update list các chart trong repo
 5. helm search repo <pattern> -> Tìm trong các repo hiện đang có theo pattern (bất kỳ pattern gì xuất hiện sẽ được list ra). Thêm option --versions để xem thông tin version của các chart
-6. helm install <release-name> <chart> [flags] -> triển khai (deploy) một ứng dụng lên Kubernetes. Trong đó:
+6. helm lint -> dùng để check lỗi syntax
+7. helm install <release-name> <chart> [flags] -> triển khai (deploy) một ứng dụng lên Kubernetes. Trong đó:
 - Release name là tên bạn gán cho một lần triển khai (release) của Helm chart lên Kubernetes. Nó giúp Helm theo dõi, quản lý và phân biệt các lần triển khai ứng dụng. Release name là duy nhất trong một namespace trên Kubernetes. Nếu bạn không chỉ định release name, Helm có thể tự sinh tên ngẫu nhiên:
 - <chart> có thể là tên chart từ repo (VD bitnami/nginx, lưu ý ở đây là tên repo trên máy local), file chart đóng gói (VD ./mychart-1.0.0.tgz), thư mục chart (VD ./mychart/) hoặc URL
 - Các flag có thể sử dụng: --namespace : triển khai lên ns nào  (mặc định là default)
