@@ -676,6 +676,50 @@ Cách thực hiện
 - Các plugin tham khảo:
     - helm-adopt: dùng để adopt các k8s resources vào new generated helm chart
     - helm diff: preview `helm upgrade` với màu sắc
-    - helm dashboard
+    - helm dashboard: giao diện để quản lý helm release, repo, version,... Helm dashboard còn có thể install dưới dạng helm chart
     - helm starter : dùng để làm việc với starter
 - Các plugin down về sẽ được lưu vào trong thư mục $HELM_PLUGINS
+- update plugin bằng lệnh: helm plugin update <ten_plugin>
+
+Cách tạo helm plugin
+
+Có các case sau:
+
+1. Khi gõ lệnh "helm myplugin1" thì command env sẽ được thực thi
+```
+name: "myplugin1"
+version: "0.1.0"
+usage: "Printss Helm Environment Variables"
+description: |-
+  Prints Helm Environment Variables
+command: "env"
+```
+2. Lệnh "helm myplugin2" này sẽ chạy các trường hợp dưa trên loại os
+```
+name: "myplugin2"
+version: "0.1.0"
+usage: "helm myplugin2"
+description: "Print Helm plugin directory"
+command: echo my helm plugin directory is $HELM_PLUGINS default command #đây là default command nếu không có OS phù hợp
+platformCommand:
+  - os: linux
+    arch: i386
+    command: "echo my helm plugin directory is $HELM_PLUGINS os is linux i386"
+  - os: linux
+    arch: amd64
+    command: "echo my helm plugin directory is $HELM_PLUGINS os is linux amd64"
+  - os: windows
+    arch: amd64
+    command: "echo my helm plugin directory is $HELM_PLUGINS os is windows amd64"
+```
+
+3. Khi chạy lệnh "helm myplugin3" thì file .sh sẽ được thực thi
+```
+name: "myplugin3"
+version: "0.1.0"
+usage: "helm myplugin3"
+description: "Print Helm plugin directory using script app.sh"
+command: "$HELM_PLUGIN_DIR/app.sh"
+```
+
+Tuy nhiên cách để chạy helm <ten_plugin> + sub command thì chưa biết cách làm, tham khảo thêm plugin helm starter để xem họ viết
