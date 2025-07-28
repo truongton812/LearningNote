@@ -252,6 +252,7 @@ Khi cần chỉnh sửa (patch) resource trong Kustomize overlays, có thể kha
 Đặc điểm: Dùng các file YAML, chỉ cần khai báo trường muốn thay đổi; phần chưa đề cập vẫn giữ nguyên như trong base. Nên dùng khi muốn đổi hoặc bổ sung các trường đơn giản, kiểu cấu trúc (ví dụ thay replica, sửa image...), nhất là với object hoặc array nhỏ.
 
 Ưu điểm: Dễ viết, không cần hiểu sâu về path JSON, dễ cho team member cùng bảo trì.
+
 Nhược điểm: Không mạnh khi thao tác sâu với array hoặc cần thêm/xóa phần tử cụ thể trong một list (ví dụ, xóa 1 environment variable nhất định trong container).
 
 Ví dụ
@@ -286,6 +287,7 @@ spec:
 Đặc điểm: Dùng file JSON (hoặc inline), khai báo patch theo chuẩn RFC 6902 (các thao tác add, remove, replace, move, copy, test). Nên dùng khi muốn thay đổi chính xác/truy cập sâu vào cấu trúc resource, đặc biệt là patch vào các mảng (xóa hoặc sửa phần tử cụ thể), hoặc xóa hẳn một trường.
 
 Ưu điểm: Cực kỳ chính xác, thao tác tốt với array và nested field.
+
 Nhược điểm: Cú pháp phức tạp và khó đọc với người mới, phải xác định đúng path.
 Ví dụ
 
