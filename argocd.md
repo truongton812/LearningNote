@@ -248,6 +248,7 @@ Tuy nhiên, cách phổ biến nhất vẫn là tham chiếu đến cả thư m�
 Khi cần chỉnh sửa (patch) resource trong Kustomize overlays, có thể khai báo trong file kustomization bằng 1 trong 3 cách: patchesStrategicMerge, patchesJson6902 hoặc patches. Mỗi cách có ưu điểm và tình huống sử dụng riêng.
 
 1. patchesStrategicMerge
+   
 Đặc điểm: Dùng các file YAML, chỉ cần khai báo trường muốn thay đổi; phần chưa đề cập vẫn giữ nguyên như trong base. Nên dùng khi muốn đổi hoặc bổ sung các trường đơn giản, kiểu cấu trúc (ví dụ thay replica, sửa image...), nhất là với object hoặc array nhỏ.
 
 Ưu điểm: Dễ viết, không cần hiểu sâu về path JSON, dễ cho team member cùng bảo trì.
@@ -281,6 +282,7 @@ spec:
 ```
 
 2. patchesJson6902
+   
 Đặc điểm: Dùng file JSON (hoặc inline), khai báo patch theo chuẩn RFC 6902 (các thao tác add, remove, replace, move, copy, test). Nên dùng khi muốn thay đổi chính xác/truy cập sâu vào cấu trúc resource, đặc biệt là patch vào các mảng (xóa hoặc sửa phần tử cụ thể), hoặc xóa hẳn một trường.
 
 Ưu điểm: Cực kỳ chính xác, thao tác tốt với array và nested field.
@@ -312,6 +314,7 @@ patch.json
 ```
 
 3. patches
+   
 Đặc điểm: Trường tổng quát (hiện đại, nền tảng các phiên bản Kustomize mới) cho phép khai báo patch kiểu YAML (strategic) hoặc JSON6902, cả dạng file ngoài hoặc inline. Nên dùng khi bạn cần tối ưu code base cho team: quản lý patch tập trung, dùng linh hoạt cả hai loại patch trên, tận dụng full sức mạnh của từng tình huống. Ưu tiên dùng trên các bản Kustomize mới
 
 Ưu điểm: Kết hợp cả hai phương pháp trên trong một trường duy nhất, có thể target resource theo nhiều cách nâng cao. Cho phép khai báo patch và target trực tiếp trong kustomization.yaml mà không cần file ngoài nếu muốn (2 cách trên chỉ có thể khai báo qua file ngoài, không thể khai báo inline)
