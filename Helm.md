@@ -666,3 +666,16 @@ Cách thực hiện
 - move folder chart đấy vào $HELM_DATA_HOME/starters (lấy biến đấy bằng lệnh helm env)
 - thay đổi thông tin tên chart trong tất cả các file thành <CHARTNAME>. VD đổi hết mybase thành <CHARTNAME> trong deployment.yaml, service.yaml, _helpers.tpl,..
 - Sau này mỗi khi chạy ta chỉ cần chỉ định starter chart "helm create myapp --starter=mybase"
+
+#### helm plugin
+- là add-on tool cho helm cli, dùng khi các feature của helm cli không đủ
+- helm plugin có thể dev bằng ngôn ngữ gì cũng đc, ko nhất thiết phải là GO
+- Các lệnh để làm việc với plugin: helm plugin <list, install, uninstall, update>
+- Ta có thể lấy các plugin trên mạng VD helm plugin install <https://github.com/...>
+- Cách dùng lệnh của plugin: helm <plugin_name> <plugin_command>. VD helm starter list (cần cài starter plugin), hoặc helm dashboard (cần cài dashboard plugin, cái này thì ko có sub command)
+- Các plugin tham khảo:
+    - helm-adopt: dùng để adopt các k8s resources vào new generated helm chart
+    - helm diff: preview `helm upgrade` với màu sắc
+    - helm dashboard
+    - helm starter : dùng để làm việc với starter
+- Các plugin down về sẽ được lưu vào trong thư mục $HELM_PLUGINS
