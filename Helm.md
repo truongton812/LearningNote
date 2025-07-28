@@ -649,4 +649,20 @@ data:
 - Khi implicit import thì phải access thông qua mapping name
 - Nếu parent chart có explicit import từ sub chart mà sub chart bị disable (ko được triển khai) thì giá trị parent chart nhận được là null
 - Nếu parent chart có implicit import từ sub chart mà sub chart bị disable (ko được triển khai) thì sẽ không triển khai được release (báo lỗi)
-CHÁN R NGHỈ THÔI
+
+#### Helm starter chart
+Là folder chart theo chuẩn cấu trúc của 1 chart nhưng được custom lại, sau này khi tạo chart ta chỉ định starter chart thì ta sẽ có được 1 folder chart đã custom
+VD: khi dùng lệnh "helm create mybase" -> 1 chart chuẩn sẽ được tạo ra
+Sau đó ta chỉnh sửa, thêm bớt trong folder mybase đấy là lưu thành starter chart. Các lần sau khi ta dùng lệnh "helm create myapp --starter=mybase" thì ta sẽ có được chart mybase đã custom
+Lợi ích: tái sử dụng và shareable
+
+Nhược điểm của starter chart:
+- Khi ta tạo chart mới từ starter chart thì file Chart.yaml trong chart mới sẽ bị ghi đè thành mặc định chứ không giữ nguyên như ta đã custom. File Chart.yaml của chart mới sẽ mất hết các dependencies info và appVersion=0.1.0 và version=0.1.0 -> cần add lại manually
+- Các sub chart trong charts/ sẽ bị đóng gói thành file tgz (nếu ở starter chart là directory thì khi ta tạo chart mới từ starter chart directory đấy sẽ bị đóng gói thành file .tgz)
+
+Cách thực hiện
+
+- Tạo chart chuẩn, sau đó custom theo ý muốn
+- move folder chart đấy vào $HELM_DATA_HOME/starters (lấy biến đấy bằng lệnh helm env)
+- thay đổi thông tin tên chart trong tất cả các file thành <CHARTNAME>. VD đổi hết mybase thành <CHARTNAME> trong deployment.yaml, service.yaml, _helpers.tpl,..
+- Sau này mỗi khi chạy ta chỉ cần chỉ định starter chart "helm create myapp --starter=mybase"
