@@ -739,3 +739,31 @@ VD: tạo 1 pod trước khi install 1 release -> chỉ khi nào pod đi vào tr
   Ngoài các hook của release lifecycle còn 1 hook của test. Tức mỗi khi chạy lệnh "helm test" thì hook sẽ được active
 
   Để khai báo 1 pod/ job là hook thì ta thêm annotations: "helm.sh/hook": "<hook-phase>". VD: "helm.sh/hook": "pre-install"
+VD:
+```
+apiVersion: v1
+kind: Pod
+metadata: 
+  name: myhook-preinstall
+  annotations:
+    "helm.sh/hook": "pre-install"
+spec:
+  restartPolicy: Never
+  containers:
+    - name: myhook-preinstall-container
+      image: busybox
+      imagePullPolicy: IfNotPresent
+      command:  ['sh', '-c', 'echo Pre-install hook Pod is running && sleep 15']
+```
+---
+Khi ta xóa release thì các pod hook vẫn tồn tại (ở trạng thái completed) -> ta có thể dùng hook deletion policy. Hook deletion policy xác định khi nào delete các hook resources
+Default của hook deleteion policy là xóa các previous resources trước khi new hook được launched. Tức là không có chuyện cùng lúc tồn tại 2 pod của 1 hook giống nhau (chỉ tồn tại 1)
+Ngoài ra còn có deletetion policy là hook succeeded -> khi hook thành công thì sẽ xóa resource đấy đi. Dùng bằng cách thêm annotation dưới hook: 
+Ngoài ra còn có deletion policy là hook failed -> hook failed thì sẽ xóa resource đấy đi
+Có thể dùng nhiều hook deletion policy
+VD:
+```
+annotations:
+   "helm.sh/hook": "pre-install"
+  "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded, hook-failed
+```
