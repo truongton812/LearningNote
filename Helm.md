@@ -771,3 +771,34 @@ annotations:
 Trong 1 chart ta có thể define nhiều hook và define weight để chỉ định thứ tự chạy hook. VD ta có thể define 3 pre-install hook với thứ tự khác nhau. Weight càng nhỏ thì được ưu tiên chạy trước
 Define trong annotation: "helm.sh/hook-weight": "-2"
 Nếu không define thì default weight là 0
+
+#### helm test
+
+"helm test" là command để kiểm tra các chart helm sau khi được triển khai lên k8s.
+Underlying, "helm test" sẽ chạy các resource trong thư mục templates/ mà có hook annotation là "helm.sh/hook": test. Resource này thường là job/pod. Khi 
+
+Test hook sẽ được thiết kế sao cho container trong Job chạy thành công (exit code 0) nghĩa là test thành công, ngược lại là thất bại.
+
+Các ví dụ test có thể là kiểm tra cấu hình đã được inject đúng, xác thực kết nối, kiểm tra dịch vụ có hoạt động hay cân bằng tải đúng hay không.
+
+Helm tạo mẫu test theo mặc định trong thư mục templates/tests/ khi tạo chart mới với helm create, ví dụ như test kết nối đơn giản sử dụng pod busybox để wget tới dịch vụ.
+
+Lưu ý: - Bạn cần phải cài đặt (install) chart lên Kubernetes trước khi chạy test hook của Helm.
+       - Test hook là 1 resource cũng có hook deletion policy giống các hook khác
+
+#### helm resource policy
+
+Dùng để ngăn không cho 1 resource bị xóa khi ta chạy lệnh helm uninstall/ helm upgrade / helm rollback
+Use case: không cho xóa các pod quan trọng như database
+Lưu ý: sau khi được giữ lại các resources đấy sẽ trở nên "orphan" không được managed bởi helm nữa
+Cách thực hiện: thêm annotation
+```
+metadata:
+  annotations:
+    "helm.sh/resource-policy": keep
+```
+
+#### helm  sign and verify chart
+Ký 1 chart giúp: 
+- ngăn không cho attackers inject malicious code vào chart của mình
+- quản lý chart không cho người khác sử dụng, trừ những người có private key
