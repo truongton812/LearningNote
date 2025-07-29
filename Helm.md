@@ -757,9 +757,9 @@ spec:
 ```
 ---
 Khi ta xóa release thì các pod hook vẫn tồn tại (ở trạng thái completed) -> ta có thể dùng hook deletion policy. Hook deletion policy xác định khi nào delete các hook resources
-Default của hook deleteion policy là xóa các previous resources trước khi new hook được launched. Tức là không có chuyện cùng lúc tồn tại 2 pod của 1 hook giống nhau (chỉ tồn tại 1)
-Ngoài ra còn có deletetion policy là hook succeeded -> khi hook thành công thì sẽ xóa resource đấy đi. Dùng bằng cách thêm annotation dưới hook: 
-Ngoài ra còn có deletion policy là hook failed -> hook failed thì sẽ xóa resource đấy đi
+Default của hook deleteion policy là before-hook-creation - xóa các previous resources trước khi new hook được launched. Tức là không có chuyện cùng lúc tồn tại 2 pod của 1 hook giống nhau (chỉ tồn tại 1). Delete the previous resource before a new hook is launched (default)
+Ngoài ra còn có deletetion policy là hook-succeeded -> khi hook thành công thì sẽ xóa resource đấy đi. Dùng bằng cách thêm annotation dưới hook: 
+Ngoài ra còn có deletion policy là hook-failed -> hook failed thì sẽ xóa resource đấy đi
 Có thể dùng nhiều hook deletion policy
 VD:
 ```
@@ -767,3 +767,7 @@ annotations:
    "helm.sh/hook": "pre-install"
   "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded, hook-failed
 ```
+##### helm hook weight
+Trong 1 chart ta có thể define nhiều hook và define weight để chỉ định thứ tự chạy hook. VD ta có thể define 3 pre-install hook với thứ tự khác nhau. Weight càng nhỏ thì được ưu tiên chạy trước
+Define trong annotation: "helm.sh/hook-weight": "-2"
+Nếu không define thì default weight là 0
