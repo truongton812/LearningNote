@@ -681,18 +681,14 @@ Cách thực hiện
 - Các plugin down về sẽ được lưu vào trong thư mục $HELM_PLUGINS
 - update plugin bằng lệnh: helm plugin update <ten_plugin>
 
-Cách tạo helm plugin
+Cách tạo custom helm plugin:
+Tạo file plugin.yaml đặt trong thư mục $HELM_PLUGINS/<plugin_name>
 
 Có các case sau:
 
 1. Khi gõ lệnh "helm myplugin1" thì command env sẽ được thực thi
 ```
-name: "myplugin1"
-version: "0.1.0"
-usage: "Printss Helm Environment Variables"
-description: |-
-  Prints Helm Environment Variables
-command: "env"
+ 
 ```
 2. Lệnh "helm myplugin2" này sẽ chạy các trường hợp dưa trên loại os
 ```
@@ -723,3 +719,23 @@ command: "$HELM_PLUGIN_DIR/app.sh"
 ```
 
 Tuy nhiên cách để chạy helm <ten_plugin> + sub command thì chưa biết cách làm, tham khảo thêm plugin helm starter để xem họ viết
+
+
+#### helm chart hook
+
+Giúp tạo k8s objects tại 1 thời điểm trong life cycle của release
+1 release có các lifecycle sau:
+- helm install
+- helm upgrade
+- helm rollback
+- helm delete
+
+Hook có thể đặt ở pre và post của các life cycle. VD pre-install, post-install, pre-upgrade,.. -> tổng có 8 hook
+VD: tạo 1 pod trước khi install 1 release -> chỉ khi nào pod đi vào trạng thái completed thì mới chuyển qua bước install release
+Ứng dụng:
+- backup database trước khi helm upgrade hoặc helm delete
+- tạo configmap hoặc secret trước khi install 1 chart
+
+  Ngoài các hook của release lifecycle còn 1 hook của test. Tức mỗi khi chạy lệnh "helm test" thì hook sẽ được active
+
+  Để khai báo 1 pod/ job là hook thì ta thêm annotations: "helm.sh/hook": "<hook-phase>". VD: "helm.sh/hook": "pre-install"
