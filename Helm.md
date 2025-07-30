@@ -718,7 +718,7 @@ description: "Print Helm plugin directory using script app.sh"
 command: "$HELM_PLUGIN_DIR/app.sh"
 ```
 
-Tuy nhiên cách để chạy helm <ten_plugin> + sub command thì chưa biết cách làm, tham khảo thêm plugin helm starter để xem họ viết
+Tuy nhiên cách để chạy helm <ten_plugin> + sub command thì chưa biết cách làm, tham khảo thêm plugin helm starter để xem họ viết https://github.com/salesforce/helm-starter/blob/master/starter.sh
 
 
 #### helm chart hook
@@ -820,3 +820,4 @@ Chart là do người ký đáng tin cậy phát hành (tính xác thực, ngu�
 Đảm bảo chart không bị thay đổi/tráo đổi (integrity) trong quá trình phân phối
 Giúp team DevOps/Quản trị xác minh chart trước khi cài đặt vào hệ thống thật.
 
+####
