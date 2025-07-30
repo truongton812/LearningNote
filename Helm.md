@@ -798,7 +798,25 @@ metadata:
     "helm.sh/resource-policy": keep
 ```
 
-#### helm  sign and verify chart
-Ký 1 chart giúp: 
-- ngăn không cho attackers inject malicious code vào chart của mình
-- quản lý chart không cho người khác sử dụng, trừ những người có private key
+#### helm sign and verify
+Giải thích về sign và verify trong Helm
+1. Khái niệm Sign (ký) trong Helm
+Sign là quá trình sử dụng khóa riêng (private key) để tạo chữ ký số cho gói Helm chart khi đóng gói (helm package).
+
+Khi bạn thực hiện lệnh helm package --sign ..., Helm sẽ tạo thêm một file gọi là provenance file (có đuôi .prov) đi kèm với file chart nén (.tgz).
+
+File .prov chứa thông tin về nguồn gốc chart, chữ ký số, và các siêu dữ liệu giúp xác thực ai là người ký và đảm bảo tính toàn vẹn của gói chart đó.
+
+2. Khái niệm Verify (xác minh) trong Helm
+Verify là quá trình sử dụng khóa công khai (public key) để kiểm tra và xác thực chữ ký nhúng trong file .prov đi kèm chart.
+
+Lệnh thường dùng: helm verify <tệp_chart.tgz>. Khi đó, Helm sẽ đối chiếu file chart với file .prov kết hợp khóa công khai để xác minh:
+
+Chart chưa bị chỉnh sửa (tính toàn vẹn).
+
+Chart là do người ký đáng tin cậy phát hành (tính xác thực, nguồn gốc).
+
+3. Tác dụng của sign và verify
+Đảm bảo chart không bị thay đổi/tráo đổi (integrity) trong quá trình phân phối
+Giúp team DevOps/Quản trị xác minh chart trước khi cài đặt vào hệ thống thật.
+
