@@ -1,8 +1,4 @@
-Basic term
-- target: là server, device,... cần monitor
-- instance: là endpoint cần thu monitor. Ex: 1.2.3.4:5670, 1.2.3.4:5671
-- job: là group của targets hoặc intances có điểm giống nhau
-- sample: là value của 1 metric tại 1 thời điểm
+
 
 # Prometheus architecture
 ![alt text](https://devopscube.com/content/images/2025/03/prometheus-architecture.gif)
@@ -45,85 +41,116 @@ scrape_configs: #khai báo info và config của target. Ta có thể ghi đè s
 
 ```
 
-# Query với prometheus:
+# Basic term
+- Sample: là 1 điểm dữ liệu, tức là 1 giá trị tại 1 thời điểm cụ thể của metric
+
+  Ví dụ định dạng một sample: `http_requests_total{method="POST", handler="/login"} 154` nghĩa là tại thời điểm Prometheus thu thập, giá trị của http_requests_total{method="POST", handler="/login"} là 154.
+- Timeseries: là một chuỗi các điểm dữ liệu (sample) được ghi nhận liên tiếp qua các mốc thời gian. Mỗi timeseries trong Prometheus được xác định duy nhất bởi:
+	- Tên metric (ví dụ: http_requests_total)
+	- Một tập các label (cặp key-value, ví dụ: method="POST", handler="/login")
+   
+  Ví dụ định dạng một timeseries: `http_requests_total{method="POST", handler="/login"}`. 
+
+- Metric: là các chỉ số/quy mô (số liệu) dùng để đo lường trạng thái, hiệu năng, hay các thuộc tính cụ thể của hệ thống hoặc ứng dụng tại một thời điểm. Ví dụ như CPU usage, số lượng request, dung lượng RAM, v.v. Mỗi metric thường có một tên rõ ràng, thể hiện ý nghĩa đo lường, ví dụ: http_requests_total, node_cpu_seconds_total,... Mỗi metric là một tập hợp của nhiều timeseries. Mỗi timeseries sẽ đại diện cho 1 object cần giám sát
+
+  Ví dụ: Metric http_requests_total với các label như method, status, instance sẽ tạo ra nhiều timeseries khác nhau, ví dụ:
+	- http_requests_total{method="GET", status="200", instance="web1"}
+	- http_requests_total{method="POST", status="500", instance="web2"}
+
+- Target: là server, device,... cần monitor
+- Instance: là endpoint cần thu monitor. Ex: 1.2.3.4:5670, 1.2.3.4:5671
+- Job: là group của targets hoặc intances có điểm giống nhau
+- Exporters: Nếu 1 application muốn đc monitor bởi prometheus, cần add instrumentation vào application code thông qua Prometheus client library. Tuy nhiên nếu ta ko có quyền chỉnh sửa code hoặc cần monitor 1 server -> sử dụng exporter. Nhiệm vụ của exporter là thu thập data theo chỉ định của Prometheus, transform thành định dạng Prometheus cần và gửi về. Có nhiều loại exporter, VD node exporter cho Linux machine (để thu thập metric như CPU, memory, disk space, disk I/O, network bandwidth,...), WM exporter cho Window
+
+
+# PromQL
+
+
 - up: số lượng targets  đang đc monitor. Mặc định Prometheus monitor chính nó = cách scrape metric ở endpoint là http://localhost:9090/metrics Trả về value là 0 hoặc 1. 1 là lần last scrape thành công. Trong đó job=prometheus là do file prometheus.yaml quy định job_name=prometheus
 - prometheus_http_requests_total: số lượng http request. Note: prometheus cho phép nhiều metric có cùng tên, tuy nhiên label của chúng phải khác nhau
 - node_memory_MemAvailable_bytes: memory available của node
 
+### PromQL data type
+Trong PromQL (Prometheus Query Language), có 4 kiểu dữ liệu cơ bản:
+- Instance vector: Tập hợp nhiều time series, mỗi time series chỉ lấy giá trị tại một thời điểm cụ thể, giá trị này là giá trị gần nhất thời điểm truy vấn mà được lưu trong timeseries database. Đây là kiểu dữ liệu trả về khi truy vấn tên metric hoặc filter bằng label, ví dụ: `wmi_logical_disk_free_bytes #trả về disk space của từng ổ đĩa trên window` hoặc `node_cpu_seconds_total{mode="idle"}`
 
-=====================
-Khái niệm timeseries trong prometheus: đó là một chuỗi các điểm dữ liệu (sample) được ghi nhận liên tiếp qua các mốc thời gian, đại diện cho giá trị của một metric tại nhiều thời điểm khác nhau.
-mỗi timeseries trong Prometheus được xác định duy nhất bởi:
-Tên metric (ví dụ: http_requests_total)
-Một tập các label (cặp key-value, ví dụ: method="POST", handler="/login")
-Ví dụ định dạng một timeseries:
-http_requests_total{method="POST", handler="/login"}
+  Lưu ý là instance vector có thể truy vấn được thời gian là 1 thời điểm cụ thể, không nhất thiết phải là hiện tại. Cách thực hiện: truy vấn tên metric, sau đó chọn thời điểm quá khứ cần xem (ví dụ: 2023-12-18 14:00:00), xong Bấm "Execute", Prometheus sẽ trả về giá trị instance vector tại thời điểm bạn vừa chọn
 
-Trong đó:
-http_requests_total là tên metric,
-{method="POST", handler="/login"} là tập label
+  Ứng dụng: Dùng để hiển thị snapshot (trạng thái hiện tại) của các metric, ví dụ như CPU usage tại thời điểm hiện tại.
 
-Sample là 1 điểm dữ liệu, tức là 1 giá trị tại 1 thời điểm cụ thể của metric
-Ví dụ định dạng một sample:
-http_requests_total{method="POST", handler="/login"} 154
--> tại thời điểm Prometheus thu thập, giá trị của http_requests_total{method="POST", handler="/login"} là 154.
-Prometheus tự động thu thập (scrape) dữ liệu từ các target và lưu trữ mọi metric dưới dạng timeseries, nghĩa là mỗi giá trị đo lường luôn gắn liền với một dấu thời gian xác định.
+- Range vector: là tập hợp các time series mà trong đó mỗi time series chứa nhiều giá trị dữ liệu trong một khoảng thời gian xác định (ví dụ: 5 phút gần nhất). Đây là kiểu dữ liệu trả về khi truy vấn tên metric metric hoặc filter bằng label và kèm theo [thời lượng] vào metric , ví dụ `http_requests_total[5m]` hoặc `node_cpu_seconds_total{mode="idle"}[5m]` . Nếu scrape_interval là 15s thì kết quả trả về mỗi time series sẽ có 20 samples
+  
+  Ứng dụng: Dùng để phân tích xu hướng, tính toán rate, average, phát hiện anomaly hoặc tổng hợp dữ liệu trên một quãng thời gian.
+  
+  Lưu ý: Ta không thể tạo graph của range vector
 
-======
-Exporters
-Nếu 1 application muốn đc monitor bởi prometheus, cần add instrumentation vào application code thông qua Prometheus client library. VD add instrumentation vào python app qua official python client library
-Tuy nhiên nếu ta ko có quyền chỉnh sửa code hoặc cần monitor 1 server -> sử dụng exporter. Nhiệm vụ của exporter là gather required data theo yêu cầu của Prometheus, transform thành định dạng Prometheus cần và gửi lại cho Prometheus. Có nhiều loại exporter, vd node exporter cho linux machine, wm exporter cho window
-- cách exporter hoạt động: exporter nhận lệnh từ prometheus để biết prometheus cần những metric gì, sau đó nó sẽ gather data từ target và chuyển thành format mà prometheus hiểu được và gửi về cho prometheus
-
-- Node exporter: lấy metric như CPU, memory, disk space, disk I/O, network bandwidth ,... viết = go
-
-============================
-Query Prometheus bằng PromQL
-
-- Data type in PromQL
-Instance vector: a set of time series containing a single sample for each time series, all sharing the same timestamp . Chatgpt: Instance vector là một tập hợp các time series mà mỗi chuỗi chỉ chứa một giá trị dữ liệu duy nhất tại một thời điểm cụ thể
-Giá trị này là giá trị gần nhất thời điểm truy vấn mà được lưu trong timeseries database. Lưu ý là truy vấn instance vector có thể truy vấn được thời gian là 1 thời điểm cụ thể, không nhất thiết phải là hiện tại (truy vấn như bình thường, Chọn thời điểm quá khứ cần xem (ví dụ: 2023-12-18 14:00:00), xong Bấm "Execute", Prometheus sẽ trả về giá trị instance vector tại thời điểm bạn vừa chọn)
-
-Ứng dụng: Dùng để hiển thị snapshot (trạng thái hiện tại) của các metric, ví dụ như CPU usage tại thời điểm hiện tại.
-Cách viết trong PromQL: Khi bạn truy vấn tên metric đơn giản như: http_requests_total
-Hoặc truy vấn dựa vào label node_cpu_seconds_total{mode="idle"}
-VD: ảnh dưới trả về số lượng prometheus_http_request_total của mỗi dimension ở lần gather data cuối. Mỗi 1 row là 1 timeseries, tuy cùng metric name nhưng khác nhau label. Các cặp label dùng để xác định các object khác nhau
+- Scalar: một giá trị số thực (floating point) đơn lẻ tại một thời điểm, thường dùng trong biểu thức điều kiện hoặc phép tính.
+- String: một chuỗi ký tự, ít sử dụng trong kết quả truy vấn thông thường của PromQL, chủ yếu sử dụng làm label, hoặc hiển thị metadata, ví dụ như giá trị label (job="api").
 
 
-VD rõ nhất của instance vector là ta viết truy vấn dung lượng ổ đĩa trên window server: wmi_logical_disk_free_bytes
+### Selector và Matcher
 
+Khi query Prometheus có thể sẽ trả nhiều time series cho cùng 1 metric name với các labels khác nhau, để thu hẹp kết quả trả về dựa theo label, ta có thể dùng selector và matcher
 
-Range vector: a set of time series containing a range of data points over time for each time series (1 set các time series nhưng chưa multiple sample cho mỗi time series)
+##### Selector
 
-Range vector là một tập hợp các chuỗi thời gian mà mỗi chuỗi chứa nhiều giá trị dữ liệu trong một khoảng thời gian xác định (ví dụ: 5 phút gần nhất).
-Instant vector phù hợp khi bạn muốn giám sát trạng thái hiện tại, trong khi range vector là nền tảng cho mọi phân tích sâu hơn về xu hướng, tốc độ thay đổi (rate) hoặc kiểm tra biến động metric theo thời gian
-Ứng dụng: Dùng để phân tích xu hướng, tính toán rate, average, phát hiện anomaly hoặc tổng hợp dữ liệu trên một quãng thời gian.
-Cách viết trong PromQL: Bằng cách thêm một đoạn selector dưới dạng [thời lượng] vào metric, ví dụ: http_requests_total[5m]
-Lưu ý: range vector không thể tạo graph
-Hoặc truy vấn dựa vào label rate(node_cpu_seconds_total{mode="idle"}[5m])
-VD: 1m ở đây nghĩa là 1 phút, nếu default scrape_interval là 15 thì trong 1’ sẽ có 4 samples, trong 5’ sẽ có 20 samples
+Selector là thành phần trong PromQL dùng để chọn ra tập hợp time series từ một metric cụ thể. Có hai loại selector phổ biến:
+- Instant vector selector: Chọn ra giá trị mới nhất của từng time series tại một thời điểm duy nhất. Ví dụ: http_requests_total
+- Range vector selector: Chọn ra nhiều giá trị của từng time series trong một khoảng thời gian. Ví dụ: http_requests_total[5m]
 
-Scalar: a simple numeric floating point value (ko có label). VD: 15.21
-String: string value (ít khi dùng)
+Kết luận: Selector chỉ định “Lấy metric nào về”.
 
-- Selector và matcher
-Khi query Prometheus có thể sẽ trả nhiều time series cho cùng 1 metric name với khác label khác nhau, để thu hẹp kết quả trả về dựa theo label, ta có thể dùng selector và matcher
-VD: process_cpu_seconds_total{job=’node_exporter’, instance=’localhost:9100’} -> filter theo label job=node_exporte và instance=localhost:9100 . Hoặc có thể chỉ filter theo 1 label
+##### Matcher
 
-- Có 4 kiểu matcher:
-Quality matcher (=): match chính xác label, lưu ý kiểu này có tính đến case sensitive
-Negative equality matcher (!=): match các label khác với chỉ định
-Regular expression matcher (=~): select label theo dạng regex. VD: prometheus_http_requests_total{handler=~”/api.*”} -> trả về tất cả các timeseries có label là handler bắt đầu bằng /api
-Negative regular expression matcher (!~): không match label theo dạng regex
+Matcher là điều kiện (bộ lọc) áp dụng trên label của time series trong selector để chỉ lấy ra các chuỗi dữ liệu phù hợp. Matcher thường đi kèm trong dấu ngoặc nhọn {} và có 4 loại:
 
-- Operators: có 2 loại operator là binary operators và aggregation operators
-Binary operators là operator tính toán dựa trên 2 operands (toán tử). Có 3 loại binary operator:
-+ arithmetic binary operator (phép tính): là các phép tính +, -, *, /, %, ^. Được dùng giữa scalar/scalar, vector/scalar, vector/vector. VD: node_memory_MemTotal_bytes/1024/1024
-+ comparison binary operator:  là các phép so sánh ==, !=, >, <, >=, <=. Được dùng giữa scalar/scalar, vector/scalar, vector/vector. VD: node_cpu_seconds_total > 500 -> thường được dùng để làm cảnh báo, VD khi CPU vượt quá 500
-+ logical/set binary operator: là các phép logic and, or, unless. Chỉ được dùng giữa instant vectors. 
-And: label của 2 instant vector phải giống y hệt nhau thì mới trả về giá trị.  (lấy vector1 làm mốc). VD: vector1 and vector2-> nếu có timeseries 1 nào có label của giống y hệt labels của timeseries 2 thì kết quả sẽ trả về timeseries này
-Or: returns non-matching element of both left and right side + matching element from left side ( có thể xem như là union của cả 2 vector). 
-Note: khi dùng logical/set binary operator có thể kết hợp thêm ignore và on (ingnore để loại trừ 1 label, on để chọn label thuộc 1 tập các label cho trước) . 
+- Quality matcher (=): match chính xác label, lưu ý kiểu này có tính đến case sensitive
+
+VD: `process_cpu_seconds_total{job='node_exporter', instance='localhost:9100'}` 
+-> kết quả trả về giá trị hiện tại (tức thời điểm bạn truy vấn) của tất cả các time series từ metric process_cpu_seconds_total mà có cả 2 nhãn `job='node_exporter'` và `instance='localhost:9100'`. Lưu ý là nếu một time series cùng có 2 nhãn này và thêm các nhãn khác nữa, nó vẫn được đưa vào kết quả truy vấn.
+
+Kết quả có thể là:
+```
+process_cpu_seconds_total{job="node_exporter", instance="localhost:9100", cpu="0"} 1234.5
+process_cpu_seconds_total{job="node_exporter", instance="localhost:9100", cpu="1"} 5678.9
+```
+
+- Negative equality matcher (!=): match các label khác với chỉ định
+- Regular expression matcher (&#61;&#126;): select label theo dạng regex. VD: `prometheus_http_requests_total{handler=~”/api.*”}` -> trả về tất cả các timeseries có label là `handler` bắt đầu bằng `/api`
+- Negative regular expression matcher (!~): không match label theo dạng regex
+
+Kết luận: Matcher chỉ định “Lấy metric đó nhưng điều kiện nhãn thế nào”.
+
+### Operators
+
+Là các ký hiệu hoặc từ khóa đại diện cho các phép toán hoặc thao tác xử lý dữ liệu được áp dụng lên metric hoặc tập hợp dữ liệu time series. Operator được dùng để kết hợp, so sánh hoặc tính toán giữa các metric hoặc giá trị, giúp truy vấn dữ liệu theo cách mong muốn. Có 2 loại operator là binary operators và aggregation operators
+
+##### Binary operators 
+Là operator tính toán dựa trên 2 operands (toán tử). Có 3 loại binary operator:
+
+- Arithmetic binary operator: là các phép tính +, -, *, /, %, ^. Được dùng giữa vector/scalar, vector/vector, scalar/scalar. VD: `node_memory_MemTotal_bytes/1024/1024`
+- Comparison binary operator:  là các phép so sánh ==, !=, >, <, >=, <=. Được dùng giữa vector/scalar, vector/vector, scalar/scalar, thường được dùng để làm cảnh báo, VD khi CPU vượt quá 500 `node_cpu_seconds_total > 500`
+- Logical binary operator: là các phép logic and, or, unless. Chỉ được dùng giữa instant vectors. 
+	- And: Trả về các time series mà cùng tồn tại (match) ở cả hai vector bên trái và bên phải dựa trên tập nhãn giống nhau. Cách hoạt động: Nếu một time series ở vector bên trái có cùng bộ label với một time series ở vector bên phải, giá trị sẽ được giữ lại ở kết quả. Nếu không có cặp nào khớp label giữa hai bên, time series đó bị loại khỏi kết quả.
+   
+        VD: `up{job="api"} and http_requests_total{job="api"}`
+   
+        -> Chỉ những time series của metric up có nhãn job="api" mà đồng thời cũng xuất hiện ở metric http_requests_total (tức khớp nhãn giữa hai bên) mới được hiển thị
+
+	- Or: Kết hợp các time series từ cả hai phía, giữ lại toàn bộ series xuất hiện ở bất kỳ bên nào. Cách hoạt động: Nếu time series chỉ xuất hiện ở một bên, vẫn được đưa vào kết quả. Nếu cùng nhãn xuất hiện ở cả hai metric, giá trị lấy từ bên trái.
+
+        VD: `http_requests_total{status="200"} or http_requests_total{status="500"}`
+
+        -> Kết quả bao gồm cả những time series có status là 200 hoặc 500, không bỏ sót cái nào
+   
+
+Khi dùng logical binary operator có thể kết hợp thêm ignore và on (ingnore để loại trừ 1 label, on để chọn label thuộc 1 tập các label cho trước) . 
+
+ignoring (<label list>):
+Loại bỏ các nhãn chỉ định trong danh sách ra khỏi quá trình so khớp vector.
+
+on (<label list>):
+Chỉ dùng các nhãn được chỉ định trong danh sách để ghép các time series giữa hai bên.
 
 VD: prometheus_http_requests_total and ignoring(handler) promhttp_metric_handler_requests_total -> ignore label handler
 VD: prometheus_http_requests_total and on(code) promhttp_metric_handler_requests_total -> chỉ match với những time series có trùng 
@@ -131,7 +158,7 @@ VD: prometheus_http_requests_total and on(code) promhttp_metric_handler_requests
 
 Lưu ý khi dùng or/and ta không cần chỉ định key, với ignore và on ta cần chỉ định key. Cả 2 case đều ko cần chỉ định label
 
-Mai phải học lại chỗ này, làm lab
+
 aggregation operators: dùng để combine elements của 1 single instant vector thành 1 vector mới có ít elements hơn với aggregated value.
 
 Chatgpt: Aggregation operators trong Prometheus là các công cụ quan trọng giúp bạn tổng hợp và xử lý các chuỗi số liệu thời gian (time series) thành một vector mới, thường là với kích thước nhỏ hơn. Các operator này thực hiện các phép toán như tổng (sum), giá trị nhỏ nhất (min), lớn nhất (max), trung bình (avg) trên các chuỗi số liệu đầu vào.
