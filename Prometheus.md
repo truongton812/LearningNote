@@ -65,11 +65,6 @@ scrape_configs: #khai báo info và config của target. Ta có thể ghi đè s
 
 # PromQL
 
-
-- up: số lượng targets  đang đc monitor. Mặc định Prometheus monitor chính nó = cách scrape metric ở endpoint là http://localhost:9090/metrics Trả về value là 0 hoặc 1. 1 là lần last scrape thành công. Trong đó job=prometheus là do file prometheus.yaml quy định job_name=prometheus
-- prometheus_http_requests_total: số lượng http request. Note: prometheus cho phép nhiều metric có cùng tên, tuy nhiên label của chúng phải khác nhau
-- node_memory_MemAvailable_bytes: memory available của node
-
 ### PromQL data type
 Trong PromQL (Prometheus Query Language), có 4 kiểu dữ liệu cơ bản:
 - Instance vector: Tập hợp nhiều time series, mỗi time series chỉ lấy giá trị tại một thời điểm cụ thể, giá trị này là giá trị gần nhất thời điểm truy vấn mà được lưu trong timeseries database. Đây là kiểu dữ liệu trả về khi truy vấn tên metric hoặc filter bằng label, ví dụ: `wmi_logical_disk_free_bytes #trả về disk space của từng ổ đĩa trên window` hoặc `node_cpu_seconds_total{mode="idle"}`
@@ -126,6 +121,7 @@ Kết luận: Matcher chỉ định “Lấy metric đó nhưng điều kiện n
 Là các ký hiệu hoặc từ khóa đại diện cho các phép toán hoặc thao tác xử lý dữ liệu được áp dụng lên metric hoặc tập hợp dữ liệu time series. Operator được dùng để kết hợp, so sánh hoặc tính toán giữa các metric hoặc giá trị, giúp truy vấn dữ liệu theo cách mong muốn. Có 2 loại operator là binary operators và aggregation operators
 
 ##### Binary operators 
+
 Là operator tính toán dựa trên 2 operands (toán tử). Có 3 loại binary operator:
 
 - Arithmetic binary operator: là các phép tính +, -, *, /, %, ^. Được dùng giữa vector/scalar, vector/vector, scalar/scalar. VD: `node_memory_MemTotal_bytes/1024/1024`
@@ -144,62 +140,135 @@ Là operator tính toán dựa trên 2 operands (toán tử). Có 3 loại binar
         -> Kết quả bao gồm cả những time series có status là 200 hoặc 500, không bỏ sót cái nào
    
 
-Khi dùng logical binary operator có thể kết hợp thêm ignore và on (ingnore để loại trừ 1 label, on để chọn label thuộc 1 tập các label cho trước) . 
+Khi dùng logical binary operator có thể kết hợp thêm ignoring và on (ingnore để loại trừ 1 label, on để chọn label thuộc 1 tập các label cho trước) . 
 
-ignoring (<label list>):
-Loại bỏ các nhãn chỉ định trong danh sách ra khỏi quá trình so khớp vector.
+- ignoring (\<label list>):
+Loại bỏ các nhãn chỉ định trong danh sách ra khỏi quá trình so khớp vector. Nghĩa là tất cả các nhãn trừ những nhãn ignoring sẽ được dùng để so khớp.
 
-on (<label list>):
-Chỉ dùng các nhãn được chỉ định trong danh sách để ghép các time series giữa hai bên.
+  VD1: `prometheus_http_requests_total and ignoring(handler) promhttp_metric_handler_requests_total`
 
-VD: prometheus_http_requests_total and ignoring(handler) promhttp_metric_handler_requests_total -> ignore label handler
-VD: prometheus_http_requests_total and on(code) promhttp_metric_handler_requests_total -> chỉ match với những time series có trùng 
-‘code’ label
+  -> trả về các time series thuộc metric prometheus_http_requests_total mà (ngoại trừ nhãn handler) có bộ nhãn trùng khớp với bất kỳ time series nào của metric promhttp_metric_handler_requests_total. Kết quả là giá trị của metric bên trái – tức chỉ các series từ prometheus_http_requests_total, nhưng chỉ giữ lại những series mà (ngoại trừ nhãn handler) cũng có xuất hiện ở promhttp_metric_handler_requests_total
 
-Lưu ý khi dùng or/and ta không cần chỉ định key, với ignore và on ta cần chỉ định key. Cả 2 case đều ko cần chỉ định label
+  VD2: `sum(http_requests_total) by (job, status) + ignoring(status) sum(http_errors_total) by (job, status)`
+
+  -> Phép cộng sẽ thực hiện mà bỏ qua nhãn status, chỉ matching dựa trên các nhãn còn lại
+  
+- on (\<label list>):
+Chỉ dùng các nhãn được chỉ định trong danh sách để ghép các time series giữa hai bên. Những nhãn không nằm trong danh sách sẽ bị bỏ qua khi so khớp.
+
+  VD1: `prometheus_http_requests_total and on(code) promhttp_metric_handler_requests_total`
+
+  -> Kết quả truy vấn là các time series thuộc metric prometheus_http_requests_total mà trường code trùng khớp với ít nhất một time series của metric promhttp_metric_handler_requests_total. Toàn bộ nhãn và giá trị của phía trái được giữ nguyên
+
+  VD2: `sum(http_requests_total) by (method) / on(method) sum(http_response_time_seconds) by (method)`
+
+  -> Biểu thức này chia tổng số requests cho tổng response time, ghép cặp dựa trên nhãn method
 
 
-aggregation operators: dùng để combine elements của 1 single instant vector thành 1 vector mới có ít elements hơn với aggregated value.
+##### Aggregation operators
 
-Chatgpt: Aggregation operators trong Prometheus là các công cụ quan trọng giúp bạn tổng hợp và xử lý các chuỗi số liệu thời gian (time series) thành một vector mới, thường là với kích thước nhỏ hơn. Các operator này thực hiện các phép toán như tổng (sum), giá trị nhỏ nhất (min), lớn nhất (max), trung bình (avg) trên các chuỗi số liệu đầu vào.
-Cách hoạt động cơ bản của aggregation operators là lấy một instant vector chứa nhiều time series và tính toán kết quả trên toàn bộ hoặc nhóm các time series theo nhãn (label) cụ thể. Ví dụ, với metric http_requests có nhiều nhãn như method, path, bạn có thể tính tổng số request hoặc trung bình request trên tất cả các nhãn hoặc nhóm theo 1 nhãn cụ thể.
-
+Là các toán tử dùng để tổng hợp và xử lý các time series thành một vector mới, thường là với kích thước nhỏ hơn. Cách hoạt động cơ bản của aggregation operators là lấy một instant vector chứa nhiều time series và tính toán kết quả trên toàn bộ hoặc nhóm các time series theo label cụ thể. Ví dụ, với metric http_requests có nhiều nhãn như method, path, bạn có thể tính tổng số request hoặc trung bình request trên tất cả các nhãn hoặc nhóm theo 1 nhãn cụ thể. 
+Lưu ý: Aggregation operators chỉ áp dụng với "instant vector"
+      
 Các aggregation operator type:
+- sum: Tính tổng các giá trị của các chuỗi time series. Ví dụ: `sum(prometheus_http_requests_total) by (code)` -> tính tổng http request theo từng loại code label
+- avg: Tính giá trị trung bình. Ví dụ: `avg(cpu_usage)`
+- min / max: Lấy giá trị nhỏ nhất/lớn nhất trong nhóm. Ví dụ: `min(node_memory_MemFree_bytes)`, `max(node_memory_MemFree_bytes)`
+- count: Đếm số lượng time series. Ví dụ: `count(up)`
+- count_values: Đếm số lần xuất hiện của mỗi giá trị cụ thể trong time series và trả về thành từng nhóm theo value.
+- stddev, stdvar: Tính độ lệch chuẩn (standard deviation) và phương sai (variance).
+- quantile: Tính giá trị percentile mong muốn (ví dụ: median, 95th).
+- topk(k, metric): Lấy k giá trị lớn nhất. VD: `topk(3, sum(node_cpu_seconds_total) by (mode))`: lấy ra 3 mode cpu có time cao nhất
+- bottomk(k, metric): Lấy k giá trị nhỏ nhất.
+- group: Gom nhóm các time series mà không quan tâm đến giá trị, mỗi nhóm luôn trả về 1 (dùng cho các tình huống kiểm tra sự tồn tại).
 
-VD: sum(prometheus_http_requests_total) : tính tổng http request
-       sum(prometheus_http_requests_total) by (code) : tính tổng http request theo từng loại code label
-      topk(3, sum(node_cpu_seconds_total) by (mode)): lấy ra 3 mode cpu có time cao nhất (bottomk tương tự)
-Max: tìm giá trị lớn nhất
-Count: tổng số elemment trong vector (có vẻ như là tổng số timeseries- cần check lại)
+Cách sử dụng aggregation operator với by và without
+- by (label): Gom nhóm theo một hoặc nhiều nhãn; kết quả giữ lại các nhãn này. VD: `sum by(instance) (node_cpu_seconds_total)` -> Cộng dồn cpu theo từng instance
+- without (label): Gom nhóm và loại bỏ các nhãn chỉ định khỏi kết quả. VD: `max without(mode) (node_cpu_seconds_total)` -> Lấy giá trị max, loại bỏ nhãn "mode"
 
-- Function
-Rate và irate: 
 
-Rate: calculates the per-second average rate of increase of the time series in the range vector (nói đơn giản hơn là tính ra tốc độ mà 1 bộ đếm nào đấy đang tăng). VD nếu ta ta query metric prometheus_http_requests_total thì sẽ nhận được giá trị số lượng http request gần nhất, giá trị đấy ko cung cấp nhiều thông tin lắm do số lượng http request chỉ có tăng chứ không giảm -> cần dùng rate để biết được tốc độ tăng http_request là nhanh hay chậm
+### Function
 
-		
-VD: rate(prometheus_http_requests_total[1m]) -> tính ra trong 1 giây có bao nhiêu http request, với range là hiện tại đến 1’ trước
-Note: rate chỉ dùng cho range vector và output ra instant vector. VD query prometheus_http_requests_total{handler=~”/api.*”}[1m] là invalid ( do thêm 1m sẽ thành range vector) mà Prometheus chỉ có thể graph instant vector . Ta thêm rate() vào thì valid 
-Rate dùng để tạo graph của slow moving counter
+PromQL cung cấp rất nhiều function giúp xử lý, phân tích, và tổng hợp dữ liệu time series. Các function này có thể chia thành các nhóm chính:
 
-Irate: calculate the instant rate of increase of the timeseries in the range vector. Basically, irate calculates the rate based on the last 2 data points gathered
-Irate dùng để tạo graph của fast moving counter
-Changes: dùng tính số lượng thay đổi trong 1 range vector
-VD: changes(process_start_time_second{job=’node_exporter’}[1h]
--> tính xem trong 1 giờ process restart bao nhiêu lần
+1. Hàm tính toán tốc độ, biến động
+- rate(): Tính tốc độ tăng trung bình trên giây của một counter trong 1 khoảng thời gian, chỉ áp dụng với metric kiểu counter. Hàm rate giúp ta nắm được xu hướng của metric đang tăng nhanh hay châm, điều mà bản thân counter metric không thể hiện được. VD khi query metric prometheus_http_requests_total thì sẽ nhận được giá trị số lượng http request gần nhất, giá trị đấy không thể hiện được xu hướng do số lượng http request là 1 số luôn tăng -> rate giúp biết được tốc độ tăng http_request là nhanh hay chậm: `rate(prometheus_http_requests_total[1m])` để tính ra trong 1 giây có bao nhiêu http request, với range là hiện tại đến 1’ trước
+  Rate() còn giúp tạo graph cho range vector do output của rate() là instance vector, và Prometheus chỉ có thể tạo graph của instance vector
+- irate(): Tốc độ tăng tức thời (tính theo hai điểm dữ liệu gần nhất). Irate dùng để tạo graph của fast moving counter
+- changes: dùng tính số lần thay đổi của 1 metric, thường chỉ dùng với các metric ít thay đổi. VD: `changes(process_start_time_second{job='node_exporter'}[1h]` -> tính xem trong 1 giờ process "node exporter" restart bao nhiêu lần
+- deriv(): dùng để tính xem 1 gauge metric thay đổi nhanh hay chậm. Có thể xem như là hàm rate() áp dụng cho gauge metric. VD: `deriv(process_resident_memory_bytes{job='prometheus'}[1h])` -> tính tốc độ thay đổi bộ nhớ thực tế (bytes trên giây) mà tiến trình Prometheus đang sử dụng trong 1 giờ gần nhất
+- predict_linear(): Dự đoán giá trị sau một thời gian dựa trên xu hướng hiện tại. VD: `predict_linear(my_metric[10m], 30)` -> Dự đoán giá trị metric my_metric trong 30 giây tiếp theo dựa trên dữ liệu 10 phút trước đó.
+- increase(): Tổng mức tăng của counter trong một khoảng thời gian.
+- delta(): Thay đổi tuyệt đối của gauge trong một period nhất định.
 
-Còn thiếu vài chap ở đây nữa, bổ sung sau
+2. Hàm tổng hợp, thống kê trên cửa sổ thời gian
 
-Metric type
+Đây bản chất là các aggregation operator tuy nhiên có thể sử dụng cho range vector
+
+- avg_over_time(): Giá trị trung bình trong một khoảng thời gian.
+- sum_over_time(): Tổng giá trị.
+- min_over_time(), max_over_time(): Giá trị nhỏ nhất/lớn nhất. VD: `max_over_time(node_cpu_seconds_total[1h]}` -> trả về giá trị lớn nhất của từng time series của metric node_cpu_seconds_total trong vòng 1 giờ gần nhất
+- count_over_time(): Số lượng sample có trong khoảng thời gian.
+- quantile_over_time(): Tính percentile (như median, 95th percentile).
+- stddev_over_time(), stdvar_over_time(): Độ lệch chuẩn/phương sai.
+
+3. Hàm xử lý instance vector:
+- sort(): sắp xếp các time series theo thứ tự tăng dần của value
+- sort_desc(): sắp xếp các time series theo thứ tự giảm dần của value
+- sort_by_label()
+
+4. Hàm phân tích histogram
+- histogram_quantile(): Tính giá trị percentile (ví dụ P99, P95) từ metric dạng histogram bucket. Ví dụ: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))
+
+5. Hàm biến đổi, toán học
+- abs(): Giá trị tuyệt đối.
+- ceil(), floor(): Làm tròn lên/xuống.
+- sqrt(): Căn bậc hai.
+- clamp_min(), clamp_max(), clamp(): Giới hạn giá trị nhỏ nhất, lớn nhất, hoặc trong khoảng.
+- round(): Làm tròn tới số lẻ đã chỉ định.
+
+6. Hàm thao tác label/metadata
+- label_join(), label_replace(): Nối, thay thế các giá trị nhãn (label) thành nhãn mới.
+- absent(): Kiểm tra một metric có xuất hiện hay không.
+- absent_over_time(): Check metric có vắng mặt liên tục trong một khoảng thời gian.
+
+7. Hàm ngày, giờ
+- year(), month(), day_of_month(), days_in_month(), day_of_week(), hour(), minute(), second(), timestamp(), time(),  : Trích xuất thông tin thời gian từ time series hoặc hệ thống.
+
+8. Hàm đặc biệt cho advanced use
+- present_over_time(): Trả về 1 nếu có sample ở trong khoảng thời gian.
+- resets(): Đếm số lần counter bị reset.
+- last_over_time(): Giá trị sample cuối cùng trong khoảng thời gian.
+
+---
+Giải thích thêm về cách tạo graph của hàm rate()
+Khi bạn query: rate(http_requests_total[3m]) Prometheus sẽ tính tốc độ trung bình trên mỗi giây của metric http_requests_total trong từng cửa sổ 3 phút kết thúc lần lượt tại mỗi điểm sampling 12:00, 12:01, 12:02, ... Và nếu ta set step trong graph là 1 phút (60s) thì kết quả sẽ là:
+
+Cửa sổ tại 12:00 sẽ tính dựa trên dữ liệu từ 11:57 đến 12:00. -> điểm sampling tại thời điểm 12:00 trên đồ thị nhận giá trị này
+
+Cửa sổ tại 12:01 sẽ tính dựa trên dữ liệu từ 11:58 đến 12:01. -> điểm sampling tại thời điểm 12:01 trên đồ thị nhận giá trị này
+
+Cửa sổ tại 12:02 sẽ tính dựa trên dữ liệu từ 11:59 đến 12:02. -> điểm sampling tại thời điểm 12:02 trên đồ thị nhận giá trị này
+
+---
+
+
+#### Metric type
 
 Metric có các kiểu: 
-counter (tăng dần theo thời gian, có thể reset về 0. Counter thường được dùng để track how often a particulat code path được thực thi. VD số lượng request, số lượng task hoàn thành, số lượng lỗi). Counter chỉ có 1 method là inc(), default là tăng 1 đơn vị, có thể custom
-gauge (có thể tăng giảm theo thời gian). VD metric về nhiệt độ, current RAM, số lượng thread đang chạy. Gaguge có 3 methods inc(), dec(), set(), default là tăng giảm hoặc set 1 đơn vị, có thể custom
-Summary: Một metric loại summary sẽ lấy các samples (mẫu dữ liệu) từ những observations (giá trị quan sát được) để tổng hợp lại. Observations có thể là request duration (thời gian app phản hồi cho request), latency , request size,... Summary track size và number của events. Summary có 1 method là observer(), ta pass size của event làm para cho method này. Summary expose multiple timeseries during a scrape:
-Total sum (<basename> _sum) of all observed values
-Count (<basename> _count) of events that have been observed
-	Summary metric có thể include quatiles over a sliding time window
-Histogram: histogram samples observations (có thể là request duration or response size,..) và counts them in configurable buckets. Instrumentation cho histogram giống với summary. Histogram expose multiple timeseries during a scrape:
-Total sum (<basename> _sum) of all observed values
-Count (<basename> _count) of events that have been observed
-Mục đích chính của histogram là tính toán quantiles 
+- counter (tăng dần theo thời gian, có thể reset về 0. Counter thường được dùng để track how often a particulat code path được thực thi. VD số lượng request, số lượng task hoàn thành, số lượng lỗi). Counter chỉ có 1 method là inc(), default là tăng 1 đơn vị, có thể custom
+- gauge (có thể tăng giảm theo thời gian). VD metric về nhiệt độ, current RAM, số lượng thread đang chạy. Gaguge có 3 methods inc(), dec(), set(), default là tăng giảm hoặc set 1 đơn vị, có thể custom
+- Summary: Một metric loại summary sẽ lấy các samples (mẫu dữ liệu) từ những observations (giá trị quan sát được) để tổng hợp lại. Observations có thể là request duration (thời gian app phản hồi cho request), latency , request size,... Summary track size và number của events. Summary có 1 method là observer(), ta pass size của event làm para cho method này. Summary expose multiple timeseries during a scrape:
+	- Total sum (<basename> _sum) of all observed values
+	- Count (<basename> _count) of events that have been observed
+     Summary metric có thể include quatiles over a sliding time window
+- Histogram: histogram samples observations (có thể là request duration or response size,..) và counts them in configurable buckets. Instrumentation cho histogram giống với summary. Histogram expose multiple timeseries during a scrape:
+	- Total sum (<basename> _sum) of all observed values
+	- Count (<basename> _count) of events that have been observed
+      Mục đích chính của histogram là tính toán quantiles 
+
+---
+
+
+
+
