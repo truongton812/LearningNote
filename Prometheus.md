@@ -269,6 +269,16 @@ Metric có các kiểu:
 
 ---
 
+Thư viện prometheus_client trong Python là một client chính thức giúp ứng dụng của bạn xuất các chỉ số (metrics) theo định dạng mà hệ thống giám sát Prometheus hiểu được. Nói cách khác, nó dùng để tích hợp đo lường (instrumentation) trực tiếp vào mã nguồn ứng dụng nhằm tạo ra các metric như counter (bộ đếm), gauge (giá trị đo lường có thể tăng giảm), histogram (thống kê phân phối giá trị) để Prometheus có thể thu thập.
 
+Với prometheus_client bạn có thể:
+
+- Định nghĩa các loại metric để theo dõi các thông số quan trọng (ví dụ: số lượng request HTTP, thời gian xử lý request, số lượng người dùng hiện tại, v.v).
+
+- Khởi động một HTTP server riêng trên một cổng để Prometheus chủ động gửi request thu thập các chỉ số (mô hình pull).
+
+- Tăng hoặc cập nhật các giá trị metric trong ứng dụng một cách dễ dàng chỉ với vài dòng code.
+
+Thư viện này hỗ trợ rất tốt cho việc giám sát hiệu năng, tình trạng hoạt động của ứng dụng, giúp lập trình viên và đội ngũ vận hành dễ dàng nắm bắt các số liệu từ ứng dụng để cảnh báo hoặc phân tích sau này.
 
 
