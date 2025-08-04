@@ -262,11 +262,12 @@ Metric có các kiểu:
 	- Total sum (<basename> _sum) of all observed values
 	- Count (<basename> _count) of events that have been observed
      Summary metric có thể include quatiles over a sliding time window
-- Histogram: histogram samples observations (có thể là request duration or response size,..) và counts them in configurable buckets. Instrumentation cho histogram giống với summary. Histogram expose multiple timeseries during a scrape:
+- Histogram: histogram samples observations (có thể là request duration or response size,..) và counts them in configurable buckets (đây là điểm khác biệt với summary metric). Instrumentation cho histogram giống với summary. Histogram expose multiple timeseries during a scrape:
 	- Total sum (<basename> _sum) of all observed values
 	- Count (<basename> _count) of events that have been observed
       Mục đích chính của histogram là tính toán quantiles 
-
+Histogram cũng dùng để tính toán size of event bằng observe method
+Histogram cũng expose ra 2 metric là _sum và _count y hệt summary, ta có thể dùng để thay thế summary metric. Tuy nhiên histogram còn expose ra các metric có đuôi là _bucket. Những bucket này là counter which form a cumulative histogram và những bucket này track số lượng event fall into each bucket. Những bucket này có tác dụng là để phân loại event (VD xem latency của request đa phần rơi vào bucket nào)
 ---
 
 Thư viện prometheus_client trong Python là một client chính thức giúp ứng dụng của bạn xuất các chỉ số (metrics) theo định dạng mà hệ thống giám sát Prometheus hiểu được. Nói cách khác, nó dùng để tích hợp đo lường (instrumentation) trực tiếp vào mã nguồn ứng dụng nhằm tạo ra các metric như counter (bộ đếm), gauge (giá trị đo lường có thể tăng giảm), histogram (thống kê phân phối giá trị) để Prometheus có thể thu thập.
@@ -302,7 +303,7 @@ class HandleRequests(http.server.BaseHTTPRequestHandler):
         REQUEST_COUNT.labels('prom_python_app', self.path).inc() #đặt counter metric ở trong function để đếm xem code block do_GET(self) này được requested bao nhiêu lần. Số lần code block này được gọi sẽ tương ứng với số lần main url của ứng dụng này được gọi, do mỗi khi main url được gọi thì code block này sẽ được thực thi.
         #Các param trong label là value của label, tương ứng với các key app_name và endpoint khai báo ở trên. Self.path sẽ trả về metric cho từng code path, nếu không khai báo label self.path thì chỉ có 1 time series đếm tổng số request vào website, bất kể code path là gì
         #Trong thực tế ta có thể đặt counter ở bất kỳ code path nào ta muốn track
-	#REQUEST_COUNT ở đây là object, và class counter chỉ có 1 method là inc()
+	#REQUEST_COUNT ở đây là object, và class counter chỉ có 1 method là inc() 
         random_val = random.random()*10
         RANDOM_COUNT.inc(random_val) # bước nhảy có thể là số dương bất kỳ, không nhất thiết phải bằng 1
         
@@ -355,3 +356,78 @@ if __name__ == "__main__":
     server = http.server.HTTPServer(('localhost', APP_PORT), HandleRequests)
     server.serve_forever()
 ```
+---
+
+Code app python để expose summary metric
+
+```python
+import http.server
+import time
+from prometheus_client import start_http_server, Summary
+
+REQUEST_RESPOND_TIME = Summary('app_response_latency_seconds', 'Response latency in seconds')
+
+APP_PORT = 8000
+METRICS_PORT = 8001
+
+#để xác định thời gian app xử lý request thì ta lấy thời gian app xử lý xong trừ đi thời gian app bắt đầu xử lý
+class HandleRequests(http.server.BaseHTTPRequestHandler):
+
+    @REQUEST_RESPOND_TIME.time() #do việc track respond time là phổ biến nên Class Summary đưa ra 1 method là time, method này tương đương với việc tính toán thủ công ở dưới
+    def do_GET(self):
+        #start_time = time.time() #lấy thời gian app bắt đầu xử lý request
+        time.sleep(6)
+        self.send_response(200)
+        self.send_header("Content-type", "text/html")
+        self.end_headers()
+        self.wfile.write(bytes("<html><head><title>First Application</title></head><body style='color: #333; margin-top: 30px;'><center><h2>Welcome to our first Prometheus-Python application.</center></h2></body></html>", "utf-8"))
+        self.wfile.close()
+        #time_taken = time.time() - start_time #tính thời gian app cần để xử lý request
+       # REQUEST_RESPOND_TIME.observe(time_taken) #lưu giá trị time_taken vào summery metric bằng method observe
+
+
+if __name__ == "__main__":
+    start_http_server(METRICS_PORT)
+    server = http.server.HTTPServer(('localhost', APP_PORT), HandleRequests)
+    server.serve_forever()
+```
+---
+
+Code app python để expose histogram metric
+```python
+import http.server
+import time
+from prometheus_client import start_http_server, Histogram
+
+REQUEST_RESPOND_TIME = Histogram('app_response_latency_seconds', 'Response latency in seconds', buckets=[0.1,0.5,1,2,3,4,5,10]) #para bucket dùng để custom size của bucket, không dùng default bucket của prometheus
+
+APP_PORT = 8000
+METRICS_PORT = 8001
+
+class HandleRequests(http.server.BaseHTTPRequestHandler):
+
+    @REQUEST_RESPOND_TIME.time()
+    def do_GET(self):
+        #start_time = time.time()
+        time.sleep(1)
+        self.send_response(200)
+        self.send_header("Content-type", "text/html")
+        self.end_headers()
+        self.wfile.write(bytes("<html><head><title>First Application</title></head><body style='color: #333; margin-top: 30px;'><center><h2>Welcome to our first Prometheus-Python application.</center></h2></body></html>", "utf-8"))
+        self.wfile.close()
+        #time_taken = time.time() - start_time
+        REQUEST_RESPOND_TIME.observe(time_taken)
+
+
+if __name__ == "__main__":
+    start_http_server(METRICS_PORT)
+    server = http.server.HTTPServer(('localhost', APP_PORT), HandleRequests)
+    server.serve_forever()
+```
+
+---
+
+Cách đặt metric cho các hệ thống
+- Online-serving system: là hệ thống mà người gọi đến kỳ vọng được phản hồi ngay lập tức. VD web, database,... Ta cần giám sát các metric như request rate, latency, error rate, in-progress requests
+- Offline-processing system: không có ai chờ phản hồi. VD hệ thống xử lý log. Cần giám sát các metric: số lượng incoming items, số lượng đang được xử lý, lần cuối xử lý, số lượng item được gửi ra, số lượng error
+- Batch jobs: giống với offline-processing system, chỉ khác là batch job chạy định kỳ chứ không liên tục. Batch job thường được dùng với push gateway. Cần giám sát các metric: chạy trong bao lâu, lần cuối completed (cả successful và failed)
