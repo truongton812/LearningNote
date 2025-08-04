@@ -226,9 +226,9 @@ Lưu ý có 2 cách để gọi root object khi dùng trong with, range
 
 #### helm variable
 thường dùng với with, range action và named template
-cách định nghĩa variable: {{ $<ten_var> := <gia_tri> }}
-VD: {{ $chartname := .Chart.Name }}
-cách gọi: {{ $<ten_var> }}
+cách định nghĩa variable: `{{ $<ten_var> := <gia_tri> }}`
+VD: `{{ $chartname := .Chart.Name }}`
+cách gọi: `{{ $<ten_var> }}`
 lưu ý quan trọng: nếu define variable trong with thì variable đấy sẽ lấy context của with, còn ngoài with thì là lấy Root làm context
 
 #### range
