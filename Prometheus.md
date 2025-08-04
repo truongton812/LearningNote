@@ -337,18 +337,18 @@ METRICS_PORT = 8001
 
 class HandleRequests(http.server.BaseHTTPRequestHandler):
 
-    @REQUEST_INPROGRESS.track_inprogress()
+    @REQUEST_INPROGRESS.track_inprogress() #do việc đếm số progress đang trong quá trình xử lý là phổ biến nên Class Gauge đưa ra 1 method là track_inprogress, method này tương đương với việc dùng 2 method inc() và des()
     def do_GET(self):
-       # REQUEST_INPROGRESS.inc()
+       # REQUEST_INPROGRESS.inc() #đặt hàm tăng ở đây để tăng lên 1 đơn vị khi bắt đầu xử lý code
         time.sleep(5)
         self.send_response(200)
         self.send_header("Content-type", "text/html")
         self.end_headers()
         self.wfile.write(bytes("<html><head><title>First Application</title></head><body style='color: #333; margin-top: 30px;'><center><h2>Welcome to our first Prometheus-Python application.</center></h2></body></html>", "utf-8"))
         self.wfile.close()
-        REQUEST_LAST_SERVED.set_to_current_time()
-       # REQUEST_LAST_SERVED.set(time.time())
-       #REQUEST_INPROGRESS.dec()
+        REQUEST_LAST_SERVED.set_to_current_time() #do việc set thời gian là phổ biến nên Class Gauge đưa ra 1 method là set_to_current_time, method này tương đương với việc dùng method set(time.time())
+       # REQUEST_LAST_SERVED.set(time.time()) #hàm set dùng để set value cho metric REQUEST_LAST_SERVED
+       #REQUEST_INPROGRESS.dec() #đặt hàm giảm ở đây để giảm đi 1 đơn vị khi xử lý xong code
 
 if __name__ == "__main__":
     start_http_server(METRICS_PORT)
