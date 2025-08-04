@@ -284,13 +284,13 @@ Thư viện này hỗ trợ rất tốt cho việc giám sát hiệu năng, tìn
 
 ---
 
-Code app python để expose metric
-```
+Code app python để expose counter metric
+```python
 import http.server
 import random
 from prometheus_client import start_http_server, Counter #start_http_server class dùng để khởi tạo http server để expose metric. Counter class dùng để tạo metric type là counter 
 
-REQUEST_COUNT = Counter('app_requests_count', 'total app http request count',['app_name', 'endpoint']) #ý nghĩa các parameter: tên metric, help string, 
+REQUEST_COUNT = Counter('app_requests_count', 'total app http request count',['app_name', 'endpoint']) #ý nghĩa các parameter: tên metric, help string, list các label
 RANDOM_COUNT = Counter('app_random_count','increment counter by random value')
 
 APP_PORT = 8000
@@ -299,11 +299,12 @@ METRICS_PORT = 8001
 class HandleRequests(http.server.BaseHTTPRequestHandler):
 
     def do_GET(self):
-        REQUEST_COUNT.labels('prom_python_app', self.path).inc() #đặt counter metric ở trong function để đếm xem code block do_GET(self) này được requested bao nhiêu lần. Số lần code block này được gọi sẽ tương ứng với số lần main url của ứng dụng này được gọi, do mỗi khi main url được gọi thì code block này sẽ được thực thi
+        REQUEST_COUNT.labels('prom_python_app', self.path).inc() #đặt counter metric ở trong function để đếm xem code block do_GET(self) này được requested bao nhiêu lần. Số lần code block này được gọi sẽ tương ứng với số lần main url của ứng dụng này được gọi, do mỗi khi main url được gọi thì code block này sẽ được thực thi.
+        #Các param trong label là value của label, tương ứng với các key app_name và endpoint khai báo ở trên. Self.path sẽ trả về metric cho từng code path, nếu không khai báo label self.path thì chỉ có 1 time series đếm tổng số request vào website, bất kể code path là gì
         #Trong thực tế ta có thể đặt counter ở bất kỳ code path nào ta muốn track
 	#REQUEST_COUNT ở đây là object, và class counter chỉ có 1 method là inc()
         random_val = random.random()*10
-        RANDOM_COUNT.inc(random_val)
+        RANDOM_COUNT.inc(random_val) # bước nhảy có thể là số dương bất kỳ, không nhất thiết phải bằng 1
         
         self.send_response(200)
         self.send_header("Content-type", "text/html")
@@ -316,5 +317,41 @@ if __name__ == "__main__":
     server = http.server.HTTPServer(('localhost', APP_PORT), HandleRequests)
     server.serve_forever()
 ```
-
 Counter metric thường dùng để đếm số lượng http request, số lượng visitor vào website, số lượng code block được thực thi
+
+---
+
+Code app python để expose gauge metric
+
+```python
+import http.server
+import random
+import time
+from prometheus_client import start_http_server, Gauge
+
+REQUEST_INPROGRESS = Gauge('app_requests_inprogress','number of application requests in progress')
+REQUEST_LAST_SERVED = Gauge('app_last_served', 'Time the application was last served.')
+
+APP_PORT = 8000
+METRICS_PORT = 8001
+
+class HandleRequests(http.server.BaseHTTPRequestHandler):
+
+    @REQUEST_INPROGRESS.track_inprogress()
+    def do_GET(self):
+       # REQUEST_INPROGRESS.inc()
+        time.sleep(5)
+        self.send_response(200)
+        self.send_header("Content-type", "text/html")
+        self.end_headers()
+        self.wfile.write(bytes("<html><head><title>First Application</title></head><body style='color: #333; margin-top: 30px;'><center><h2>Welcome to our first Prometheus-Python application.</center></h2></body></html>", "utf-8"))
+        self.wfile.close()
+        REQUEST_LAST_SERVED.set_to_current_time()
+       # REQUEST_LAST_SERVED.set(time.time())
+       #REQUEST_INPROGRESS.dec()
+
+if __name__ == "__main__":
+    start_http_server(METRICS_PORT)
+    server = http.server.HTTPServer(('localhost', APP_PORT), HandleRequests)
+    server.serve_forever()
+```
