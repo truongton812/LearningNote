@@ -2,6 +2,7 @@
 
 Restore data using mysql command
 mysql -h "$DB_HOST" -u "$DB_USER" -p"$DB_PASS" "$DB_NAME" < "$BACKUP_FILE"
+Nếu đang trong db thì dùng lệnh source <path>;
 
 để kết nối đến db:
 Mysql -h 192.168.1.100 -P 3306 -u shoeshop -p
