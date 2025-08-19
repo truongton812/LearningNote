@@ -227,3 +227,6 @@ pattern = r","
 split_result = re.split(pattern, text)
 print("Split result:", split_result)
 
+
+
+https://docs.google.com/document/d/1gym7z1nqfo3rhLn0GC73IvbYnSgVdJtCZ85mnZN0i4A/edit?tab=t.0
