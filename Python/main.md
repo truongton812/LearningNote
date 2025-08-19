@@ -82,7 +82,7 @@ Set phù hợp cho list mà ta muốn các phần tử không trùng nhau (set s
 
 - Dictionary là collection không có thứ tự của key-value pairs. DIctionary là mutable (add,update, delete key-value pairs). Lưu ý là chỉ có thể thay value, không thể modify key
   - key: phải là unique và immutable (không thể thay đổi key). Key có thể type string, number hoặc tuple
-  - value: có thể là any data type (string, list, other dictionary)
+  - value: có thể là any data type (string, list, other dictionary). ** xem lại vd trong vở ansible **
  
 VD:
 employee = {
@@ -97,6 +97,22 @@ THêm key-value pair department: IT
 employee["department"] = [IT]
 Update 1 giá trị :
 employee["age"] = 31
+
+
+- Boolean: là true hoặc false
+VD: is_ranining = True -> đặt cho 1 biến là True (true ở đây là datatype chứ không phải string "true")
+print(is_raining) -> Output là True
+
+VD:
+is_server_up = true
+if is_server_up:
+  print("The server is running")
+
+VD:
+a = 10, b = 20
+is_equal = a == b
+print(is_equal) -> Output là false
+
 
 ---
 
