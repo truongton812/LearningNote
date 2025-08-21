@@ -58,6 +58,21 @@ Kết quả: `new_arn = ["arn:partition:service:region:account-id:resource-type"
 
 #### Data type
 String
+str1 = "Hello"
+str2 = "World"
+result = str1 + " " + str2
+print(result)
+
+
+text = "   Some spaces around   "
+stripped_text = text.strip() -> xóa khoảng trắng
+print("Stripped text:", stripped_text)
+
+text = "Python is awesome"
+substring = "is"
+if substring in text: #dùng if để check 1 string có trong 1 string khác không bằng "in"
+    print(substring, "found in the text")
+
 Float
 Integer
 
@@ -118,44 +133,10 @@ print(is_equal) -> Output là false
 
 
 
-Day-02/examples/01-string-concat.py
-str1 = "Hello"
-str2 = "World"
-result = str1 + " " + str2
-print(result)
 
-Day-02/examples/01-string-len.py
-text = "Python is awesome"
-length = len(text)
-print("Length of the string:", length)
 
-Day-02/examples/01-string-lowercase.py
-text = "Python is awesome"
-uppercase = text.upper()
-lowercase = text.lower()
-print("Uppercase:", uppercase)
-print("Lowercase:", lowercase)
 
-Day-02/examples/01-string-replace.py
-text = "Python is awesome"
-new_text = text.replace("awesome", "great")
-print("Modified text:", new_text)
 
-Day-02/examples/01-string-split.py
-text = "Python is awesome"
-words = text.split()
-print("Words:", words)
-
-Day-02/examples/01-string-strip.py
-text = "   Some spaces around   "
-stripped_text = text.strip()
-print("Stripped text:", stripped_text)
-
-Day-02/examples/01-string-substring.py
-text = "Python is awesome"
-substring = "is"
-if substring in text:
-    print(substring, "found in the text")
 	
 Day-02/examples/02-float.py
 # Float variables
