@@ -1,5 +1,10 @@
 # Nginx
 
+Xác định vị trí thư mục cấu hình và file cấu hình nginx: Ps aux | grep nginx -> tìm file binary của nginx
+Hoặc whereis nginx
+Sau đó lấy đường dẫn tìm được thêm option -V, file cấu hình nằm ở mục - - conf-path. Thường là file cấu hình là /etc/nginx/nginx.conf
+
+
 ### 1. Cấu trúc file cấu hình nginx.conf
 
 <img src="1.png">
