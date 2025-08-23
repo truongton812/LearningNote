@@ -1,0 +1,154 @@
+
+
+- Quản lý user: cài plugin LBAC  
+- Parameter: cho phép truyền các tham số người dùng vào thời điểm bắt đầu chạy pipeline  
+
+- Enviroment: các tham số sử dụng khi chạy pipeline
+```
+environment {
+    DOCKERHUB_CREDENTIAL=credentials{'dockerhub'}
+    NAME = 'JENKINS'
+]
+```
+---
+Envinronment supports a special helper method credentials()
+Supported Credentials Type: Secret Text, Secret File,Username and password, SSH with Private Key  
+```
+pipeline {
+    agent any
+    stages {
+        stage('Example Username/Password') {
+            environment {
+                SERVICE_CREDS = credentials('my-predefined-username-password')
+            }
+            steps {
+                sh (script: """echo Service user is $SERVICE_CREDS_USR """, label: "description")
+                sh 'echo "Service password is $SERVICE_CREDS_PSW"'
+                sh 'curl -u $SERVICE_CREDS https://myservice.example.com'
+            }
+        }
+        stage('Example SSH Username with private key') {
+            environment {
+                SSH_CREDS = credentials('my-predefined-ssh-creds')
+            }
+            steps {
+                sh 'echo "SSH private key is located at $SSH_CREDS"'
+                sh 'echo "SSH user is $SSH_CREDS_USR"'
+                sh 'echo "SSH passphrase is $SSH_CREDS_PSW"'
+            }
+        }
+    }
+}
+```
+
+- Variable scope: variable của stage chỉ dùng đc trong stage  
+- Conditional trong Jenkin: Cho phép ta điều khiển luồng chạy của pipeline  
+VD1: chỉ chạy stage deploy khi branch là develop
+```
+Stages {
+	stage(‘deploy’) {
+		When {
+			Branch ‘develop’
+		}
+		Steps { command }
+	}
+}
+```  
+VD2: chỉ chạy stage deploy khi thỏa mãn tất cả các điều kiện trong khối allOf (hoặc anyOf là chỉ cần thỏa mãn 1 trong các điều kiện)  
+```
+Stages {
+	stage(‘deploy’) {
+		When {
+			allOf {
+				Branch ‘develop’
+				Environment name: “ten_bien”, value: “gia_tri_bien”
+			}
+		}
+		Steps { command }
+	}
+}
+```
+- Stages và Parallel: Cho phép ta lựa chọn thứ tự xử lý các task.  
+    + Stages: xử lý tuần tự các task  
+    + Parallel: xử lý đồng thời các task  
+
+Các khối stages và parallel có thể nằm lồng trong nhau, tuy nhiên không thể tạo 1 khối parallel bên trong 1 khối stage mà khối stage đó đang nằm trong khối parallel khác  
+VD1: 
+```
+Stages {
+	stage(‘Read file’) {
+		stages {
+			stage(‘1’) {
+				Steps{command}
+			}
+			stage(‘2){
+				Steps{command}
+			}
+		}
+	}
+}
+```
+VD2:
+```
+Stages {
+	stage(‘Build in’) {
+		parallel {
+			stage(‘1’) {
+				Steps{command}
+			}
+			stage(‘2){
+				Steps{command}
+			}
+		}
+	}
+}
+```
+- Tạo giai đoạn cuối cho mỗi pipeline (post-build actions): Cho phép ta tạo ra 1 bước cuối cùng ở mỗi stage/pipeline/. Thông thường, để dọn dẹp hoặc để gửi mail/notification thông báo là pipeline đã chạy xong. Khối post này có thể nằm trong khối stages, stage, pipeline,...
+
+VD: Luôn hiển thị dòng finish kể cả có lỗi hay không
+```
+post {
+	Always {
+		Echo “finish”
+	}
+}
+```
+Ngoài always còn có changed, fixed, regression, aborted, failure, success, unstable, unsuccessful, and cleanup.  
+
+`changed`  
+Only run the steps in post if the current Pipeline’s run has a different completion status from its previous run.  
+`fixed`  
+Only run the steps in post if the current Pipeline’s run is successful and the previous run failed or was unstable.  
+`regression`  
+Only run the steps in post if the current Pipeline’s or status is failure, unstable, or aborted and the previous run was successful.  
+`aborted`  
+Only run the steps in post if the current Pipeline’s run has an "aborted" status, usually due to the Pipeline being manually aborted. This is typically denoted by gray in the web UI.  
+`failure`  
+Only run the steps in post if the current Pipeline’s or stage’s run has a "failed" status, typically denoted by red in the web UI.  
+`success`  
+Only run the steps in post if the current Pipeline’s or stage’s run has a "success" status, typically denoted by blue or green in the web UI.  
+`unstable`  
+Only run the steps in post if the current Pipeline’s run has an "unstable" status, usually caused by test failures, code violations, etc. This is typically denoted by yellow in the web UI.  
+`unsuccessful`  
+Only run the steps in post if the current Pipeline’s or stage’s run has not a "success" status. This is typically denoted in the web UI depending on the status previously mentioned (for stages this may fire if the build itself is unstable).  
+`cleanup`  
+Run the steps in this post condition after every other post condition has been evaluated, regardless of the Pipeline or stage’s status.  
+
+
+-Tạo timeout cho pipeline: Cho phép ta giới hạn thời gian mà 1 pipeline được phép build. Điều này ngăn tình trạng vì 1 lý do nào đó mà 1 pipeline chạy vô thời hạn, Dẫn đến tốn tài nguyên.
+Dashboard -> any branch -> pipeline syntax -> Declarative Directive Generator -> Sample directive: option -> timeout -> generate ra dòng lệnh
+VD:
+Option {
+	Timeout(time: 1, unit: ‘second’)
+}
+
+
+
+-Checkout SCM
+script:
+git credentialsId: '<gitlab-credential>', url: ‘<url>' -> checkout nhánh master
+git branch: 'dev', credentialsId: '<gitlab-credential>', url: '<url>' -> checkout các nhánh khác
+
+Lưu ý: script này tương tự option Pipeline script from SCM trong config pipeline, do đó chỉ cần dùng 1 trong 2
+
+[Image](https://drive.google.com/file/d/1-bAmYA8Ccr-fFBqGdNTCUfWWy1p_jPfB/view?usp=sharing)
