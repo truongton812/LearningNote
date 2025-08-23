@@ -49,6 +49,21 @@ http {
             index index.html index.htm;
         }
     }
+    server {
+        listen 80;
+        server_name jenkins.elroydevops.tech;
+        location / {
+            proxy_pass http://jenkins.elroydevops.tech:8080; #forward từ jenkins.elroydevops.tech:80 sang jenkins.elroydevops.tech:8080
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection keep-alive;
+            proxy_set_header Host $host;
+            proxy_cache_bypass $http_upgrade;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+}
+
 }
 ```
 Triển khai server block thông qua chỉ thị include
