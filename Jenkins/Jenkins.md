@@ -37,7 +37,7 @@ pipeline {
                 SERVICE_CREDS = credentials('my-predefined-username-password')
             }
             steps {
-                sh 'echo "Service user is $SERVICE_CREDS_USR"'
+                sh (script: """echo Service user is $SERVICE_CREDS_USR """, label: "description")
                 sh 'echo "Service password is $SERVICE_CREDS_PSW"'
                 sh 'curl -u $SERVICE_CREDS https://myservice.example.com'
             }
