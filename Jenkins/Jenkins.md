@@ -5,6 +5,27 @@ jenkins pipeline configuration > SCM > Branches to build: chỉ định nhánh c
 VD: gitlab webhook cấu hình là push event lên nhánh develop, jenkins pipeline để Branches to build là nhánh main
 -> Khi push code lên nhánh develope, jenkins sẽ kéo code ở nhánh main về để run pipeline
 
+ChatGPT:
+GitLab webhook có thể cấu hình để chỉ trigger khi có sự kiện (event) xảy ra trên một nhánh cụ thể (ví dụ, chỉ push trên nhánh develop) là đúng.
+
+Khi có thay đổi trên nhánh được chọn trong webhook GitLab, GitLab sẽ gửi webhook đó đến Jenkins hoặc hệ thống khác.
+
+Trong Jenkins pipeline configuration > SCM > Branches to build, bạn chỉ định nhánh mà Jenkins sẽ quét và chạy pipeline.
+
+Nếu trong Jenkins chỉ định một nhánh cụ thể (ví dụ nhánh main), thì Jenkins sẽ luôn lấy code từ nhánh đó để chạy pipeline mỗi khi nhận webhook, bất kể webhook đó gửi từ nhánh nào.
+
+Do đó, trường hợp:
+
+GitLab webhook cấu hình push event chỉ từ nhánh develop,
+
+Jenkins pipeline cấu hình Branches to build là nhánh main,
+
+Khi push code lên nhánh develop, GitLab gửi webhook, Jenkins nhận webhook nhưng sẽ lấy code từ nhánh main để chạy pipeline.
+
+Điều này có nghĩa là dù webhook đến từ nhánh develop, Jenkins sẽ không chạy code trên develop mà lấy code trên main để chạy.
+
+---
+
 
 - Chạy jenkins bằng docker
 
