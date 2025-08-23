@@ -1,6 +1,6 @@
 # Nginx
 
-### Cấu trúc file cấu hình nginx.conf
+### 1. Cấu trúc file cấu hình nginx.conf
 
 <img src="1.png">
 
@@ -82,7 +82,7 @@ server {
 }
 ```
 
-### Nginx đóng vai trò là reverse proxy
+### 2. Nginx đóng vai trò là reverse proxy
 
 Khi Nginx là reverse proxy có thể dùng 1 trong 2 block
 - http: nếu cần cân bằng tải cho web/app (HTTP/HTTPS)
@@ -91,7 +91,7 @@ Khi Nginx là reverse proxy có thể dùng 1 trong 2 block
 Khác biệt giữa 2 chế độ là http có thể chỉnh sửa header, URL, cookie, cache, SSL, còn stream không can thiệp nội dung gói tin
 
 ##### Example stream block:
-```
+```json
 user nginx;
 worker_processes auto;
 
@@ -120,7 +120,7 @@ stream { #Đây là cấu hình cho Nginx ở chế độ stream, dùng để c�
 
 
 ##### Example http block:
-```
+```json
 http {
     upstream backend {
         server 192.168.1.101;
@@ -156,7 +156,6 @@ http {
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
             proxy_set_header X-Forwarded-Proto $scheme;
-```
             proxy_pass http://backend;
         }
     }
