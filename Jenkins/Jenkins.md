@@ -1,4 +1,11 @@
 ###
+
+gitlab webhook: có thể chọn event để trigger đến từ nhánh nào. Khi đó chỉ khi có sự thay đổi trên nhánh đấy thì gitlab mới gửi hook
+jenkins pipeline configuration > SCM > Branches to build: chỉ định nhánh cho Jenkins theo dõi. Nếu chỉ chỉ định 1 specific nhánh thì jenkins sẽ chỉ quét và run trên nhánh đó mỗi khi có webhook (không quan tâm gitlabci gửi webhook đến từ nhánh nào)
+VD: gitlab webhook cấu hình là push event lên nhánh develop, jenkins pipeline để Branches to build là nhánh main
+-> Khi push code lên nhánh develope, jenkins sẽ kéo code ở nhánh main về để run pipeline
+
+
 - Chạy jenkins bằng docker
 
 ```Docker run -d - -name jenkins -p 8080:8080 -p 50000:50000 -v /Users/tuna/desktop/jenkins:/var/jenkins_home jenkins/jenkins:lts```
