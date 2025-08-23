@@ -491,3 +491,6 @@ def getHash(){
 [Configure Build Tools in Jenkins and Jenkinsfile](https://www.youtube.com/watch?v=L9Ite-1pEU8&t=73s)
 
 [Custom Tools Plugin](https://plugins.jenkins.io/custom-tools-plugin/)
+
+
+https://docs.gitlab.com/integration/jenkins/
