@@ -1,6 +1,6 @@
 # Nginx
 
-Cấu trúc file cấu hình nginx.conf
+### Cấu trúc file cấu hình nginx.conf
 
 <img src="1.png">
 
@@ -16,6 +16,7 @@ Cấu trúc chuẩn:
 - Trên CentOS server block được đặt trong thư mục /etc/nginx/conf.d/, mỗi file tương ứng cho 1 site và được import vào Nginx thông qua chỉ thị include /etc/nginx/conf.d/*.conf trong nginx.conf.
 
 Ví dụ mẫu:
+
 Triển khai trực tiếp server block trong file /etc/nginx.conf
 ```
 user www-data;
@@ -77,6 +78,87 @@ server {
 
     location / {
         try_files $uri $uri/ =404;
+    }
+}
+```
+
+### Nginx đóng vai trò là reverse proxy
+
+Khi Nginx là reverse proxy có thể dùng 1 trong 2 block
+- http: nếu cần cân bằng tải cho web/app (HTTP/HTTPS)
+- stream: nếu cần cân bằng tải cho database, game server, API server (TCP/UDP)
+
+Khác biệt giữa 2 chế độ là http có thể chỉnh sửa header, URL, cookie, cache, SSL, còn stream không can thiệp nội dung gói tin
+
+##### Example stream block:
+```
+user nginx;
+worker_processes auto;
+
+events {
+    worker_connections 1024;
+}
+stream { #Đây là cấu hình cho Nginx ở chế độ stream, dùng để cân bằng tải các kết nối TCP (khác với HTTP/HTTPS thông thường).
+    upstream kubernetes { #Định nghĩa một nhóm các server backend mà Nginx sẽ phân phối kết nối đến.
+        server 10.5.88.220:6443 max_fails=3 fail_timeout=30s;
+        server 10.5.89.29:6443 max_fails=3 fail_timeout=30s;
+        server 10.5.90.187:6443 max_fails=3 fail_timeout=30s;
+    }
+    # Server proxy TCP cho kubernetes
+    server {
+        listen 6443; #Nginx sẽ lắng nghe (listen) các kết nối đến trên cả hai port 6443 và 443 (TCP).
+        listen 443;
+        proxy_pass kubernetes; #Khi có kết nối đến, Nginx sẽ chuyển tiếp (proxy) kết nối đó đến một trong các server được định nghĩa trong upstream kubernetes.
+    }
+    # Server proxy UDP cho ứng dụng khác (VD: game server, syslog...)
+    server {
+        listen 514 udp;
+        proxy_pass 192.168.1.150:514;
+    }
+}
+```
+
+
+##### Example http block:
+```
+http {
+    upstream backend {
+        server 192.168.1.101;
+        server 192.168.1.102;
+        server 192.168.1.103;
+    }
+
+    server {
+        listen 80;
+        server_name example.com www.example.com;
+
+        location / {
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_pass http://backend;
+        }
+    }
+
+    server {
+        listen 443 ssl;
+        server_name example.com www.example.com;
+
+        ssl_certificate     /etc/nginx/ssl/example.com.crt;
+        ssl_certificate_key /etc/nginx/ssl/example.com.key;
+
+        ssl_protocols       TLSv1 TLSv1.1 TLSv1.2;
+        ssl_ciphers         HIGH:!aNULL:!MD5;
+
+        location / {
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+```
+            proxy_pass http://backend;
+        }
     }
 }
 ```
