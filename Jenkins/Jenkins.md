@@ -1,8 +1,11 @@
 ###
 
 gitlab webhook: có thể chọn event để trigger đến từ nhánh nào. Khi đó chỉ khi có sự thay đổi trên nhánh đấy thì gitlab mới gửi hook
+
 jenkins pipeline configuration > SCM > Branches to build: chỉ định nhánh cho Jenkins theo dõi. Nếu chỉ chỉ định 1 specific nhánh thì jenkins sẽ chỉ quét và run trên nhánh đó mỗi khi có webhook (không quan tâm gitlabci gửi webhook đến từ nhánh nào)
+
 VD: gitlab webhook cấu hình là push event lên nhánh develop, jenkins pipeline để Branches to build là nhánh main
+
 -> Khi push code lên nhánh develope, jenkins sẽ kéo code ở nhánh main về để run pipeline
 
 ChatGPT:
@@ -23,6 +26,8 @@ Jenkins pipeline cấu hình Branches to build là nhánh main,
 Khi push code lên nhánh develop, GitLab gửi webhook, Jenkins nhận webhook nhưng sẽ lấy code từ nhánh main để chạy pipeline.
 
 Điều này có nghĩa là dù webhook đến từ nhánh develop, Jenkins sẽ không chạy code trên develop mà lấy code trên main để chạy.
+
+---
 
 Tuy nhiên:
 Nếu trong Jenkins pipeline configuration > SCM > Branches to build bạn chỉ định là "any" (hoặc thường dùng là ký tự wildcard như **), thì Jenkins sẽ không tự động lấy code từ tất cả các nhánh để build mỗi khi nhận webhook.
