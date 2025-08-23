@@ -24,7 +24,7 @@ Cấu trúc chuẩn:
 
 Ví dụ mẫu:
 
-Triển khai trực tiếp server block trong file /etc/nginx.conf
+##### a. Triển khai trực tiếp server block trong file /etc/nginx.conf
 ```yaml
 user www-data;
 worker_processes auto;
@@ -66,7 +66,7 @@ http {
 
 }
 ```
-Triển khai server block thông qua chỉ thị include
+##### b. Triển khai server block thông qua chỉ thị include
 
 File nginx.conf (đường dẫn: /etc/nginx/nginx.conf)
 
