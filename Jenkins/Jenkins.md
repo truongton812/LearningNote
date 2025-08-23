@@ -24,6 +24,21 @@ Khi push code lên nhánh develop, GitLab gửi webhook, Jenkins nhận webhook 
 
 Điều này có nghĩa là dù webhook đến từ nhánh develop, Jenkins sẽ không chạy code trên develop mà lấy code trên main để chạy.
 
+Tuy nhiên:
+Nếu trong Jenkins pipeline configuration > SCM > Branches to build bạn chỉ định là "any" (hoặc thường dùng là ký tự wildcard như **), thì Jenkins sẽ không tự động lấy code từ tất cả các nhánh để build mỗi khi nhận webhook.
+
+Thay vào đó, hành vi sẽ như sau:
+
+Jenkins sẽ phù hợp (match) với nhánh được gửi đến trong webhook hoặc nhánh được kích hoạt pipeline thay vì cố gắng build tất cả các nhánh cùng lúc.
+
+Nếu webhook từ GitLab gửi kèm tên nhánh cụ thể (ví dụ nhánh develop), Jenkins sẽ nhận biết và build trên nhánh đó.
+
+Jenkins sẽ chỉ build nhánh mà webhook hoặc trigger chỉ định, không phải tất cả các nhánh cùng lúc.
+
+Việc dùng "any" hoặc wildcard là để Jenkins linh hoạt theo nhánh được trigger mà không cần cấu hình cố định một nhánh cụ thể.
+
+Tóm lại: Với cấu hình "any" hoặc wildcard branch, Jenkins sẽ build chính xác nhánh được trigger trong webhook hoặc trigger event, không phải lấy về và build tất cả các nhánh cùng lúc. Đây là cách làm phổ biến để Jenkins pipeline có thể xử lý nhiều nhánh động trong một cấu hình duy nhất.
+
 ---
 
 
