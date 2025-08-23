@@ -1,0 +1,15 @@
+- Chạy jenkins bằng docker
+
+```Docker run -d - -name jenkins -p 8080:8080 -p 50000:50000 -v /Users/tuna/desktop/jenkins:/var/jenkins_home jenkins/jenkins:lts```
+
+- Cài đặt ngrok
+  
+```
+yum install -y wget unzip
+wget https://bin.equinox.io/c/4VmDzA7iaHb/ngrok-stable-linux-amd64.zip
+unzip ngrok-stable-linux-amd64.zip
+```
+
+- Cài docker bằng scrip:
+  
+```curl https://releases.rancher.com/install-docker/20.10.sh | sh```
