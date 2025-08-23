@@ -91,7 +91,7 @@ Khi Nginx là reverse proxy có thể dùng 1 trong 2 block
 Khác biệt giữa 2 chế độ là http có thể chỉnh sửa header, URL, cookie, cache, SSL, còn stream không can thiệp nội dung gói tin
 
 ##### Example stream block:
-```json
+```JSON
 user nginx;
 worker_processes auto;
 
@@ -120,7 +120,7 @@ stream { #Đây là cấu hình cho Nginx ở chế độ stream, dùng để c�
 
 
 ##### Example http block:
-```json
+```JSON
 http {
     upstream backend {
         server 192.168.1.101;
