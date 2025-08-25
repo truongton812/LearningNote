@@ -46,3 +46,6 @@ Developer push/merge vào dev → trigger pipeline để build-test-deploy lên 
 Khi có sự kiện merge vào main (hoặc đánh tag) → trigger pipeline để build-test (có thể deploy lên dev env) → yêu cầu manual approval → deploy lên production.
 
 ![image info](1.png)
+
+Để xử lý luồng trên có thể tạo Pipeline đa nhánh (multibranch pipeline) hoặc pipeline có điều kiện (conditional stages) 
+
