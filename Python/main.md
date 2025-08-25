@@ -117,7 +117,7 @@ Update 1 giá trị :
 employee["age"] = 31
 
 
-- Boolean: là true hoặc false
+- Boolean: là True hoặc False (lưu ý phải là chữ in)
 VD: is_ranining = true -> đặt cho 1 biến là True (true ở đây là datatype chứ không phải string "true")
 print(is_raining) -> Output là True
 
@@ -131,8 +131,17 @@ a = 10, b = 20
 is_equal = a == b
 print(is_equal) -> Output là false
 
+Use case: tìm log lỗi trong file
 
----
+import re
+pattern = "(WARNING|ERROR)" #tìm pattern có chứa WARNING hoặc ERROR
+file_path = "/var/log/messages"
+with open(file_path, "r") as file: #đọc file bằng with open()
+  for line in file:
+    if re.search(pattern, line):
+	  print(line.strip()) #print matching lines without extra spaces
+
+--
 
 ### Regular expression (regex)
 Dùng để match pattern và string
@@ -219,7 +228,18 @@ Common special  characters:
 
 
 	
+### keywords
 
+keyword là những word được định nghĩa sẵn trong python. 
+
+if / elif / else: Used for conditional statements.
+for / while: Used for looping. for thường dùng để lặp qua các phần tử trong danh sách, tuple, v.v. while lặp lại cho đến khi một điều kiện trở nên sai.
+break / continue: Used to control loop execution. break dùng để dừng vòng lặp ngay lập tức. continue bỏ qua phần còn lại trong lần lặp hiện tại và chuyển sang lần lặp tiếp theo.
+pass: A placeholder statement that does nothing. pass: Là lệnh không làm gì cả, thường dùng như một placeholder khi chưa muốn viết mã vào đó.
+return: Exits a function and returns a value. Kết thúc một hàm và trả về một giá trị cho nơi gọi hàm.
+yield: Returns a value in a generator function and pauses its state. Dùng trong hàm generator để trả về giá trị tạm thời, hàm có thể tạm dừng và tiếp tục lại tại vị trí đó trong lần gọi sau.
+try / except / finally: Used for exception handling. Dùng để bắt và xử lý lỗi, ngăn chương trình dừng đột ngột. finally luôn được thực hiện dù có lỗi hay không.
+raise: Used to raise an exception. Dùng để chủ động phát sinh một lỗi (exception) trong chương trình.
 
 
 
