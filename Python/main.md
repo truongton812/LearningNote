@@ -140,7 +140,8 @@ Dùng để match pattern và string
 
 Để sử dụng regular expression cần import "re" module
 
-Các basic re function
+Các basic re function:
+
 - re.match(): xác định regex match ở đầu string (determines if the regex matches at the beginning of the string)
 
 Dùng re.match() để tìm match ở đầu trong 1 string
@@ -166,8 +167,41 @@ else:
     print("Pattern not found")
 
 - re.findall(): returns a list of all matches in the string
-- re.sub(): replaces mathces with a new string
 
+import re
+text = "hi hello hi hello hi"
+pattern = r"hi"
+result = re.findall(pattern, text) -> kết quả sẽ in ra ['hi', 'hi', 'hi'] (trông hơi vô dụng?)
+
+
+
+- re.sub(): replaces matches with a new string
+VD1:
+import re
+text = "The quick brown fox jumps over the lazy brown dog"
+pattern = r"brown"
+replacement = "red"
+new_text = re.sub(pattern, replacement, text)
+print("Modified text:", new_text)
+
+VD2: thay thế nhiều khoảng trắng thành 1 khoảng trắng
+text = "Python     is      great"
+pattern = "\s+" #one or more spaces
+new_string = re.sub(pattern, " ", text)
+
+- re.split(): dùng để chia text bằng các delimeter
+
+import re
+text = "apple,banana,orange,grape"
+pattern = r","
+split_result = re.split(pattern, text)
+print("Split result:", split_result) -> output là ['apple','banana','orange','grape']
+
+
+
+Lưu ý: trong các hàm trên, thay vì đặt thành biến, có thể đưa thẳng vào trong hàm
+VD: new = re.sub("brown", "red", "The quick brown fox jumps over the lazy brown dog")
+Lưu ý 2: pattern chỉ cần đặt là pattern="abc", không hiểu sao trong bài giảng cần r ở trước
 
 Common special  characters:
 - . : any character (except newline)
@@ -185,22 +219,13 @@ Common special  characters:
 
 
 	
-Day-02/examples/03-regex-replace.py
-import re
-text = "The quick brown fox jumps over the lazy brown dog"
-pattern = r"brown"
-replacement = "red"
-new_text = re.sub(pattern, replacement, text)
-print("Modified text:", new_text)
+
+
 
 
 	
-Day-02/examples/03-regex-split.py
-import re
-text = "apple,banana,orange,grape"
-pattern = r","
-split_result = re.split(pattern, text)
-print("Split result:", split_result)
+
+
 
 
 
