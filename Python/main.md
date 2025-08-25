@@ -33,6 +33,9 @@ Division of num1 & num2
 result4 = num1 / num2
 print ("Division:", result4)
 
+round(3.14159265359, 2)  -> làm tròn 2 chữ số
+result2 = num1 % num2 -> lấy phần dư
+result3 = abs(-7) -> lấy giá trị tuyệt đối
 
 ---
 Common function
@@ -115,7 +118,7 @@ employee["age"] = 31
 
 
 - Boolean: là true hoặc false
-VD: is_ranining = True -> đặt cho 1 biến là True (true ở đây là datatype chứ không phải string "true")
+VD: is_ranining = true -> đặt cho 1 biến là True (true ở đây là datatype chứ không phải string "true")
 print(is_raining) -> Output là True
 
 VD:
@@ -131,73 +134,56 @@ print(is_equal) -> Output là false
 
 ---
 
+### Regular expression (regex)
+Dùng để match pattern và string
+Ứng dụng: search error log trong log file,...
 
+Để sử dụng regular expression cần import "re" module
 
+Các basic re function
+- re.match(): xác định regex match ở đầu string (determines if the regex matches at the beginning of the string)
 
-
-
-
-	
-Day-02/examples/02-float.py
-# Float variables
-num1 = 5.0
-num2 = 2.5
-
-# Basic Arithmetic
-result1 = num1 + num2
-print("Addition:", result1)
-
-result2 = num1 - num2
-print("Subtraction:", result2)
-
-result3 = num1 * num2
-print("Multiplication:", result3)
-
-result4 = num1 / num2
-print("Division:", result4)
-
-# Rounding
-result5 = round(3.14159265359, 2)  # Rounds to 2 decimal places
-print("Rounded:", result5)
-
-Day-02/examples/02-int.py
-# Integer variables
-num1 = 10
-num2 = 5
-
-# Integer Division
-result1 = num1 // num2
-print("Integer Division:", result1)
-
-# Modulus (Remainder)
-result2 = num1 % num2
-print("Modulus (Remainder):", result2)
-
-# Absolute Value
-result3 = abs(-7)
-print("Absolute Value:", result3)
-
-Day-02/examples/03-regex-findall.py
+Dùng re.match() để tìm match ở đầu trong 1 string
 import re
+text = "The quick brown fox"
+pattern = r"quick"
+match = re.match(pattern, text) -> match sẽ trả về heo định dạng <re.Match object; span=(0,x), match='pattern'> nếu tìm thấy, không tìm thấy sẽ trả về None. Trường hợp này sẽ trả về None do quick không nằm ở đầu
+if match: #tuy match trả về theo định dạng <re.Match.....> nhưng có thể dùng match để check trong if -> match có thể là true/false (cần check lại với chatgpt)
+    print("Match found:", match.group()) -> match.group() để lấy ra giá trị match
+else:
+    print("No match")
 
+ 
+- re.search(): tìm string và trả về matched string đầu tiên (searches the string for a match and returns the first occurrence)
+
+import re
 text = "The quick brown fox"
 pattern = r"brown"
-
-search = re.search(pattern, text)
+search = re.search(pattern, text) -> search sẽ trả về heo định dạng <re.Match object; span=(x,y), match='pattern'>
 if search:
     print("Pattern found:", search.group())
 else:
     print("Pattern not found")
-	
-Day-02/examples/03-regex-match.py
-import re
-text = "The quick brown fox"
-pattern = r"quick"
-match = re.match(pattern, text)
-if match:
-    print("Match found:", match.group())
-else:
-    print("No match")
+
+- re.findall(): returns a list of all matches in the string
+- re.sub(): replaces mathces with a new string
+
+
+Common special  characters:
+- . : any character (except newline)
+- ^ : start of string
+- $ : end of string
+- * : 0 or more occurrences
+- + : 1 or more occurrences
+- [] : character set
+- | : or
+- \ : escapre special characters
+- \d : digit
+- \w : word character
+- \s : white space
+
+
+
 	
 Day-02/examples/03-regex-replace.py
 import re
@@ -207,15 +193,7 @@ replacement = "red"
 new_text = re.sub(pattern, replacement, text)
 print("Modified text:", new_text)
 
-Day-02/examples/03-regex-search.py
-import re
-text = "The quick brown fox"
-pattern = r"brown"
-search = re.search(pattern, text)
-if search:
-    print("Pattern found:", search.group())
-else:
-    print("Pattern not found")
+
 	
 Day-02/examples/03-regex-split.py
 import re
@@ -226,4 +204,5 @@ print("Split result:", split_result)
 
 
 
+File note của Tuấn ở google doc
 https://docs.google.com/document/d/1gym7z1nqfo3rhLn0GC73IvbYnSgVdJtCZ85mnZN0i4A/edit?tab=t.0
