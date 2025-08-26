@@ -451,6 +451,7 @@ VD:
 
 def add(a, b):
     return a + b
+	print ("hello") #do return exit function nên dòng này sẽ không được thực thi
 
 result = add(5, 5)
 print(result) #output: 8
@@ -465,7 +466,7 @@ def get_details():
     return name, age
     
 details = get_details()
-print(details)
+print(details) #kết quả trả về là tuple
 ```
 
 - return theo điều kiện
