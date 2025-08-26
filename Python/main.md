@@ -379,7 +379,8 @@ if x is None:
 	
 ### Working with variables
 
-
+Trong python, để gọi variable đơn giản chỉ cần gọi đến tên variable
+Nếu muốn gọi variable trong dấu double quote thì dùng dấu ``{}``
 In Python, variables are used to store data that can be used and manipulated throughout a program. Unlike other programming languages, Python doesn't require you to explicitly declare the variable type, as it is dynamically typed.
 
 In python, local and global variables refer to the scope in which a variable is defined and can be accessed
@@ -439,6 +440,8 @@ Return statement được dùng để exit a function and send back a value to t
 
 When a function is called, the code inside the function is executed, and when the return statement is encountered, the function stops executing and returns the specified value to the caller. If no value is specified, the function returns None by default.
 
+Lưu ý: khi return cái gì mà muốn hiển thị ra thì phải print ra, chứ bình thường return không hiển thị ra output
+
 Syntax:
 ```
 def function_name(parameters):
@@ -475,12 +478,44 @@ print(details) #kết quả trả về là tuple
 def check_even(number):
     if number % 2 == 0:
         return "Even"
-    return "Odd"
+    return "Odd" #đỡ được một bước else
 
 result = check_even(8)
 print(result)
 
 ```
+
+
+### Function
+
+In Python, a function is a reusable block of code that performs a specific task.
+
+Functions help to organize and manage code by encapsulating tasks into manageable sections.
+
+Functions can take inputs (parameters), perform operations, and return outputs.
+
+Có thể gọi function trong function
+
+SYntax:
+def function_name(parameter):
+  #code
+  return
+Trong đó parameter và return là optional
+Cách gọi function: function_name()
+
+VD:
+```
+#Function with Parameters
+def greet(name, age):
+    print(f"Hello, {name} ! you are {age} years old.")
+
+# calling the function with arguments
+
+greet("Shikhar", 35)
+```
+
+Lưu ý Chữ "f" trong đoạn code Python trên là phần khai báo một chuỗi định dạng (gọi là f-string hay formatted string literal). Khi một chuỗi được đặt trước bởi chữ "f" (hay "F"), các biểu thức bên trong dấu ngoặc nhọn {} sẽ được tính toán và giá trị của chúng sẽ được chèn trực tiếp vào chuỗi kết quả khi chạy chương trình.
+
 
 
 File note của Tuấn ở google doc
