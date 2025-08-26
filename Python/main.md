@@ -91,7 +91,7 @@ VD define 1 tuple: my_tuple = (1, 2, 3, 4, 5, 6, 7)
 db_config=("localhost",5432,"admin","password")
 my_tuple[1] = 10 -> sẽ báo lỗi
 
-- Set: là collection không có thứ tự, item trong set là unique (nếu ta define 1 item nhiều lần thì chỉ có 1 item được in ra). Set là mutable (có thể thêm, xóa item nhưng không change được item). Set được define bằng {}
+- Set: là collection không có thứ tự, item trong set là unique (nếu ta define 1 item nhiều lần thì set sẽ tự remove các duplicate item đấy đi). Set là mutable (có thể thêm, xóa item nhưng không change được item). Set được define bằng {}
 VD define 1 set: my_sets = {1, 2, 3, 4, 5, 6, 1}
 print("My Sets:", my_sets) -> kết quả là my_sets = {1,2,3,4,5,6}
 Thêm 1 item vào set : my_sets.add(9)
@@ -132,15 +132,9 @@ a = 10, b = 20
 is_equal = a == b
 print(is_equal) -> Output là false
 
-Use case: tìm log lỗi trong file
+- None Variable
+None is a special constant in Python that represents the absence of a value or a null value.
 
-import re
-pattern = "(WARNING|ERROR)" #tìm pattern có chứa WARNING hoặc ERROR
-file_path = "/var/log/messages"
-with open(file_path, "r") as file: #đọc file bằng with open()
-  for line in file:
-    if re.search(pattern, line):
-	  print(line.strip()) #print matching lines without extra spaces
 
 --
 
@@ -166,7 +160,7 @@ else:
 
  
 - re.search(): tìm string và trả về matched string đầu tiên (searches the string for a match and returns the first occurrence)
-
+```
 import re
 text = "The quick brown fox"
 pattern = r"brown"
@@ -175,6 +169,19 @@ if search:
     print("Pattern found:", search.group())
 else:
     print("Pattern not found")
+```
+
+```
+Use case: tìm log lỗi trong file
+
+import re
+pattern = "(WARNING|ERROR)" #tìm pattern có chứa WARNING hoặc ERROR
+file_path = "/var/log/messages"
+with open(file_path, "r") as file: #đọc file bằng with open()
+  for line in file:
+    if re.search(pattern, line):
+	  print(line.strip()) #print matching lines without extra spaces
+```
 
 - re.findall(): returns a list of all matches in the string
 
@@ -370,9 +377,109 @@ if x is None:
 ```
 
 	
+### Working with variables
+
+
+In Python, variables are used to store data that can be used and manipulated throughout a program. Unlike other programming languages, Python doesn't require you to explicitly declare the variable type, as it is dynamically typed.
+
+In python, local and global variables refer to the scope in which a variable is defined and can be accessed
+
+- Local variables are those defined inside the function and are only accessible within the function
+
+```
+def addition():
+    num1 = 40
+    num2 = 30
+    print ( num1 + num2)
+
+addition()
+
+def subs():
+    num1 = 50
+    num2 = 25
+    print ( num1 - num2)
+
+subs()
+
+#2 function sử dụng cùng 2 var name num1 và num2 nhưng giá trị khác nhau, do chỉ có ý nghĩa local
+```
+
+- Global variables are those defined outside any function and are accessible throughtout the code, including inside function
+```
+num1 = 100
+num2 = 30
+
+def addition():
+    num1 = 50
+    num2 = 20
+    print ( num1 + num2)
+
+addition()
+
+def subs():
+    print ( num1 - num2) #không cần define variable trong function vẫn có thể dùng được từ global
+
+subs()
+```
+
+Lưu ý local variable sẽ ghi đè global variable trong function
+
+Note: function là block of code, chỉ được thực thi khi ta gọi đến
+VD:
+
+def my_function(): #define function 
+    print("Hello from a function")
+my_function() #gọi function
 
 
 
+ 
+### Return statement 
+Return statement được dùng để exit a function and send back a value to the caller
+
+When a function is called, the code inside the function is executed, and when the return statement is encountered, the function stops executing and returns the specified value to the caller. If no value is specified, the function returns None by default.
+
+Syntax:
+```
+def function_name(parameters):
+#Code
+return value
+```
+
+VD:
+
+
+def add(a, b):
+    return a + b
+
+result = add(5, 5)
+print(result) #output: 8
+
+
+
+- Returning Multiple Values
+```
+def get_details():
+    name = "Jai"
+    age = 30
+    return name, age
+    
+details = get_details()
+print(details)
+```
+
+- return theo điều kiện
+
+```
+def check_even(number):
+    if number % 2 == 0:
+        return "Even"
+    return "Odd"
+
+result = check_even(8)
+print(result)
+
+```
 
 
 File note của Tuấn ở google doc
