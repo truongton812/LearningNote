@@ -517,6 +517,57 @@ greet("Shikhar", 35)
 Lưu ý Chữ "f" trong đoạn code Python trên là phần khai báo một chuỗi định dạng (gọi là f-string hay formatted string literal). Khi một chuỗi được đặt trước bởi chữ "f" (hay "F"), các biểu thức bên trong dấu ngoặc nhọn {} sẽ được tính toán và giá trị của chúng sẽ được chèn trực tiếp vào chuỗi kết quả khi chạy chương trình.
 
 
+### Module
+Module trong python là để tái sử dụng code giữa các app.py
+Các builtin module math, random, datetime, os, sys, json, re, time (tra chatgpt để biết công dụng từng module)
+Ngoài ra còn có thể tạo custom module
+
+Muốn dùng module thì phải import trước
+
+Cách gọi function trong module: <module_name>.<function_name>
+
+VD builtin module
+
+```
+# Get the current working directory
+current_directory = os.getcwd()
+print(f"Current working directory: {current_directory}")
+
+# list the files and directories
+files = os.listdir(".")
+print(f"Files in the current directory: {files}")
+```
+
+
+VD custom module
+
+```
+# mymodule.py
+
+def greet(name):
+    return f"Hello, {name}"
+
+def add(a, b):
+    return a + b
+
+my_variable = 45
+
+```
+
+```
+# Import the user-defined module
+import mymodule
+
+# Use the functions and variables from the module (mymodule)
+name = "Alice"
+greeting = mymodule.greet(name)
+print(greeting)
+
+#using the add function
+result = mymodule.add(10, 10)
+print(f"10 + 10 = {result}")
+```
+
 
 File note của Tuấn ở google doc
 https://docs.google.com/document/d/1gym7z1nqfo3rhLn0GC73IvbYnSgVdJtCZ85mnZN0i4A/edit?tab=t.0
