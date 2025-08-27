@@ -577,6 +577,86 @@ https://docs.google.com/document/d/1gym7z1nqfo3rhLn0GC73IvbYnSgVdJtCZ85mnZN0i4A/
 
 Package là cách để organize các related module thành 1 thư mục có cấu trúc
 
-Package giúp quản lý large codebases. Packages cho phép group các modules có chung tính năng theo logical
+Package giúp quản lý large codebases. Packages cho phép group các modules có chung tính năng theo logical. Mỗi package là 1 namespace riêng, giúp không bị conflict identifier in different module (còn thiếu 1 vài benifit, hỏi thêm chatgpt)
+
+Package: Package về cơ bản là một thư mục chứa nhiều module và một file đặc biệt tên là init.py. File init.py giúp nhận diện thư mục đó là một package Python. Trong package có thể có subpackage
+
+Ví dụ cấu trúc package:
+```
+my_package/
+│
+├── __init__.py         # Biến thư mục này thành package
+├── module1.py          # Một module Python (file)
+├── module2.py          # Một module Python khác
+│
+└── sub_package/
+    │
+    ├── __init__.py     # Biến thư mục này thành subpackage
+    └── submodule1.py   # Module trong subpackage
+
+```
 
 
+Ví dụ cách tạo và sử dụng package trong code
+
+Cấu trúc thư mục ví dụ
+```
+package_folder/
+├── main.py
+└── my_package/
+    ├── __init__.py    
+    └── math_operations.py
+    └── string_operations.py
+```
+Trong đó
+
+```
+math_operations.py
+
+def add(a, b):
+    return a + b
+
+def subtract(a, b):
+    return a - b
+```
+
+```
+string_operations.py
+
+def to_upper(s):
+    return s.upper()
+
+def to_lower(s):
+    return s.lower()
+```
+
+```
+__init__.py #thấy trong bài giảng bảo file này có thể để trống
+
+from .math_operations import add, subtract #cái này có vẻ khác khi import function ở trên. Ở đây ta từ module import function, ở trên là import thẳng module. Dấu . ở đây là do module nằm cùng cấp với file init
+from .string_operations import to_upper, to_lower
+```
+
+Sử dụng module từ package vào trong file main.py
+
+```
+main.py
+
+# Import the package (my_package)
+import my_package
+
+# Use functions from the package
+
+result_add = my_package.add(3, 5)
+result_subtract = my_package.subtract(10, 2)
+result_upper = my_package.to_upper("hello")
+result_lower = my_package.to_lower("WORLD")
+
+print(f"Add: {result_add}")
+print(f"Subtract: {result_subtract}")
+print(f"Uppercase: {result_upper}")
+print(f"Lowercase: {result_lower}")
+```
+
+
+Nói chung xong không hiểu dùng package thì lợi gì hơn dùng module. Sau làm lab lại
