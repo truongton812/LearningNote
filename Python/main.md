@@ -518,7 +518,7 @@ Lưu ý Chữ "f" trong đoạn code Python trên là phần khai báo một chu
 
 
 ### Module
-Module trong python là để tái sử dụng code giữa các app.py
+Module trong python là để tái sử dụng code giữa các app.py. Module là single python file, có thể chứa function, class, variable
 Các builtin module math, random, datetime, os, sys, json, re, time (tra chatgpt để biết công dụng từng module)
 Ngoài ra còn có thể tạo custom module
 
@@ -569,5 +569,14 @@ print(f"10 + 10 = {result}")
 ```
 
 
+
 File note của Tuấn ở google doc
 https://docs.google.com/document/d/1gym7z1nqfo3rhLn0GC73IvbYnSgVdJtCZ85mnZN0i4A/edit?tab=t.0
+
+# Package
+
+Package là cách để organize các related module thành 1 thư mục có cấu trúc
+
+Package giúp quản lý large codebases. Packages cho phép group các modules có chung tính năng theo logical
+
+
