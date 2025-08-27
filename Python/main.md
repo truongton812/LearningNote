@@ -570,10 +570,8 @@ print(f"10 + 10 = {result}")
 
 
 
-File note của Tuấn ở google doc
-https://docs.google.com/document/d/1gym7z1nqfo3rhLn0GC73IvbYnSgVdJtCZ85mnZN0i4A/edit?tab=t.0
 
-# Package
+### Package
 
 Package là cách để organize các related module thành 1 thư mục có cấu trúc
 
@@ -660,3 +658,87 @@ print(f"Lowercase: {result_lower}")
 
 
 Nói chung xong không hiểu dùng package thì lợi gì hơn dùng module. Sau làm lab lại
+
+
+### Command line arguments
+Dùng để pass argument cho chương trình python khi chạy từ terminal
+
+VD: python script.py arg1 arg2 arg3
+
+Để access argument trong python thì ta dùng sys module
+Trong đó sys.argv[0] là script name, sys.argv là tất cả các parameter truyền vào (trong đó có cả script name. Tức sys.argv là gồm sys.argv[0], sys.argv[1], sys.argv[2],...)
+sys.argv[1], sys.argv[2],... từng là parameter truyền vào
+
+Ví dụ
+
+```
+s3.py
+
+import sys
+
+#Writing functions for add, sub & multiplication
+
+def add(num1, num2):
+    return num1 + num2
+
+def sub(num1, num2):
+    return num1 - num2
+
+def mult(num1, num2):
+    return num1 * num2
+
+num1 = int(sys.argv[1])
+operator = sys.argv[2]
+num2 = int(sys.argv[3])
+
+if operator == 'add':
+    output = add(num1, num2)
+    print (output)
+elif operator == 'sub':
+    output = sub(num1, num2)
+    print (output)
+elif operator == 'mult':
+    output = mult(num1, num2)
+    print(output)
+else: 
+    print("Please give the correct operator, it is add, sub, multi")
+	
+	
+===
+s4.py
+
+import sys
+
+# Print all command-line arguments
+print("Arguments passed:", sys.argv)
+
+# First argument is always the script name
+script_name = sys.argv[0]
+print("Script name:", script_name)
+
+# Other arguments are passed from index 1 onward
+if len(sys.argv) > 1:
+    first_argument = sys.argv[1]
+    print("First argument:", first_argument)
+else:
+    print("No arguments passed.")
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+File note của Tuấn ở google doc
+https://docs.google.com/document/d/1gym7z1nqfo3rhLn0GC73IvbYnSgVdJtCZ85mnZN0i4A/edit?tab=t.0
