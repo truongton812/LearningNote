@@ -717,7 +717,7 @@ script_name = sys.argv[0]
 print("Script name:", script_name)
 
 # Other arguments are passed from index 1 onward
-if len(sys.argv) > 1:
+if len(sys.argv) > 1: #len của array là số lượng phần tử trong chuỗi
     first_argument = sys.argv[1]
     print("First argument:", first_argument)
 else:
