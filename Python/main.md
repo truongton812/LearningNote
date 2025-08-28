@@ -739,6 +739,15 @@ VD: 10 % 3 = 1 , 2 ** 3 = 8 , 10 // 3 = 3
 and, or, not
 VD not (a < b)
 
+- assignment operator: dùng để assign value cho biến
+ + =
+ + += . VD x += 5 (tương đương x = x + 5)
+ + -= . VD x -= 5 (tương đương x = x -5 )
+ + *= . VD x *= 5
+ + /= . VD x /= 5
+ + %= . VD x %= 5
+ + **= . VD x **= 5
+ + //= . VD x //= 5
 
 
 
