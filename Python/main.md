@@ -749,8 +749,23 @@ VD not (a < b)
  + **= . VD x **= 5
  + //= . VD x //= 5
 
+VD: 
+```
+timeout = 30
+load_factor = 2
+timeout *= load_factor #adjust the timeout
+```
 
+- membership operator: dùng để check xem 1 value có phải là phần tử của sequence (VD string/list/tuple hoặc set) không.
+  - in : trả về true nếu value có trong sequence
+  - not in: trả về true nếu value không có trong sequence
+ 
+ VD: fruits = ['apple', 'banana', 'cheery']
+ print('banana' in fruits) -> output sẽ là true
+ print('grape' in fruits) -> output sẽ là false
+ print('grape' not in fruits) -> output sẽ là true
 
+ 
 
 File note của Tuấn ở google doc
 https://docs.google.com/document/d/1gym7z1nqfo3rhLn0GC73IvbYnSgVdJtCZ85mnZN0i4A/edit?tab=t.0
