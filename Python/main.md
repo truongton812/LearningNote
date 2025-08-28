@@ -41,6 +41,7 @@ result3 = abs(-7) -> lấy giá trị tuyệt đối
 Common function
 
 - len(text) : lấy độ dài string
+- len(arrray): đến số phần tử của chuỗi
 - text.upper(): đổi thành chuỗi in hoa
 - text.lower(): đổi thành chuỗi in thường
 - text.replace("string1","string2"): Thay thế chuỗi
@@ -726,14 +727,16 @@ else:
 
 
 
+### Operator trong python
 
+- arithmetic operator: + , - , * , / , % (lấy phần dư), ** (căn bậc), // (chia lấy phần nguyên)
+VD: 10 % 3 = 1 , 2 ** 3 = 8 , 10 // 3 = 3
 
+- comparision (relational) operator: giúp so sánh 2 value và trả về true hoặc false
+== , != , > , < , >= , <=
 
-
-
-
-
-
+- logical operator: dùng để combine conditional statement hoặc expression, trả về true hoặc false
+and, or, not
 
 
 
@@ -742,3 +745,4 @@ else:
 
 File note của Tuấn ở google doc
 https://docs.google.com/document/d/1gym7z1nqfo3rhLn0GC73IvbYnSgVdJtCZ85mnZN0i4A/edit?tab=t.0
+  
