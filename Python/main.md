@@ -243,13 +243,14 @@ keyword là những word được định nghĩa sẵn trong python.
 
 - if / elif / else: Used for conditional statements.
 ```
-if x > 5:
-    print("x is greater than 5")
-elif x == 5:
-    print("x is equal to 5")
-else:
-    print("x is less than 5")
+if x > 5: #1
+    print("x is greater than 5") #thực thi khi #1 true
+elif x == 5: #2
+    print("x is equal to 5") #thực thi khi #1 false và #2 true
+else: #3
+    print("x is less than 5") #thực thi khi #1 and #2 false, #3 true
 ```
+
 
 - for / while: Used for looping. for thường dùng để lặp qua các phần tử trong danh sách, tuple, v.v. while lặp lại cho đến khi một điều kiện trở nên sai.
 ```
@@ -377,7 +378,27 @@ if x is None:
     print("x is None")
 ```
 
-	
+### Chi tiết hơn về loop
+Loop trong python có 2 loại là for loop (dùng để iterates over a sequence (như là list, tuple, string hoặc range)). While to repeat a block of code until a certain condition is met
+
+VD: languagues = ['Swift', 'Python', 'Go']
+for lang in languagues:
+  print(lang)
+
+hoặc for in range(1, 10) #loop từ 1 đến 9
+hoặc text = "Python is a program". for i in text: #loop trên string
+
+
+VD: number = 1
+while number <= 3:
+  print(number)
+  number += 1
+Lưu ý khi tạo while loop cần phải có cách để thoát vòng lặp, nếu ko sẽ loop vô hạn
+
+
+Break statement trong python
+Break statement dùng để thoát loop sớm hơn dự kiến khi có condition thỏa mãn
+
 ### Working with variables
 
 Trong python, để gọi variable đơn giản chỉ cần gọi đến tên variable
