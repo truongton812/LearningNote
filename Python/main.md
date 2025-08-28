@@ -737,7 +737,7 @@ VD: 10 % 3 = 1 , 2 ** 3 = 8 , 10 // 3 = 3
 
 - logical operator: dùng để combine conditional statement hoặc expression, trả về true hoặc false
 and, or, not
-
+VD not (a < b)
 
 
 
