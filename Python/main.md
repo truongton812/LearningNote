@@ -796,8 +796,87 @@ timeout *= load_factor #adjust the timeout
  print('grape' in fruits) -> output sẽ là false
  print('grape' not in fruits) -> output sẽ là true
 
- ### List và exception handling
+ ### exception handling
+Cú pháp try except trong Python dùng để xử lý ngoại lệ, giúp chương trình không bị dừng khi gặp lỗi. Dưới đây là cấu trúc, cách dùng và ví dụ minh họa.
 
+Cú pháp cơ bản
+```python
+try:
+    # khối mã có thể gây ra lỗi
+except ExceptionType:
+    # khối mã xử lý khi có lỗi xảy ra
+Nếu không chỉ định ExceptionType, except sẽ bắt mọi loại lỗi.
+```
+Có thể dùng nhiều except cho các loại lỗi khác nhau.
+
+Các khối try...except mở rộng
+else: Dùng để chạy khi không có lỗi xảy ra trong khối try.
+
+finally: Khối này luôn chạy dù có lỗi hay không (dùng để đóng file, giải phóng tài nguyên).
+
+```python
+try:
+    # mã nguy cơ gây lỗi
+except ExceptionType:
+    # xử lý lỗi
+else:
+    # chạy nếu không có lỗi
+finally:
+    # luôn chạy
+```
+
+Ví dụ
+
+Bắt mọi ngoại lệ
+```python
+try:
+    x = 3 / 0
+except:
+    print("Đã xảy ra một ngoại lệ.")
+```
+
+Bắt ngoại lệ cụ thể
+```python
+try:
+    x = int(input("Nhập số: "))
+    y = 10 / x
+except ZeroDivisionError:
+    print("Không chia được cho 0!")
+except ValueError:
+    print("Bạn phải nhập một số!")
+else:
+    print("Kết quả là:", y)
+finally:
+    print("Kết thúc xử lý.")
+```
+
+Ghi nhớ khi dùng try except
+
+Nên bắt ngoại lệ cụ thể để dễ debug.
+
+Luôn đóng file hoặc giải phóng tài nguyên bằng khối finally nếu cần.
+
+Có thể sử dụng nhiều khối except cho các loại lỗi khác nhau.
+
+VD khác trong bài giảng
+```python
+import os
+folders = input("Please provide the list of folders name with sapce in between:" ).split()
+
+for folder in folders:
+    try:
+        files = os.listdir(folder)
+    except FileNotFoundError:
+        print("Please provide a valid folder name, looks like this folder does not exist:" + folder)
+        break
+    except PermissionError:
+        print("No acccess to this folder:" + folder)
+
+    print("========== listing files for the folder = " + folder)
+
+    for file in files:
+        print(file)
+```
 File note của Tuấn ở google doc
 https://docs.google.com/document/d/1gym7z1nqfo3rhLn0GC73IvbYnSgVdJtCZ85mnZN0i4A/edit?tab=t.0
   
