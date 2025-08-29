@@ -399,6 +399,16 @@ Lưu ý khi tạo while loop cần phải có cách để thoát vòng lặp, n�
 Break statement trong python
 Break statement dùng để thoát loop sớm hơn dự kiến khi có condition thỏa mãn
 
+VD:
+```
+i = 0
+while True:
+  print(i)
+  i += 1
+  if i == 5:
+    break
+```
+
 ### Working with variables
 
 Trong python, để gọi variable đơn giản chỉ cần gọi đến tên variable
@@ -786,7 +796,7 @@ timeout *= load_factor #adjust the timeout
  print('grape' in fruits) -> output sẽ là false
  print('grape' not in fruits) -> output sẽ là true
 
- 
+ ### List và exception handling
 
 File note của Tuấn ở google doc
 https://docs.google.com/document/d/1gym7z1nqfo3rhLn0GC73IvbYnSgVdJtCZ85mnZN0i4A/edit?tab=t.0
