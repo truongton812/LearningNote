@@ -915,6 +915,19 @@ clone_dir = "/workspaces/python-for-DevOps/Githubconnect/repo"
 
 subprocess.run(["git", "clone", repo_url, clone_dir])
 ```
+
+
+### boto3 module
+
+Cách dùng
+import boto3
+
+var_name = boto.client('aws_service)
+
+VD: s3 = boto.client('s3')
+-> tạo client object cho s3 service. Client là low level interface to AWS service, cho phép ta interact với service programmatically (???) 
+
+Ngoài client thì còn có resource, tuy nhiên client provide more direct access to the AWS APIs
 File note của Tuấn ở google doc
 https://docs.google.com/document/d/1gym7z1nqfo3rhLn0GC73IvbYnSgVdJtCZ85mnZN0i4A/edit?tab=t.0
   
