@@ -877,6 +877,44 @@ for folder in folders:
     for file in files:
         print(file)
 ```
+
+VD khác:
+```
+import git
+# Repositroy URL
+
+repo_url = "https://github.com/Shikhar82/devsecops-jens-tf-sast-sca-sonarcloud-snyk-repo.git"
+
+# Define the directory where you want to clone the repository
+
+clone_dir = "/workspaces/python-for-DevOps/Githubconnect/repo3"
+
+# Clone the repository to the specified directory
+
+try:
+    git.Repo.clone_from(repo_url, clone_dir)
+    print(f"Repository cloned successfully to {clone_dir}")
+except git.GitError as e: #module git có sẵn function để xử lý lỗi
+    print(f"Error cloning the repository: {e}")
+```
+### Module subprocess
+Dùng để chạy lệnh trên server
+VD:
+```python
+import subprocess
+
+# Define the URL of the GitHub Repository
+
+repo_url = "https://github.com/Shikhar82/devsecops-jenkins-k8s-tf-sast-sca-sonarcloud-snyk-repo.git"
+
+# Define the directory where you want to clone the repository
+
+clone_dir = "/workspaces/python-for-DevOps/Githubconnect/repo"
+
+# Run the git clone command
+
+subprocess.run(["git", "clone", repo_url, clone_dir])
+```
 File note của Tuấn ở google doc
 https://docs.google.com/document/d/1gym7z1nqfo3rhLn0GC73IvbYnSgVdJtCZ85mnZN0i4A/edit?tab=t.0
   
