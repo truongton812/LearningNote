@@ -173,3 +173,37 @@ print(f"Lowercase: {result_lower}")
 
 
 Nói chung xong không hiểu dùng package thì lợi gì hơn dùng module. Sau làm lab lại
+
+
+
+### Module subprocess
+Dùng để chạy lệnh trên server
+VD:
+```python
+import subprocess
+
+# Define the URL of the GitHub Repository
+
+repo_url = "https://github.com/Shikhar82/devsecops-jenkins-k8s-tf-sast-sca-sonarcloud-snyk-repo.git"
+
+# Define the directory where you want to clone the repository
+
+clone_dir = "/workspaces/python-for-DevOps/Githubconnect/repo"
+
+# Run the git clone command
+
+subprocess.run(["git", "clone", repo_url, clone_dir])
+```
+
+
+### boto3 module
+
+Cách dùng
+import boto3
+
+var_name = boto.client('aws_service)
+
+VD: s3 = boto.client('s3')
+-> tạo client object cho s3 service. Client là low level interface to AWS service, cho phép ta interact với service programmatically (???) 
+
+Ngoài client thì còn có resource, tuy nhiên client provide more direct access to the AWS APIs
