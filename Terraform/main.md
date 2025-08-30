@@ -98,6 +98,8 @@ trong file main.tf ta có thể sử dụng nhiều provider, VD cả aws, azure
 ```
 variable "filename" {
   default = "/root/pets.txt" #optional
+  type = string #optional. Ngoài ra có thể nhận giá trị number, bool, list, map, object, tuple, set. Nếu không define thì default sẽ là any (tức có thể là bất kỳ type nào)
+  description = "the file name" #optional
 }
 variable "content" {
   default = "We love pets!"
@@ -110,6 +112,10 @@ variable "separator" {
 }
 variable "length" {
   default = "1"
+}
+variable "password_change" {
+  default = true
+  type = bool
 }
 ```
 
@@ -127,3 +133,86 @@ resource "random_pet" "my-pet" {
   length    = var.length
 }
 ```
+
+##### giải thích thêm về các variable type
+- list. VD:
+```
+variable "prefix" {
+  type = list #ngoài ra có thể tạo constraint như type = list(number) -> tất cả các phần tử của list phải là number, nếu không terraform sẽ báo lỗi
+  default = ["Mr", "Mrs", "Sir]
+}
+```
+Gọi var trong file main.tf
+```
+resource "random_pet" "mypet" {
+  prefix = var.prefix[0]
+```
+
+- map. VD:
+```
+variable "file-content" {
+  type = map #ngoài ra có thể tạo constraint như type = map(string) -> tất cả các phần tử value của map phải là string, nếu không terraform sẽ báo lỗi
+  default = {
+    "statement1" = "We love pets"
+    "statement2" = "We love animals"
+}
+```
+Gọi var trong file main.tf
+```
+resource local_file my-pet {
+  content = var.file-content["statement2"]
+```
+
+- Set: giống list nhưng các phần tử của set phải là unique, nếu không sẽ báo lỗi
+VD:
+```
+variable "prefix" {
+  type = set #ngoài ra có thể tạo constraint như type = set(string) -> tất cả các phần tử của set phải là string, nếu không terraform sẽ báo lỗi
+  default = ["Mr", "Mrs", "Sir]
+}
+```
+
+- Object: giống map nhưng các value của object có thể là type string/number/list/bool/... (không biết còn có thể có type khác không, nghiên cứu thêm). VD:
+```
+variable "bella" {
+  type = object({
+    name         = string
+    color        = string
+    age          = number
+    food         = list(string)
+    favorite_pet = bool
+  })
+
+  default = {
+    name         = "bella"
+    color        = "brown"
+    age          = 7
+    food         = ["fish", "chicken", "turkey"]
+    favorite_pet = true
+  }
+}
+```
+
+Chatgpt:
+
+Trong Terraform, sự khác biệt giữa kiểu dữ liệu object và map như sau:
+
+Một map là một cấu trúc dữ liệu key-value, trong đó tất cả các giá trị có cùng kiểu dữ liệu. Ví dụ map(string) có nghĩa là một bản đồ với các giá trị đều là chuỗi. Map linh hoạt, được dùng để lưu trữ dữ liệu kiểu key-value mà kiểu của tất cả giá trị phải giống nhau.
+
+Một object định nghĩa một schema hoặc cấu trúc rõ ràng với các thuộc tính được đặt tên (named attributes), mỗi thuộc tính có thể có kiểu dữ liệu khác nhau. Ví dụ một object có thể có thuộc tính name kiểu string, age kiểu number, favorite_pet kiểu bool. Object dùng để định nghĩa kiểu dữ liệu phức tạp với nhiều trường riêng biệt, mỗi trường có kiểu riêng.
+
+Có thể hiểu đơn giản là map là một tập hợp các giá trị cùng kiểu với key tùy ý, còn object là một kiểu dữ liệu có cấu trúc cố định với các trường đã xác định sẵn kiểu của từng trường.
+
+Trong Terraform, một map có thể được chuyển đổi thành object nếu nó có ít nhất các key phù hợp với schema của object, nhưng có thể mất các thuộc tính dư thừa. Việc chuyển đổi ngược lại không tự động.
+
+thuộc tính của object có thể thuộc các kiểu: string, number, bool, list, set, map, object, tuple.
+
+- Tuple: Tuple là một tập hợp có số lượng phần tử cố định, thứ tự cố định và có thể chứa các phần tử với kiểu dữ liệu khác nhau. Tuple là bất biến (immutable), nghĩa là không thể thay đổi, thêm hoặc xóa phần tử sau khi đã tạo.
+
+Tuple khác với list là List là một tập hợp phần tử có thứ tự, có thể thay đổi kích thước, thường chứa các phần tử cùng kiểu dữ liệu và có thể thêm, sửa, hoặc xóa phần tử trong danh sách (mutable).
+
+VD:
+```
+variable kitty {
+  type = tuple #ngoài ra có thể tạo constraint như type = tuple([string, number, bool])
+  default = ["cat",7,true]
