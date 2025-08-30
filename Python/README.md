@@ -18,7 +18,7 @@
 
 [8. Function, Module và Package trong Python](Doc/08.%20function_module_package.md)
 
-[9. Command line arguments](Doc/09.%20command_line_arguments.md.md)
+[9. Command line arguments](Doc/09.%20command_line_arguments.md)
 
 [10. Operator](Doc/10.%20operator.md)
 
