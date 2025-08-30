@@ -1,0 +1,175 @@
+
+
+
+### Function
+
+In Python, a function is a reusable block of code that performs a specific task.
+
+Functions help to organize and manage code by encapsulating tasks into manageable sections.
+
+Functions can take inputs (parameters), perform operations, and return outputs.
+
+Có thể gọi function trong function
+
+SYntax:
+def function_name(parameter):
+  #code
+  return
+Trong đó parameter và return là optional
+Cách gọi function: function_name()
+
+VD:
+```
+#Function with Parameters
+def greet(name, age):
+    print(f"Hello, {name} ! you are {age} years old.")
+
+# calling the function with arguments
+
+greet("Shikhar", 35)
+```
+
+Lưu ý Chữ "f" trong đoạn code Python trên là phần khai báo một chuỗi định dạng (gọi là f-string hay formatted string literal). Khi một chuỗi được đặt trước bởi chữ "f" (hay "F"), các biểu thức bên trong dấu ngoặc nhọn {} sẽ được tính toán và giá trị của chúng sẽ được chèn trực tiếp vào chuỗi kết quả khi chạy chương trình.
+
+
+### Module
+Module trong python là để tái sử dụng code giữa các app.py. Module là single python file, có thể chứa function, class, variable
+Các builtin module math, random, datetime, os, sys, json, re, time (tra chatgpt để biết công dụng từng module)
+Ngoài ra còn có thể tạo custom module
+
+Muốn dùng module thì phải import trước
+
+Cách gọi function trong module: <module_name>.<function_name>
+
+VD builtin module
+
+```
+# Get the current working directory
+current_directory = os.getcwd()
+print(f"Current working directory: {current_directory}")
+
+# list the files and directories
+files = os.listdir(".")
+print(f"Files in the current directory: {files}")
+```
+
+
+VD custom module
+
+```
+# mymodule.py
+
+def greet(name):
+    return f"Hello, {name}"
+
+def add(a, b):
+    return a + b
+
+my_variable = 45
+
+```
+
+```
+# Import the user-defined module
+import mymodule
+
+# Use the functions and variables from the module (mymodule)
+name = "Alice"
+greeting = mymodule.greet(name)
+print(greeting)
+
+#using the add function
+result = mymodule.add(10, 10)
+print(f"10 + 10 = {result}")
+```
+
+
+
+
+### Package
+
+Package là cách để organize các related module thành 1 thư mục có cấu trúc
+
+Package giúp quản lý large codebases. Packages cho phép group các modules có chung tính năng theo logical. Mỗi package là 1 namespace riêng, giúp không bị conflict identifier in different module (còn thiếu 1 vài benifit, hỏi thêm chatgpt)
+
+Package: Package về cơ bản là một thư mục chứa nhiều module và một file đặc biệt tên là init.py. File init.py giúp nhận diện thư mục đó là một package Python. Trong package có thể có subpackage
+
+Ví dụ cấu trúc package:
+```
+my_package/
+│
+├── __init__.py         # Biến thư mục này thành package
+├── module1.py          # Một module Python (file)
+├── module2.py          # Một module Python khác
+│
+└── sub_package/
+    │
+    ├── __init__.py     # Biến thư mục này thành subpackage
+    └── submodule1.py   # Module trong subpackage
+
+```
+
+
+Ví dụ cách tạo và sử dụng package trong code
+
+Cấu trúc thư mục ví dụ
+```
+package_folder/
+├── main.py
+└── my_package/
+    ├── __init__.py    
+    └── math_operations.py
+    └── string_operations.py
+```
+Trong đó
+
+```
+math_operations.py
+
+def add(a, b):
+    return a + b
+
+def subtract(a, b):
+    return a - b
+```
+
+```
+string_operations.py
+
+def to_upper(s):
+    return s.upper()
+
+def to_lower(s):
+    return s.lower()
+```
+
+```
+__init__.py #thấy trong bài giảng bảo file này có thể để trống
+
+from .math_operations import add, subtract #cái này có vẻ khác khi import function ở trên. Ở đây ta từ module import function, ở trên là import thẳng module. Dấu . ở đây là do module nằm cùng cấp với file init
+from .string_operations import to_upper, to_lower
+```
+
+Sử dụng module từ package vào trong file main.py
+
+```
+main.py
+
+# Import the package (my_package)
+import my_package
+
+# Use functions from the package
+
+result_add = my_package.add(3, 5)
+result_subtract = my_package.subtract(10, 2)
+result_upper = my_package.to_upper("hello")
+result_lower = my_package.to_lower("WORLD")
+
+print(f"Add: {result_add}")
+print(f"Subtract: {result_subtract}")
+print(f"Uppercase: {result_upper}")
+print(f"Lowercase: {result_lower}")
+```
+
+
+Nói chung xong không hiểu dùng package thì lợi gì hơn dùng module. Sau làm lab lại
