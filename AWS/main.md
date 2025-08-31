@@ -32,9 +32,10 @@ Tích hợp Auto Scaling, IAM, nhóm bảo mật Security Group, Network ACL, AW
 
 - Tạo VPC, chia các subnet.
 - Tạo Internet Gateway (IGW) để kết nối mạng giữa VPC và Internet. Nó cho phép các instance hoặc tài nguyên trong VPC có thể gửi và nhận lưu lượng mạng từ bên ngoài Internet. Internet Gateway được gán (attached) với toàn bộ VPC, không phải với từng subnet riêng biệt. Tuy nhiên, chỉ những subnet được cấu hình route tới IGW trong bảng định tuyến mới có khả năng truy cập Internet trực tiếp, gọi là subnet public. Subnet private không có route tới IGW mà thường truy cập Internet qua NAT Gateway hoặc NAT Instance.
+- A Network Address Translation (NAT) Gateway is used to allow resources within a private subnet in a Virtual Private Cloud (VPC) to access the internet while keeping them hidden and protected from direct access. It’s important to note that a NAT gateway must always be launched in a public subnet.
 - Deploy UI (frontend) lên S3 hoặc EC2, sử dụng CloudFront/CDN.
 - Deploy Logic/backend trên EC2/ECS/Lambda theo specs nghiệp vụ, kết nối API Gateway nếu cần.
-- Tạo database, cấu hình RDS/DynamoDB/S3 theo loại dữ liệu xử lý.
+- Tạo database, cấu hình RDS/DynamoDB/S3 theo loại dữ liệu xử lý. Để kiểm soát truy cập đến database We need a security group so that other applications inside our VPC can connect to our database instance. You can either create a security group for your instance or use an existing one. 
 - Thiết lập Load Balancer, routing request (UI → Logic → Data).
 - Triển khai bảo mật, thiết lập IAM, WAF, Security Group, Auto Scaling.
 
