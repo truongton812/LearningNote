@@ -52,17 +52,17 @@ Tuy nhiên, khi người dùng tương tác (ví dụ bấm nút, gửi form), f
 
 API Gateway đóng vai trò như một “cổng” trung gian nhận các yêu cầu đó, thực hiện các bước như:
 
-  + Xác thực (kiểm tra người dùng hợp lệ, token,...).
+    + Xác thực (kiểm tra người dùng hợp lệ, token,...).
 
-  + Ủy quyền (phân quyền truy cập).
+    + Ủy quyền (phân quyền truy cập).
 
-  + Giới hạn tần suất để tránh quá tải (rate limiting).
+    + Giới hạn tần suất để tránh quá tải (rate limiting).
 
-  + Định tuyến request đến đúng service backend (ví dụ Lambda, EC2, container).
+    + Định tuyến request đến đúng service backend (ví dụ Lambda, EC2, container).
 
-  + Backend xử lý yêu cầu rồi API Gateway truyền kết quả trả về frontend.
+    + Backend xử lý yêu cầu rồi API Gateway truyền kết quả trả về frontend.
 
-  + Frontend nhận dữ liệu và hiển thị cho người dùng trên trình duyệt.
+    + Frontend nhận dữ liệu và hiển thị cho người dùng trên trình duyệt.
 
 - Phục vụ các hệ thống hoặc dịch vụ nội bộ khác gọi vào: API Gateway cũng có thể được dùng trong kiến trúc microservices làm điểm trung gian để các service nội bộ gọi nhau, giúp quản lý API nội bộ, bảo mật, logging và kiểm soát truy cập. Trường hợp này API Gateway không công khai ra Internet, chỉ nội bộ hoặc trong mạng riêng.
 
