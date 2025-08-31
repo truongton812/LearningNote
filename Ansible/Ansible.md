@@ -366,3 +366,35 @@ class FilterModule(object):
 Callback plugin
 Mặc định output của mỗi lần chạy task là ở dạng Skippy
 Ta có thể chuyển thành dạng json bằng cách: export ANS
+
+
+#### Handler
+Trong Ansible, handler là một loại task đặc biệt chỉ được thực thi khi có thông báo (notify) từ một task khác, thường dùng để thực hiện hành động như restart service sau khi có thay đổi cấu hình. Một handler chỉ thực thi một lần cho mỗi play dù được notify nhiều lần. Handler giúp quản lý cấu hình hiệu quả hơn, tránh việc thao tác lặp lại không cần thiết, tiết kiệm tài nguyên và giảm rủi ro khi cấu hình hệ thống.
+
+Handler chỉ chạy sau khi các tasks trong play hoàn thành, hoặc có thể ép chạy ngay bằng lệnh meta: flush_handlers.
+
+Ví dụ sử dụng handler:
+
+```
+tasks:
+  - name: deploy html file
+    template:
+      src: /tmp/index.html
+      dest: /var/www/html/index.html
+    notify: restart web
+
+handlers:
+  - name: restart web
+    service:
+      name: apache2
+      state: restarted
+#Nếu task deploy html file có thay đổi, handler restart web sẽ được gọi để restart Apache sau khi tất cả các tasks hoàn thành.
+```
+
+Lưu ý khi dùng Handler:
+
+- Handler phải có tên để có thể notify.
+- Chỉ được chạy khi có notify; nếu không có thay đổi, handler sẽ không thực thi.
+- Khi sử dụng loop với notify, nếu bất kỳ phần tử nào trong vòng lặp thay đổi, toàn bộ handler liên quan được thực thi.
+- Nếu handler định nghĩa trong role, chúng vẫn có phạm vi toàn cầu trong playbook và có thể gây trùng tên, vì vậy nên đặt tên handler duy nhất.
+
