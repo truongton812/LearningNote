@@ -158,4 +158,6 @@ VD2:
 
 ![alt text](http://picsum.photos/200/200)
 
+![alt text](Image/prometheus-architecture.png)
+
 ---
