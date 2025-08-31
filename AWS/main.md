@@ -30,17 +30,12 @@ Tích hợp Auto Scaling, IAM, nhóm bảo mật Security Group, Network ACL, AW
 
 ##### Quy trình triển khai trên AWS
 
-Tạo VPC, chia các subnet.
+- Tạo VPC, chia các subnet.
+- Tạo Internet Gateway (IGW) để kết nối mạng giữa VPC và Internet. Nó cho phép các instance hoặc tài nguyên trong VPC có thể gửi và nhận lưu lượng mạng từ bên ngoài Internet. Internet Gateway được gán (attached) với toàn bộ VPC, không phải với từng subnet riêng biệt. Tuy nhiên, chỉ những subnet được cấu hình route tới IGW trong bảng định tuyến mới có khả năng truy cập Internet trực tiếp, gọi là subnet public. Subnet private không có route tới IGW mà thường truy cập Internet qua NAT Gateway hoặc NAT Instance.
+- Deploy UI (frontend) lên S3 hoặc EC2, sử dụng CloudFront/CDN.
+- Deploy Logic/backend trên EC2/ECS/Lambda theo specs nghiệp vụ, kết nối API Gateway nếu cần.
+- Tạo database, cấu hình RDS/DynamoDB/S3 theo loại dữ liệu xử lý.
+- Thiết lập Load Balancer, routing request (UI → Logic → Data).
+- Triển khai bảo mật, thiết lập IAM, WAF, Security Group, Auto Scaling.
 
-Deploy UI (frontend) lên S3 hoặc EC2, sử dụng CloudFront/CDN.
-
-Deploy Logic/backend trên EC2/ECS/Lambda theo specs nghiệp vụ, kết nối API Gateway nếu cần.
-
-Tạo database, cấu hình RDS/DynamoDB/S3 theo loại dữ liệu xử lý.
-
-Thiết lập Load Balancer, routing request (UI → Logic → Data).
-
-Triển khai bảo mật, thiết lập IAM, WAF, Security Group, Auto Scaling.
-
-Triển khai CI/CD với CodePipeline, CodeBuild hoặc sử dụng CloudFormation/IaC để tự động hóa.
 
