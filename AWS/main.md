@@ -19,14 +19,17 @@ Tầng Data: Lưu trữ, truy vấn dữ liệu, sử dụng Amazon RDS/Aurora (
 
 
 
-Kiến trúc mạng và bảo mật
+##### Kiến trúc mạng và bảo mật
+
 Sử dụng VPC riêng biệt, chia subnet (public/private) để kiểm soát truy cập. Application Load Balancer nằm ở public subnet, EC2/ECS/EKS/BLogic nằm ở private subnet, DB/Data chỉ truy cập nội bộ hoặc qua bảo mật.
 
 Tích hợp Auto Scaling, IAM, nhóm bảo mật Security Group, Network ACL, AWS WAF để nâng cao khả năng bảo vệ ứng dụng, truy cập đúng lớp.
 
 Định tuyến thông tin qua các tầng, cách ly truy cập trực tiếp database từ client, giảm rủi ro bảo mật.
 
-Quy trình triển khai trên AWS
+
+##### Quy trình triển khai trên AWS
+
 Tạo VPC, chia các subnet.
 
 Deploy UI (frontend) lên S3 hoặc EC2, sử dụng CloudFront/CDN.
