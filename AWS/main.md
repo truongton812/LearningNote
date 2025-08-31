@@ -5,36 +5,19 @@ Kiến trúc ứng dụng 3 lớp trên AWS gồm Presentation (UI), Business Lo
 Tổng quan mô hình 3 lớp
 
 ![alt text](Image/01.%20aws%203%20tiers%20application.png)
-Tầng Presentation (UI): Giao diện người dùng, nhận thao tác đầu vào và hiển thị dữ liệu; thường được deploy lên Amazon S3 (static web) hoặc EC2/Elastic Beanstalk cho web động, kết hợp với Amazon CloudFront tăng tốc phân phối.
 
-Tầng Business Logic: Xử lý nghiệp vụ, xác thực, điều phối luồng dữ liệu giữa UI và Data; có thể triển khai trên EC2 (servers), ECS (container microservices), hoặc Lambda (serverless functions).
+
+Tầng Presentation (UI): Giao diện người dùng, nhận thao tác đầu vào và hiển thị dữ liệu; thường được deploy lên Amazon S3 (static web) hoặc EC2/Elastic Beanstalk cho web động (Node.js, PHP, Python...) kết hợp với Amazon CloudFront tăng tốc phân phối và Load Balancer để phân phối tải và tăng khả dụng UI.
+
+Tầng Business Logic: Xử lý nghiệp vụ, xác thực, điều phối luồng dữ liệu giữa UI và Data; có thể triển khai trên EC2 (servers), ECS/ EKS (container microservices), hoặc Lambda (serverless functions). Sử dụng Auto Scaling Group để tăng scale
 
 Tầng Data: Lưu trữ, truy vấn dữ liệu, sử dụng Amazon RDS/Aurora (quan hệ) hoặc DynamoDB (phi quan hệ), kết hợp S3 lưu file hoặc backup.
 
-Các dịch vụ AWS triển khai từng lớp
-Presentation:
 
-S3 + CloudFront: Static web site, phân phối CDN.
 
-EC2/Elastic Beanstalk: Web server động (Node.js, PHP, Python...).
 
-Load Balancer (ALB): Phân phối tải và tăng khả dụng UI.
 
-Business Logic:
 
-EC2 instance, Auto Scaling Group: Hạ tầng máy chủ.
-
-ECS/EKS: Microservices kiến trúc container hóa.
-
-Lambda: Xử lý serverless, giảm cost.
-
-Data:
-
-RDS/Aurora: Database quan hệ (MySQL, PostgreSQL, SQL Server).
-
-DynamoDB: Database phi quan hệ key-value.
-
-S3: Lưu trữ tài liệu, media.
 
 Kiến trúc mạng và bảo mật
 Sử dụng VPC riêng biệt, chia subnet (public/private) để kiểm soát truy cập. Application Load Balancer nằm ở public subnet, EC2/ECS/EKS/BLogic nằm ở private subnet, DB/Data chỉ truy cập nội bộ hoặc qua bảo mật.
