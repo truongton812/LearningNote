@@ -3,6 +3,8 @@
 Kiến trúc ứng dụng 3 lớp trên AWS gồm Presentation (UI), Business Logic và Data, được triển khai bằng các dịch vụ AWS như EC2, RDS, S3 và Load Balancer để tối ưu hóa bảo mật, hiệu năng và khả năng mở rộng.
 
 Tổng quan mô hình 3 lớp
+
+![alt text](Image/01.%20aws%203%20tiers%20application.png)
 Tầng Presentation (UI): Giao diện người dùng, nhận thao tác đầu vào và hiển thị dữ liệu; thường được deploy lên Amazon S3 (static web) hoặc EC2/Elastic Beanstalk cho web động, kết hợp với Amazon CloudFront tăng tốc phân phối.
 
 Tầng Business Logic: Xử lý nghiệp vụ, xác thực, điều phối luồng dữ liệu giữa UI và Data; có thể triển khai trên EC2 (servers), ECS (container microservices), hoặc Lambda (serverless functions).
