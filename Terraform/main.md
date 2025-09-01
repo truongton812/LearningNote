@@ -1,4 +1,4 @@
-<img width="784" height="554" alt="image" src="https://github.com/user-attachments/assets/d5b9e0fa-aa87-4688-8603-8a94e918d946" /><img width="778" height="311" alt="image" src="https://github.com/user-attachments/assets/411e4fd7-6586-4926-b0b9-5d5f258efdfa" />
+
 
 ### Types of IAC Tools
 
