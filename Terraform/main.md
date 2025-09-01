@@ -1,4 +1,4 @@
-
+<img width="784" height="554" alt="image" src="https://github.com/user-attachments/assets/d5b9e0fa-aa87-4688-8603-8a94e918d946" /><img width="778" height="311" alt="image" src="https://github.com/user-attachments/assets/411e4fd7-6586-4926-b0b9-5d5f258efdfa" />
 
 ### Types of IAC Tools
 
@@ -339,7 +339,7 @@ Các meta argument: depends_on, lifecycle, count, for each, loop,
 
 1. Count: dùng để tạo nhiều instance của resources
 ```
-resource "local_file" "dog" {
+resource "local_file" "pet" {
   filename = "/root/${var.filename[count.index]}"
   count = 3 #tuy nhiên sẽ chỉ ra 1 file do terraform tạo ra 3 file cùng 1 tên. Để fix thì cần phải tạo variable và dùng loop trên count
 }
@@ -357,4 +357,70 @@ Chatgpt: count.index là một biến đặc biệt (special variable) mà Terra
 
 Nói cách khác, count.index giúp phân biệt từng instance/resource được tạo ra khi count được sử dụng để tạo nhiều bản sao resource cùng lúc. Đây là một biến tự động có sẵn, không phải do người dùng định nghĩa hay gọi như hàm
 
-2. 
+Tuy nhiên count có 1 downside khi update là khi ta xóa resource ở index 1 thì index của các resource khác sẽ thay đổi -> tất cả đều phải recreate (hỏi thêm chatgpt để viết lại). Dùng for each có thể giải quyết vấn đề này
+Ta có thể output ra để xem resource "pet" sẽ là 1 list
+2. For each
+```
+resource "local_file" "pet" {
+  filename = each.value
+  for_each = toset(var.filename) #do for_each chỉ làm việc với map hoặc set nên cần phải convert sang dạng set 
+}
+```
+Ta có thể output ra để xem resource "pet" sẽ là 1 map
+
+
+
+### Version constraint
+
+Dùng để chỉ định version của provider thay vì dùng version latest
+```
+terraform {
+  required_providers {
+    local = {
+      source  = "hashicorp/local"
+      version = "1.4.0" #hoặc có thể dùng != , > , < hoặc kết hợp VD: > 1.2.0, < 2.0.0, != 1.4.0
+    }
+  }
+}
+```
+
+
+### Terraform with AWS
+
+```
+provider "aws" {
+  region     = "us-west-2"
+  access_key = "AKIAI44QH8DHBEXAMPLE"
+  secret_key = "je7MtGbClwBF/2tk/h3yCo8n..."
+}
+
+resource "aws_iam_user" "admin-user" {
+  name = "lucy"
+  tags = {
+    Description = "Technical Team Leader"
+  }
+}
+resource "aws_iam_policy" "adminUser" {
+  name   = "AdminUsers"
+  policy = <<EOF  #hoặc thay vì đưa policy trực tiếp vào đây, ta có thể lưu thông tin ra 1 file policy.json khác rồi refer đến bằng hàm file : policy = file("policy.json")
+  {
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Effect": "Allow",
+        "Action": "*",
+        "Resource": "*"
+      }
+    ]
+  }
+  EOF
+}
+
+resource "aws_iam_user_policy_attachment" "lucy-admin-access" {
+  user       = aws_iam_user.admin-user.name
+  policy_arn = aws_iam_policy.adminUser.arn
+}
+
+```
+
+Tuy nhiên cách trên sẽ thiếu bảo mật do đưa credential vào trong configuration file. Thay vì thế ta nên cài credential trong aws cli trên server chạy terraform . Lưu ý vẫn cần giữ cụm provider với region
