@@ -1,4 +1,4 @@
-Cách set up luồng cicd cho môi trường dev và production
+### Cách set up luồng cicd cho môi trường dev và production
 
 
 Khi thiết lập luồng CI/CD trên AWS CodePipeline cho môi trường dev và production, bạn có thể chọn tạo 1 pipeline duy nhất hoặc 2 pipeline riêng biệt. Dưới đây là ưu nhược điểm của từng cách để bạn cân nhắc:
@@ -49,3 +49,35 @@ Khi có sự kiện merge vào main (hoặc đánh tag) → trigger pipeline đ�
 
 Để xử lý luồng trên có thể tạo Pipeline đa nhánh (multibranch pipeline) hoặc pipeline có điều kiện (conditional stages) 
 
+### Hệ thống CI/CD kết hợp với GitOps sử dụng ArgoCD
+
+một hệ thống CI/CD kết hợp với GitOps sử dụng ArgoCD, quy trình hoạt động thực tế sẽ như sau:
+
+1. Phát triển ứng dụng & quản lý source code
+Nhà phát triển thực hiện các thay đổi trong mã nguồn và đẩy code lên repo quản lý source code (thường là trên GitHub hoặc GitLab). Đây là nơi duy nhất được tin cậy để lưu source code gốc và tài liệu liên quan.
+
+2. Pipeline CI tự động build & kiểm thử
+Ngay khi code được push lên, pipeline CI (Jenkins, GitHub Actions…) sẽ tự động được kích hoạt để:
+
+Build project, kiểm thử chất lượng mã nguồn.
+
+Tạo ra artifact (ví dụ: Docker image).
+
+Scan bảo mật, kiểm thử tích hợp.
+
+Đẩy hình ảnh lên image registry (Docker Hub, ECR, …).
+
+3. Quản lý cấu hình triển khai qua GitOps repo
+Sau khi build thành công, pipeline sẽ cập nhật tag phiên bản image mới vào các file manifest (YAML hoặc Helm/Kustomize) nằm trong repository quản trị triển khai (GitOps repo). Các thay đổi này được quản lý chặt chẽ bằng Git—mỗi commit đều mang ý nghĩa lịch sử triển khai.
+
+4. Kiểm duyệt & duyệt triển khai
+Pipeline có thể dừng lại ở đây để chờ quá trình approve (duyệt), đảm bảo chỉ có artifact an toàn, đã kiểm thử mới được deploy. Sau khi approve, pipeline sẽ thực hiện commit manifest mới vào repo GitOps.
+
+5. ArgoCD tự động đồng bộ lên Kubernetes cluster
+ArgoCD hoạt động như một agent, liên tục theo dõi repo GitOps. Nếu phát hiện commit mới (ví dụ tag image mới, hoặc chỉnh sửa cấu hình), nó sẽ đồng bộ hóa trạng thái thực tế của Kubernetes cluster về đúng như cấu hình miêu tả trên repo:
+
+Tạo thêm, sửa đổi hoặc xóa tài nguyên (pod, service, configmap…) theo manifest.
+
+Quá trình này hoàn toàn tự động, không cần thao tác tay ngoài commit vào Git repo.
+
+Toàn bộ lịch sử thay đổi đều có log rõ ràng giúp audit và rollback rất dễ dàng.
