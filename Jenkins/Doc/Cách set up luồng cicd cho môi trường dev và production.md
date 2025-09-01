@@ -86,3 +86,90 @@ Tạo thêm, sửa đổi hoặc xóa tài nguyên (pod, service, configmap…) 
 Quá trình này hoàn toàn tự động, không cần thao tác tay ngoài commit vào Git repo.
 
 Toàn bộ lịch sử thay đổi đều có log rõ ràng giúp audit và rollback rất dễ dàng.
+
+
+```
++----------------------+         +--------------------+         +----------------------+
+|                      |  Push   |                    |  Build  |                      |
+| Developer (Code Repo) +------->+     CI Pipeline    +-------->+   Container Registry  |
+|                      |         |  (Build, Test, Scan)         |  (Push Docker Image)   |
++----------------------+         +--------------------+         +----------------------+
+                                                      |
+                                                      | After successful build
+                                                      v
+                                      +--------------------------------+
+                                      |                                |
+                                      |  Update Deployment Manifest in |
+                                      |     GitOps Repo (Update Image  |
+                                      |            Tag)                 |
+                                      +---------------+----------------+
+                                                      |
+                                    (Wait for Review/Approval in GitOps Repo)
+                                                      |
+                                                      v
+                                     +----------------------------------+
+                                     |                                  |
+                                     |     ArgoCD continuously watches  |
+                                     |      GitOps Repo for changes     |
+                                     +--------------+-------------------+
+                                                      |
+                                                      v
+                                      +--------------------------------+
+                                      |                                |
+                                      |   ArgoCD syncs cluster state    |
+                                      |      to GitOps repository       |
+                                      |  (Deploy/Update Kubernetes App) |
+                                      +--------------------------------+
+                                                      |
+                                   (Optional: Post-deployment tests,
+                                   monitoring, rollback as needed)
+```
+
+
+
+### Promotion từ dev → staging → prod trong GitOps
+
+Thiết kế luồng promotion từ môi trường dev → staging → prod trong GitOps thường dựa trên việc tạo các nhánh (branch) hoặc thư mục (directory) riêng biệt trong repository GitOps, đại diện cho từng môi trường, để quản lý trạng thái và cấu hình triển khai riêng biệt cho mỗi môi trường. Dưới đây là một số cách thiết kế phổ biến và thực tế:
+
+1. Sử dụng các nhánh Git riêng cho từng môi trường
+
+Repo GitOps có các nhánh như dev, staging, prod.
+
+Mỗi nhánh chứa cấu hình manifest tương ứng với môi trường đó.
+
+Quá trình promotion là merge code/config từ nhánh dev sang staging, rồi từ staging sang prod.
+
+ArgoCD hoặc Flux được cấu hình theo dõi từng nhánh cho các cluster hoặc namespace tương ứng.
+
+Ưu điểm: Rõ ràng, kiểm soát chặt chẽ và cho phép review trước khi lên môi trường cao hơn.
+
+2. Sử dụng thư mục riêng cho từng môi trường trong cùng một nhánh
+
+Trong repo GitOps có thư mục như /overlays/dev/, /overlays/staging/, /overlays/prod/.
+
+Mỗi thư mục chứa file cấu hình deployment được tùy chỉnh theo môi trường tương ứng (thường dùng Kustomize hoặc Helm values).
+
+Việc promotion là cập nhật file manifest trong thư mục môi trường tương ứng.
+
+Công cụ GitOps theo dõi từng thư mục hoặc từng ứng dụng cho môi trường đó.
+
+Ưu điểm: Dễ dàng chia sẻ phần cấu hình chung, thuận tiện cho những dự án nhỏ hoặc có số lượng môi trường vừa phải.
+
+3. Sử dụng các repo GitOps riêng biệt cho từng môi trường
+
+Mỗi môi trường (dev, staging, prod) quản lý trong một repo GitOps riêng.
+
+Quá trình promotion là push/copy manifest từ repo môi trường thấp hơn sang repo môi trường cao hơn.
+
+Tăng tính bảo mật, phân quyền, và độc lập về version giữa các môi trường.
+
+Các lưu ý khi thiết kế luồng promotion
+Không deploy tự động lên môi trường prod mà nên có bước approve thủ công hoặc automation có điều kiện.
+
+Thiết lập pipeline CI/CD để tự động tạo pull request hoặc tạo commit lên môi trường tiếp theo sau khi môi trường thấp hơn đã được phê duyệt.
+
+Sử dụng các tag, label để quản lý version deployment rõ ràng.
+
+Kiểm thử và monitor kỹ ở môi trường staging trước khi lên prod.
+
+Backup và có kế hoạch rollback khi có sự cố.
