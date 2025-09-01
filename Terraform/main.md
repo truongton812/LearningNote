@@ -317,7 +317,7 @@ Các lifecycle có thể dùng:
 
 ### Datasource
 
-Datasource giúp terraform đọc attribute từ resources nằm ngoài control của terraform. VD
+Datasource giúp terraform đọc attribute từ resources nằm ngoài control của terraform. (hình như chỉ giúp đọc nội dung file, không lấy resource về để quản lý được). VD
 ```
 data "local_file" "dog" {
   filename = "/root/dog.txt"
@@ -330,3 +330,31 @@ data "local_file" "dog" {
 | Keyword: **resource**                 | Keyword: **data**                |
 | **Creates, Updates, Destroys** Infrastructure | Only **Reads** Infrastructure   |
 | Also called **Managed Resources**    | Also called **Data Resources**   |
+
+### Meta arguments
+
+Defination:
+
+Các meta argument: depends_on, lifecycle, count, for each, loop, 
+
+1. Count: dùng để tạo nhiều instance của resources
+```
+resource "local_file" "dog" {
+  filename = "/root/${var.filename[count.index]}"
+  count = 3 #tuy nhiên sẽ chỉ ra 1 file do terraform tạo ra 3 file cùng 1 tên. Để fix thì cần phải tạo variable và dùng loop trên count
+}
+```
+Cách dùng count = 3 thì sẽ hard code số lượng, nếu ta thêm file vào list filename thì sẽ vẫn chỉ có 3 files tạo ra -> nên thay bằng `count = length(var.filename)`
+```
+variable.tf
+variable "filename" {
+  default = ["pet.txt", "dog.txt", "animal.txt"]
+}
+```
+
+
+Chatgpt: count.index là một biến đặc biệt (special variable) mà Terraform tự động tạo ra bên trong resource khi sử dụng thuộc tính count. Nó đại diện cho chỉ số (index) của bản sao resource hiện tại mà Terraform đang xử lý, bắt đầu từ 0, tăng lên 1 theo từng bản sao.
+
+Nói cách khác, count.index giúp phân biệt từng instance/resource được tạo ra khi count được sử dụng để tạo nhiều bản sao resource cùng lúc. Đây là một biến tự động có sẵn, không phải do người dùng định nghĩa hay gọi như hàm
+
+2. 
