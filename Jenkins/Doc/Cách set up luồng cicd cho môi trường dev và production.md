@@ -163,7 +163,8 @@ Quá trình promotion là push/copy manifest từ repo môi trường thấp hơ
 
 Tăng tính bảo mật, phân quyền, và độc lập về version giữa các môi trường.
 
-Các lưu ý khi thiết kế luồng promotion
+##### Các lưu ý khi thiết kế luồng promotion
+
 Không deploy tự động lên môi trường prod mà nên có bước approve thủ công hoặc automation có điều kiện.
 
 Thiết lập pipeline CI/CD để tự động tạo pull request hoặc tạo commit lên môi trường tiếp theo sau khi môi trường thấp hơn đã được phê duyệt.
