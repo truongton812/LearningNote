@@ -477,3 +477,38 @@ secretGenerator:
 - Secret cũng được tạo mới với hậu tố hash mỗi khi dữ liệu thay đổi để thuận tiện quản lý và cập nhật Pod tự động nếu cần.
 - Nếu tắt tính năng hậu tố hash, cần chủ động cập nhật pod để nhận secret mới.
 - Dữ liệu trong Secret luôn được tự động base64 hóa.
+
+### 5. ArgoCD hook
+
+Dùng để thực thi các tác vụ theo các giai đoạn khác nhau trong quá trình triển khai ứng dụng. Có các loại hook:
+- PreSync hook: thực thi các tác vụ trước khi ArgoCD triển khai ứng dụng
+- Sync hook: Thực thi cùng lúc với việc áp dụng các manifest ứng dụng, sau khi tất cả PreSync hook thành công.
+- PostSync hook: Thực hiện sau khi ứng dụng được áp dụng hoàn tất và ở trạng thái khỏe mạnh (Healthy), thích hợp cho các tác vụ kiểm tra, gửi thông báo hay các bước hoàn thiện sau khi triển khai.
+- SyncFail hook: Thực thi khi quá trình đồng bộ (sync) thất bại, dùng để xử lý rollback, dọn dẹp tài nguyên hay gửi cảnh báo khi deploy gặp lỗi.
+- PostDelete hook: Thực thi sau khi tất cả tài nguyên ứng dụng bị xóa, dùng để làm sạch hoặc dọn dẹp dữ liệu liên quan
+
+Ví dụ dùng PreSync hook:
+
+Cách thực hiện: 
+- Tạo một manifest Kubernetes cho Job hoặc Pod chạy script bạn muốn. Nội dung có thể là một Job thực thi file shell script, Python, hoặc bất kỳ container nào có logic bạn mong muốn.
+- Thêm annotation `argocd.argoproj.io/hook: PreSync` vào manifest, annotation này cho ArgoCD biết đây là tài nguyên cần chạy trước giai đoạn sync, tức trước khi deploy các thành phần còn lại của ứng dụng.
+- Thêm file manifest này vào repo Git mà ArgoCD theo dõi ứng dụng.
+- Khi ArgoCD phát hiện thay đổi, nó sẽ tự động thực thi job này trước khi apply các resource còn lại.
+
+```
+apiVersion: batch/v1
+kind: Job
+metadata:
+  generateName: custom-script-
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+spec:
+  template:
+    spec:
+      containers:
+        - name: script-runner
+          image: alpine
+          command: ["/bin/sh", "-c"]
+          args: ["echo 'Hello from pre-sync!'; ./your-script.sh"]
+      restartPolicy: Never
+```
