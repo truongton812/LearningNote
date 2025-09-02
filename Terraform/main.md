@@ -84,7 +84,7 @@ Ngoài main.tf trong thư mục có thể đặt thêm các file:
 | main.tf      | Main configuration file containing resource definition |
 | variables.tf | Contains variable declarations                         |
 | outputs.tf   | Contains outputs from resources                        |
-| provider.tf  | Contains Provider definition                           |
+| provider.tf  | Contains Provider definition and credential                          |
 
 
 ### Multiple providers
@@ -427,7 +427,7 @@ resource "aws_iam_user_policy_attachment" "lucy-admin-access" {
 
 ```
 
-Tuy nhiên cách trên sẽ thiếu bảo mật do đưa credential vào trong configuration file. Thay vì thế ta nên cài credential trong aws cli trên server chạy terraform . Lưu ý vẫn cần giữ cụm provider với region
+Tuy nhiên cách trên sẽ thiếu bảo mật do đưa credential vào trong configuration file. Thay vì thế ta nên cài credential trong aws cli trên server chạy terraform . Lưu ý vẫn cần giữ cụm provider với region. Hoặc tạo file riêng provider.tf chứa block provider
 
 
 Ví dụ về S3
