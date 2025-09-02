@@ -504,3 +504,63 @@ terraform {
   }
 }
 ```
+
+##### Các lệnh làm việc với state
+
+Syntax: terraform state <subcommand> [options] [args]
+Trong đó subcommand có thể là list, mv, pull, rm, show
+VD:
+- terraform state list -> show ra tất cả resources trong state file (không show chi tiết)
+- terraform state show aws_s3_bucket.mybucket -> show ra chi tiết resource mybucket
+- terraform state mv -> dùng để đổi tên resource trong state file (lưu ý cần thay đổi manually trong configuration file) hoặc move item từ state file này sang state file khác
+- terraform state pull -> download và show ra remote state file
+- terraform state rm <resource> -> dùng để xóa item ra khỏi state file (lưu ý resource vẫn tồn tại trên môi trường thật)
+
+### Provisioner
+Provisioner trong Terraform là một tính năng cho phép thực thi các đoạn script hoặc lệnh sau khi tài nguyên (resource) được Terraform tạo ra. Provisioner có thể chạy script ở máy local (máy đang chạy Terraform) hoặc trên máy remote (ví dụ như máy chủ EC2 vừa mới tạo). Provisioner thường được dùng để cấu hình hạ tầng sau khi nó đã được tạo, ví dụ như cài đặt phần mềm, chỉnh sửa tập tin cấu hình, hoặc chạy các lệnh khởi tạo.
+
+Có hai loại provisioner chính trong Terraform:
+
+1. local-exec: Chạy các lệnh trên máy local, nơi Terraform đang chạy.
+```
+resource "aws_instance" "webserver" {
+  ami           = "ami-0edab43b6fa892279"
+  instance_type = "t2.micro"
+
+  provisioner "local-exec" {
+    command = "echo ${aws_instance.webserver.public_ip} >> /tmp/ips.txt"
+  }
+}
+```
+
+2. remote-exec: Chạy các lệnh trên máy remote, như máy chủ mới được provision.
+
+```
+resource "aws_instance" "webserver" {
+  ami           = "ami-0edab43b6fa892279"
+  instance_type = "t2.micro"
+
+  provisioner "remote-exec" {
+    inline = [
+      "sudo apt update",
+      "sudo apt install nginx -y",
+      "sudo systemctl enable nginx",
+      "sudo systemctl start nginx",
+    ]
+  }
+  connection {
+    type = "ssh"
+    host = self.public_ip
+    user = "ubuntu"
+    private_key = file("/root/.ssh/web")
+  }
+  key_name               = aws_key_pair.web.id
+  vpc_security_group_ids = [ aws_security_group.ssh-access.id ]
+}
+```
+
+Provisioner thường được thực thi khi tài nguyên được tạo ra (creation-time provisioners) hoặc khi tài nguyên bị xóa (destruction-time provisioners - dùng option `when = destroy`). Ngoài ra, nếu provisioner chạy thất bại, Terraform có thể đánh dấu tài nguyên đó là không thành công, hoặc có thể được cấu hình để tiếp tục. (dùng chỉ `on_failure` , mặc định là fail, có thể set thành continue) 
+
+Provisioner giúp đảm bảo rằng quá trình tạo hạ tầng không chỉ dừng lại ở việc tạo tài nguyên mà còn thực hiện các bước cấu hình cần thiết, làm cho việc tự động hóa hạ tầng trở nên hoàn chỉnh hơn và kiểm soát chặt chẽ hơn về trạng thái thành công của việc provision.
+
+Ví dụ, khi tạo một máy ảo EC2, provisioner remote-exec có thể dùng để cài đặt Apache HTTP Server ngay sau khi máy được tạo ra, và Terraform sẽ chỉ đánh dấu tài nguyên đó là thành công khi lệnh cài đặt thành công
