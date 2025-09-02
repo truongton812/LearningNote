@@ -223,3 +223,59 @@ Mỗi thành phần control plane có cơ chế leader election riêng và có t
 - Controller manager tại node 1 làm leader
 - Scheduler tại node 2 làm leader
 - Etcd node 3 làm leader.
+
+### Tự động restart Pod khi ConfigMap thay đổi
+Trong Kubernetes, Pod sẽ không tự động restart khi ConfigMap thay đổi. Đây là hành vi mặc định vì Kubernetes không có cơ chế tự động khởi động lại Pod khi ConfigMap được cập nhật.
+
+Để đạt được việc tự động restart Pod khi ConfigMap thay đổi, bạn có thể dùng một số cách sau:
+
+- Dùng công cụ bên thứ ba như Reloader: Đây là một Kubernetes Controller chuyên giám sát các ConfigMap và Secret được chỉ định, khi phát hiện thay đổi sẽ tự động khởi động lại Pod (ví dụ qua rollout restart). Bạn chỉ cần cài đặt Reloader và thêm annotation vào Deployment để chỉ định ConfigMap cần giám sát.
+
+- Cách thủ công với Kubernetes:
+
+Cập nhật annotation trong metadata template của Deployment mỗi khi ConfigMap thay đổi để kích hoạt rollout restart:
+
+```
+spec:
+  template:
+    metadata:
+      annotations:
+        configmap-version: "2"  # tăng giá trị đi kèm mỗi lần ConfigMap thay đổi
+```
+Hoặc dùng lệnh thủ công để rollout restart:
+```
+kubectl rollout restart deployment <deployment-name>
+```
+- Một số công cụ quản lý deployment như Helm có thể hỗ trợ tự động tính toán checksum của ConfigMap rồi dùng checksum đó làm annotation kích hoạt restart khi ConfigMap thay đổi.
+
+Cách thực hiện: Trong template deployment.yaml của Helm, thêm phần annotation chứa checksum của ConfigMap vào phần metadata của Pod template.
+
+Khi nội dung ConfigMap thay đổi, giá trị checksum này sẽ khác đi, dẫn đến thay đổi annotation trên Pod template. Kubernetes coi đó là thay đổi nên sẽ rollout lại Deployment, khởi động lại Pod.
+
+Ví dụ cụ thể trong deployment.yaml của Helm:
+
+```
+spec:
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+```
+Giải thích:
+
+include sẽ lấy template ConfigMap (configmap.yaml),
+
+sha256sum tính toán checksum chuỗi template đó,
+
+checksum này đặt làm annotation, cứ mỗi lần ConfigMap thay đổi thì checksum này thay đổi => Kubernetes sẽ restart Pod.
+
+Một số lưu ý khi áp dụng:
+
+File configmap.yaml trong template Helm phải chứa chính xác content của ConfigMap đang được sử dụng.
+
+
+
+
+
+
+Lưu ý: Nếu bạn mount ConfigMap dưới dạng volume, nội dung file sẽ được cập nhật ngay trong container khi Configmap thay đổi, nhưng nếu mount dưới dạng biến môi trường thì không tự cập nhật.
