@@ -512,3 +512,52 @@ spec:
           args: ["echo 'Hello from pre-sync!'; ./your-script.sh"]
       restartPolicy: Never
 ```
+### 6. Tích hợp ArgoCD với Helm
+
+Để tích hợp ArgoCD với Helm, ta tạo Application như sau:
+
+```
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: my-helm-app
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://charts.bitnami.com/bitnami   # Đường dẫn Helm repo
+    chart: nginx
+    targetRevision: 15.0.0  # Phiên bản Chart (có thể thay)
+    helm:
+      parameters:           # dùng để ghi đè (override) các giá trị tương ứng trong file values.yaml của Helm Chart
+        - name: service.type
+          value: LoadBalancer
+        - name: replicaCount
+          value: "3"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: default
+  syncPolicy:
+    automated: {}           # Đồng bộ tự động
+```
+
+Giải thích trường `spec.helm.parameters` dùng để ghi đè (override) các giá trị tương ứng trong file values.yaml của Helm Chart.
+
+Ví dụ nếu trong values.yaml của Helm Chart có:
+
+```
+service:
+  type: ClusterIP
+replicaCount: 1
+```
+
+và bạn để trong spec.helm.parameters:
+
+```
+parameters:
+  - name: service.type
+    value: LoadBalancer
+  - name: replicaCount
+    value: "3"
+```
+thì khi ArgoCD deploy, giá trị sẽ được thay thế thành service.type=LoadBalancer và replicaCount=3 thay vì mặc định.
