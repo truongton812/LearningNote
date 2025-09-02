@@ -493,3 +493,14 @@ Giải thích thêm về cơ chế lock state file: lock state file giúp đảm
 - Quản lý tập trung, dễ backup và phục hồi: Khi lưu trạng thái hạ tầng trên remote backend, toàn bộ team đều tham chiếu cùng một nguồn lưu trữ tập trung, giúp đồng bộ hóa trạng thái và dễ dàng thực hiện backup, restore khi cần thiết
 - Hỗ trợ CI/CD và tự động hóa: Việc lưu state file trên remote backend giúp tích hợp dễ dàng vào các pipeline CI/CD, không phụ thuộc vào thiết bị cá nhân của từng thành viên, giảm rủi ro mất dữ liệu khi thay đổi máy làm việc hoặc khi cần chạy tự động hóa.
 
+##### Cách khai báo remote state file
+```
+terraform {
+  backend "s3" {
+    bucket         = "kodekloud-terraform-state-bucket01"
+    key            = "finance/terraform.tfstate"
+    region         = "us-west-1"
+    dynamodb_table = "state-locking" #optinal, DynamoDB table được dùng làm cơ sở dữ liệu để lưu trạng thái khóa (lock), đảm bảo chỉ có một tiến trình duy nhất được phép chỉnh sửa state file tại một thời điểm. Khi một thao tác apply hoặc plan bắt đầu, Terraform sẽ tạo một khóa trong DynamoDB và giữ quyền truy cập; các thao tác khác phải chờ cho đến khi khóa được giải phóng.
+  }
+}
+```
