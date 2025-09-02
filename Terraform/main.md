@@ -317,13 +317,16 @@ Các lifecycle có thể dùng:
 
 ### Datasource
 
-Datasource giúp terraform đọc attribute từ resources nằm ngoài control của terraform. (hình như chỉ giúp đọc nội dung file, không lấy resource về để quản lý được). VD
+Datasource giúp terraform đọc attribute từ resources nằm ngoài control của terraform. . VD
 ```
 data "local_file" "dog" {
   filename = "/root/dog.txt"
 }
 ```
 -> terraform sẽ tạo ra resource type là local_file từ data source (???)
+
+
+Datasource giúp terraform quản lý các resource nằm ngoài control của terraform. Xem thêm ví dụ về S3 ở dưới
 
 | Resource                               | Data Source                       |
 |--------------------------------------|---------------------------------|
@@ -387,6 +390,7 @@ terraform {
 
 ### Terraform with AWS
 
+Ví dụ về IAM
 ```
 provider "aws" {
   region     = "us-west-2"
@@ -424,3 +428,68 @@ resource "aws_iam_user_policy_attachment" "lucy-admin-access" {
 ```
 
 Tuy nhiên cách trên sẽ thiếu bảo mật do đưa credential vào trong configuration file. Thay vì thế ta nên cài credential trong aws cli trên server chạy terraform . Lưu ý vẫn cần giữ cụm provider với region
+
+
+Ví dụ về S3
+```
+resource "aws_s3_bucket" "finance" {
+  bucket = "finanace-21092020"
+  tags    = {
+    Description = "Finance and Payroll"
+  }
+}
+
+resource "aws_s3_bucket_object" "finance-2020" {
+  content = "/root/finance/finance-2020.doc"
+  key     = "finance-2020.doc"
+  bucket  = aws_s3_bucket.finance.id
+}
+
+data "aws_iam_group" "finance-data" {
+  group_name = "finance-analysts"
+}
+
+resource "aws_s3_bucket_policy" "finance-policy" {
+  bucket = aws_s3_bucket.finance.id
+  policy = <<EOF
+  {
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Action": "*",
+        "Effect": "Allow",
+        "Resource": "arn:aws:s3:::${aws_s3_bucket.finance.id}/*",
+        "Principal": {
+          "AWS": [
+            "${data.aws_iam_group.finance-data.arn}"
+          ]
+        }
+      }
+    ]
+  }
+EOF
+}
+```
+
+### Remote state file
+
+##### Nhược điểm của việc lưu trữ state file trên máy local trong Terraform gồm các vấn đề sau:
+- Dễ gây xung đột khi làm việc nhóm: Khi nhiều người cùng quản trị hạ tầng, việc lưu state file trên máy cá nhân dễ dẫn đến xung đột, overwrite hoặc mất đồng bộ trạng thái hạ tầng.
+- Nguy cơ mất mát, hỏng hoặc xóa dữ liệu: Nếu máy tính gặp sự cố, mất file state local sẽ khiến quản lý hạ tầng không chính xác, khó phục hồi hay khôi phục lại trạng thái cũ.
+- Không hỗ trợ tính năng locking và bảo vệ concurrent actions: Local backend không khoá state file, dễ bị lỗi hoặc phá vỡ khi có nhiều thao tác song song hoặc nhiều người cùng apply, gây ra nguy cơ corrupt hoặc state drift (lệch trạng thái thực tế).
+- Rủi ro về bảo mật State file lưu trên máy cá nhân có thể chứa thông tin nhạy cảm (secret, password, endpoint...), dễ bị lộ hoặc truy cập trái phép nếu không kiểm soát tốt.
+- Không có versioning & audit trail: Local backend không quản lý version hoặc lịch sử thay đổi file state, dẫn đến khó rollback khi gặp lỗi hoặc truy vết lịch sử hạ tầng
+
+
+##### Nhược điểm của việc lưu trữ state file trên git:
+- Không hỗ trợ tính năng locking và bảo vệ concurrent actions
+
+Giải thích thêm về cơ chế lock state file: lock state file giúp đảm bảo an toàn và nhất quán cho state file nhiều người, hoặc nhiều tiến trình, cùng thực hiện thao tác thay đổi hạ tầng. Cách thức khóa state file: Khi một lệnh terraform apply hoặc terraform plan chạy, Terraform sẽ thực hiện thao tác lock trên state file, lock này giữ quyền truy cập state file cho duy nhất một tiến trình tại một thời điểm; các thao tác khác sẽ bị chặn hoặc báo lỗi "state locked" và phải đợi tiến trình đang chiếm giải phóng lock.
+
+##### Lưu state file trên remote backend có các ưu điểm:
+
+- Hạn chế xung đột khi làm việc nhóm: Khi dùng local backend, state chỉ lưu trên máy cá nhân, dễ gây xung đột nếu nhiều người cùng vận hành Terraform trên một project dẫn đến thay đổi hạ tầng không kiểm soát được. Remote backend có cơ chế lock file trạng thái, ngăn không cho nhiều user cùng lúc thực hiện thao tác apply, giảm nguy cơ conflict.
+- Tăng tính bảo mật và kiểm soát truy cập: State file có thể chứa sensitive data như password, endpoint, thông tin bảo mật, do đó việc lưu trên remote backend (ví dụ như S3, Terraform Cloud...) với phân quyền phù hợp sẽ bảo vệ dữ liệu tốt hơn so với lưu trên máy local.
+- Quản lý tập trung, dễ backup và phục hồi: Khi lưu trạng thái hạ tầng trên remote backend, toàn bộ team đều tham chiếu cùng một nguồn lưu trữ tập trung, giúp đồng bộ hóa trạng thái và dễ dàng thực hiện backup, restore khi cần thiết
+- Hỗ trợ CI/CD và tự động hóa: Việc lưu state file trên remote backend giúp tích hợp dễ dàng vào các pipeline CI/CD, không phụ thuộc vào thiết bị cá nhân của từng thành viên, giảm rủi ro mất dữ liệu khi thay đổi máy làm việc hoặc khi cần chạy tự động hóa.
+
