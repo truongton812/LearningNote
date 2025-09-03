@@ -279,3 +279,29 @@ File configmap.yaml trong template Helm phải chứa chính xác content của 
 
 
 Lưu ý: Nếu bạn mount ConfigMap dưới dạng volume, nội dung file sẽ được cập nhật ngay trong container khi Configmap thay đổi, nhưng nếu mount dưới dạng biến môi trường thì không tự cập nhật.
+
+
+## Ingress
+
+
+##### Một hệ thống Kubernetes thông thường sử dụng cả LoadBalancer và Ingress Controller để điều phối traffic từ bên ngoài vào các service như sau:
+
+Kiến trúc tổng quan
+
+https://images.viblo.asia/1bf71410-c93e-46d5-b8b8-6ffe5c5cad04.png
+
+External LoadBalancer chịu trách nhiệm nhận toàn bộ traffic từ phía ngoài (Internet hoặc LAN), sau đó chuyển tiếp tới điểm vào cluster (Ingress Controller) thông qua NodePort hoặc trực tiếp qua IP external.
+
+Ingress Controller (ví dụ: NGINX Ingress, HAProxy Ingress) lắng nghe traffic từ LoadBalancer và định tuyến HTTP/HTTPS đến các service nội bộ, dựa trên các rule được định nghĩa trong resource Ingress.
+
+Mọi routing logic như truy cập nhiều domain/subdomain, url path khác nhau được điều phối tại lớp Ingress.
+
+###### Quy trình luồng dữ liệu
+
+Client truy cập vào domain/app: Gửi request HTTP/HTTPS về địa chỉ IP public hoặc private được gán cho LoadBalancer.
+
+LoadBalancer nhận traffic: Forward toàn bộ traffic lên NodePort của Ingress Controller (hoặc IP/port mà Ingress được expose ra).
+
+Ingress Controller xử lý request: Đọc các rule từ resource Ingress, xác định đích đến dựa vào host/path, sau đó chuyển tiếp về service backend thích hợp bên trong cluster.
+
+Service backend nhận request: Service nội bộ nhận request, chuyển về pod ứng dụng xử lý, trả dữ liệu lại theo chiều ngược.
