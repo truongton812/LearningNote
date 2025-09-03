@@ -1,10 +1,10 @@
 
 
-1. Chart (Helm Chart)
-Chart là một gói (package) chứa mọi thứ cần thiết để triển khai một ứng dụng hoặc một tập hợp tài nguyên trên Kubernetes.
+## Chart
 
----
-Cấu trúc 1 thư mục helm chart
+Chart trong Helm là một gói (package) định nghĩa cho ứng dụng Kubernetes, bao gồm các file template YAML và thông tin cấu hình cần thiết để triển khai một hoặc nhiều tài nguyên lên cluster Kubernetes một cách nhất quán và dễ quản lý
+
+Cấu trúc 1 thư mục helm chart:
 
 ```
 basechart
@@ -23,18 +23,13 @@ basechart
 │ └── test-connection.yaml
 └── values.yaml
 ```
-a. helmignore: chứa các pattern cần ignore khi package helm chart (helm package để tạo ra <name>.tgz)
+a. helmignore: chứa các pattern muốn ignore khi đóng gói helm chart bằng lệnh `helm package` để tạo ra <chart>.tgz
 
-b. chart.yaml: thông tin metadata về chart (tên, phiên bản, phiên bản của application (thường là docker image tag), mô tả, dependencies)
-Trường dependencies trong file Chart.yaml dùng để khai báo các chart khác mà chart hiện tại phụ thuộc vào. Đây là cách để bạn xác định “subchart” hoặc “dependency chart” mà ứng dụng của bạn cần, giúp tự động hóa quá trình cài đặt và đảm bảo đầy đủ các thành phần cần thiết khi triển khai ứng dụng trên Kubernetes
-Lợi ích và ứng dụng
-Tự động hóa: Triển khai đầy đủ các thành phần phức hợp (ví dụ: ứng dụng chính + database, redis, prometheus…) chỉ với một chart cha.
+b. Chart.yaml: thông tin metadata về chart (tên, phiên bản, phiên bản của application (thường là docker image tag), mô tả, dependencies)
 
-Quản lý version: Dễ dàng kiểm soát phiên bản chart phụ thuộc bằng trường version.
+Trường dependencies trong file Chart.yaml dùng để khai báo các chart khác mà chart hiện tại phụ thuộc vào. Đây là cách để bạn xác định “subchart” hoặc “dependency chart” mà ứng dụng của bạn cần, giúp đảm bảo đầy đủ các thành phần cần thiết khi triển khai ứng dụng trên Kubernetes. Ví dụ ta có thể triển khai đầy đủ các thành phần phức hợp (ví dụ: ứng dụng chính + database, redis, prometheus…) chỉ với một chart cha. Subchart còn giúp tái sử dụng các chart phổ biến từ cộng đồng hoặc nội bộ như một module nhỏ.
 
-Tái sử dụng: Dùng lại các chart phổ biến từ cộng đồng hoặc nội bộ như một module nhỏ.
-
-VD
+VD:
 ```
 dependencies:
   - name: mysql
@@ -44,7 +39,7 @@ dependencies:
     version: "~14.0.0"
     repository: "https://charts.bitnami.com/bitnami"
 ```
-c. values.yaml: các biến cấu hình mặc định, cho phép tùy biến khi cài đặt ứng dụng
+c. Values.yaml: các biến cấu hình mặc định, cho phép tùy biến khi cài đặt ứng dụng
 
 d. Thư mục templates/: chứa các file mẫu (template) định nghĩa các resource của Kubernetes (Deployment, Service, Ingress, v.v…), sử dụng ngôn ngữ Go template để sinh ra manifest hoàn chỉnh dựa trên các giá trị cấu hình từ file values.yaml
 
@@ -54,9 +49,8 @@ Lưu ý: trong templates các file bắt đầu bằng _ sẽ không được ge
 e. Thư mục charts/: chứa các chart khác mà chart hiện tại cần dùng, để ở dạng <name>.tgz. Là nơi CHỨA các package/chart phụ đã được tải về, ta có thể tải các file .tgz thủ công về sau đó copy vào thư mục này (hữu dụng khi dùng cho môi trường không có Internet hoặc cần cố định phiên bản). Đây cũng là nơi chứa dependency được khai báo trong trường dependencies của file Chart.yaml sẽ được Helm tự động tải về và lưu trong thư mục charts/ khi bạn chạy lệnh helm dependency update
 
 f. Thư mục tests: dùng để viết test để validate charts có hoạt động không (giống hook trong aws)
----
 
-2. Repo (Helm Repository)
+## 2. Repo (Helm Repository)
 Repo trong Helm (hay còn gọi là Helm Repository) là một kho lưu trữ các Helm charts.
 
 Repo đóng vai trò là nơi lưu trữ tập trung, cho phép bạn publish, version, chia sẻ và tải về các ứng dụng đã được đóng gói dưới dạng chart.
@@ -124,14 +118,18 @@ Chatgpt: Lệnh này sẽ tự động tải về các chart phụ thuộc và l
 27. Option --dry-run: dùng để lấy manifest cuối cùng sẽ được triển khai chứ không chạy thật. VD áp dụng cho helm install, helm upgrade, helm template, helm uninstall
 28. Option --debug: enable verbose output (dùng được với đa số lệnh helm)
 
----
 
 
-Values Hierarchy
+
+## Values Hierarchy
 Value trong helm sẽ có thứ tự như sau:
+
 Sub chart values.yaml can be overriden by parents chart values.yaml
+
 Parent charts values.yaml can be overriden by user-supplied value file (-f myvalues.yaml)
+
 User-supplied value file (-f myvalues.yaml) can be overriden by --set parameters
+
 ---
 Comment trong helm: {{/* comment */}}
 
