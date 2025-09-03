@@ -39,18 +39,19 @@ dependencies:
     version: "~14.0.0"
     repository: "https://charts.bitnami.com/bitnami"
 ```
-c. Values.yaml: các biến cấu hình mặc định, cho phép tùy biến khi cài đặt ứng dụng
+c. Values.yaml: chứa các biến cấu hình mặc định, cho phép tùy biến khi cài đặt ứng dụng
 
-d. Thư mục templates/: chứa các file mẫu (template) định nghĩa các resource của Kubernetes (Deployment, Service, Ingress, v.v…), sử dụng ngôn ngữ Go template để sinh ra manifest hoàn chỉnh dựa trên các giá trị cấu hình từ file values.yaml
+d. Thư mục templates/: chứa các file mẫu (template) định nghĩa các resource của Kubernetes (Deployment, Service, Ingress, v.v…), sử dụng ngôn ngữ Go template để sinh ra manifest hoàn chỉnh dựa trên các giá trị cấu hình từ file Values.yaml
 
-e.templates/_helpers.tpl: dùng để tạo các reuseable parts (function)
-Lưu ý: trong templates các file bắt đầu bằng _ sẽ không được generate ra thành manifest
+e.templates/_helpers.tpl: là một file đặc biệt dùng để định nghĩa các template helper (hàm mẫu) giúp tái sử dụng các logic phức tạp hoặc các cấu hình lặp lại nhiều lần trong các file template khác của chart. Ví dụ như định nghĩa các nhãn (labels) chuẩn cho các resource, hoặc tạo tên resource theo quy tắc nhất định, hay các đoạn cấu hình tùy chỉnh dùng chung.
 
-e. Thư mục charts/: chứa các chart khác mà chart hiện tại cần dùng, để ở dạng <name>.tgz. Là nơi CHỨA các package/chart phụ đã được tải về, ta có thể tải các file .tgz thủ công về sau đó copy vào thư mục này (hữu dụng khi dùng cho môi trường không có Internet hoặc cần cố định phiên bản). Đây cũng là nơi chứa dependency được khai báo trong trường dependencies của file Chart.yaml sẽ được Helm tự động tải về và lưu trong thư mục charts/ khi bạn chạy lệnh helm dependency update
+Lưu ý: trong templates/ các file bắt đầu bằng _ sẽ không được generate ra thành manifest
+
+e. Thư mục charts/: là nơi chứa các package/chart phụ đã được tải về, ta có thể tải các file .tgz thủ công về sau đó copy vào thư mục này (hữu dụng khi dùng cho môi trường không có Internet hoặc cần cố định phiên bản). Đây cũng là nơi chứa dependency được khai báo trong trường dependencies của file Chart.yaml. Khi bạn chạy lệnh `helm dependency update` thì các dependencies sẽ được Helm tải về và lưu trong thư mục charts/ 
 
 f. Thư mục tests: dùng để viết test để validate charts có hoạt động không (giống hook trong aws)
 
-## 2. Repo (Helm Repository)
+## Helm Repository
 Repo trong Helm (hay còn gọi là Helm Repository) là một kho lưu trữ các Helm charts.
 
 Repo đóng vai trò là nơi lưu trữ tập trung, cho phép bạn publish, version, chia sẻ và tải về các ứng dụng đã được đóng gói dưới dạng chart.
@@ -75,7 +76,8 @@ helm repo add bitnami https://charts.bitnami.com/bitnami
 helm install my-nginx bitnami/nginx
 Lúc này, Helm sẽ lấy chart Nginx từ repo Bitnami, áp dụng thông tin cấu hình trong values.yaml, sinh ra các manifest K8S, và triển khai Nginx lên cluster
 
----
+
+## Các lệnh làm việc với Helm
 
 1. helm repo list -> xem các repo đã thêm vào helm. Repo là nơi lưu trữ helm chart
 2. helm repo add <ten_repo> <url> -> thêm repo vào helm. Trong đó <ten_repo> là tên trên local của helm chart, còn url là nơi lưu trữ chart
@@ -122,13 +124,15 @@ Chatgpt: Lệnh này sẽ tự động tải về các chart phụ thuộc và l
 
 
 ## Values Hierarchy
-Value trong helm sẽ có thứ tự như sau:
 
-Sub chart values.yaml can be overriden by parents chart values.yaml
 
-Parent charts values.yaml can be overriden by user-supplied value file (-f myvalues.yaml)
+Giá trị trong gile Values.yaml có precedence như sau: 
 
-User-supplied value file (-f myvalues.yaml) can be overriden by --set parameters
+- Giá trị mặc định trong values.yaml của subchart (chart con) có thể bị ghi đè bởi values.yaml của parent chart (chart cha).
+
+- Giá trị trong values.yaml của parent chart có thể bị ghi đè bởi file giá trị do người dùng cung cấp qua tham số -f myvalues.yaml. (Khi người dùng cài đặt hoặc nâng cấp một Helm chart, mặc định các giá trị cấu hình được lấy từ file values.yaml. Tuy nhiên, người dùng có thể cung cấp một file giá trị riêng (ví dụ myvalues.yaml) qua tham số -f trong lệnh Helm `helm install -f myvalues.yaml` -> giúp tùy biến cấu hình chart dễ dàng mà không cần chỉnh sửa trực tiếp file values.yaml gốc
+
+- Giá trị từ file người dùng có thể tiếp tục bị ghi đè bởi các giá trị truyền trực tiếp qua tham số --set khi chạy lệnh Helm.
 
 ---
 Comment trong helm: {{/* comment */}}
