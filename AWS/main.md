@@ -104,3 +104,30 @@ Backend service xử lý nghiệp vụ, gọi DB, thực thi logic.
 Lớp dữ liệu quản lý bằng các dịch vụ RDS, DynamoDB, S3 (lưu trữ file).
 
 Chức năng Auto Scaling, monitoring qua CloudWatch đảm bảo ổn định.
+
+### Quản lý chi phí trên AWS
+
+###### Các công cụ để quản lý chi phí trên AWS:
+
+- AWS Cost Explorer: Giúp theo dõi, phân tích chi phí và mức sử dụng dịch vụ AWS theo thời gian để nhận diện xu hướng và nguồn chi phí chính.
+
+- AWS Budgets: Cho phép thiết lập ngân sách chi tiêu và cảnh báo khi chi phí vượt ngưỡng đã định, hỗ trợ kiểm soát chi tiêu. Metric cảnh báo trong AWS Budgets thường lấy dữ liệu từ dịch vụ CloudWatch Billing Metric, trong đó phổ biến nhất là metric Estimated Charges (chi phí ước tính) để theo dõi chi phí tài khoản theo thời gian.
+
+- AWS Cost Allocation Tags: Gắn thẻ tài nguyên để phân loại chi phí theo dự án, môi trường, nhóm hoặc ứng dụng, giúp phân bổ chi phí chính xác. Cách thực hiện: tạo và gán tag dạng key-value cho các tài nguyên cần (ví dụ EC2, S3, RDS,...). Sau đó kích hoạt Cost Allocation Tags (Truy cập AWS Billing and Cost Management Console -> Cost Allocation Tags -> Chọn các tags muốn dùng để phân bổ chi phí và Activate). Sau khi tag được kích hoạt và tài nguyên được gán tag, AWS sẽ tự động tạo các báo cáo chi phí dựa trên tags này trong các công cụ:
+  + AWS Cost Explorer: Lọc và phân tích chi phí dựa trên các tag đã kích hoạt.
+  + AWS Budgets: Thiết lập ngân sách theo từng tag cụ thể để giám sát chi phí.
+  + AWS Cost and Usage Report: Báo cáo chi tiết chi phí dùng tag cho phân tích nâng cao.
+
+- AWS Cost Anomaly Detection: Phát hiện chi phí bất thường để ngăn ngừa và xử lý kịp thời.
+
+- Consolidated Billing trong AWS Organizations: Tổng hợp hóa đơn giữa nhiều tài khoản để tận dụng chiết khấu khối lượng và quản lý tài chính tập trung.
+
+##### Các chiến lược tối ưu chi phí trên AWS
+
+- Sử dụng pricing model phù hợp: Kết hợp On-Demand, Reserved Instances, và Spot Instances để tiết kiệm chi phí theo nhu cầu và tính chất khối lượng công việc.
+
+- Tự động điều chỉnh quy mô (Auto Scaling): Tăng giảm tài nguyên tự động dựa theo tải thực tế giúp tối ưu chi phí.
+
+- Sử dụng Amazon EventBridge để tạo các cronjob tự động chạy theo lịch trình ví dụ như bật/tắt EC2 instance theo giờ làm việc, giảm chi phí khi không dùng.
+
+- Thiết lập cảnh báo ngân sách: Đặt cảnh báo và hành động tự động khi chi phí vượt ngưỡng nhằm kiểm soát chi tiêu trước khi phát sinh cao.
