@@ -284,7 +284,7 @@ Lưu ý: Nếu bạn mount ConfigMap dưới dạng volume, nội dung file sẽ
 ## Ingress
 
 
-##### Một hệ thống Kubernetes thông thường sử dụng cả LoadBalancer và Ingress Controller để điều phối traffic từ bên ngoài vào các service như sau:
+#### Một hệ thống Kubernetes thông thường sử dụng cả LoadBalancer và Ingress Controller để điều phối traffic từ bên ngoài vào các service như sau:
 
 Kiến trúc tổng quan
 
@@ -305,3 +305,79 @@ LoadBalancer nhận traffic: Forward toàn bộ traffic lên NodePort của Ingr
 Ingress Controller xử lý request: Đọc các rule từ resource Ingress, xác định đích đến dựa vào host/path, sau đó chuyển tiếp về service backend thích hợp bên trong cluster.
 
 Service backend nhận request: Service nội bộ nhận request, chuyển về pod ứng dụng xử lý, trả dữ liệu lại theo chiều ngược.
+
+#### Hệ thống sử dụng MetalLB và Ingress Controller
+
+Downside khi dùng Ingress 
+- NodePort expose dịch vụ thông qua cổng cố định (thường trong khoảng 30000-32767) trên từng node, khiến người dùng phải biết IP từng node và cổng đó để truy cập. Điều này không tiện và khó quản lý khi có nhiều node hoặc dịch vụ.
+- Để giải quyết vấn đề port unwell-known thì cần dùng Loadbalancer đứng trước -> tốn tài nguyên cho LB và phức tạp
+
+-> Dùng MetalLB để xử lý vấn đề trên
+
+https://nvtienanh.info/_next/image?url=%2Fstatic%2Fimages%2Fcai-dat-metallb-va-ingress-nginx-tren-bare-metal-kubernetes-cluster%2FHomeLab-K8s-Full-Architecture-Baremetal.jpg&w=640&q=75
+
+MetalLB cung cấp IP external riêng biệt cho mỗi service LoadBalancer, giúp người dùng truy cập qua một IP cố định, không phụ thuộc IP node, tiện lợi cho DNS và cấu hình mạng.
+
+Cách MetalLB hoạt động: 
+
+- MetalLB cung cấp địa chỉ IP external từ dải IP được cấu hình cho các service loại LoadBalancer trong Kubernetes trên môi trường bare-metal hoặc on-premises.
+- Khi một service kiểu LoadBalancer được tạo, MetalLB sẽ nhận diện và cấp phát một IP từ dải IP pool đã định nghĩa.
+- MetalLB có thể hoạt động ở chế độ Layer 2 (L2) hoặc BGP (Border Gateway Protocol) để quảng bá địa chỉ IP đó trong mạng nội bộ hoặc ra các router, switch cho phép truy cập từ bên ngoài.
+- Trong mô hình thông dụng, MetalLB phối hợp với Ingress Controller (ví dụ như Contour hoặc NGINX) và proxy (như Envoy) để điều phối luồng traffic từ IP external vào các pod ứng dụng.
+  
+```
+apiVersion: metallb.io/v1beta1
+kind: IPAddressPool
+metadata:
+  name: default-pool
+  namespace: metallb-system
+spec:
+  addresses:
+    - 192.168.1.50/32
+---
+apiVersion: metallb.io/v1beta1
+kind: L2Advertisement
+metadata:
+  name: default
+  namespace: metallb-system
+spec:
+  ipAddressPools:
+    - default-pool
+```
+
+
+Lưu ý khi sử dụng metalLB: Nếu trong cụm đã có một service khác tồn tại trước và chiếm lấy IP trong pool của MetalLB, sau đó bạn mới tạo ingress controller (dạng LoadBalancer), thì ingress có thể không nhận được IP external (nếu pool đã hết IP hoặc đã bị các service khác lấy mất). MetalLB sẽ phân phát IP cho service LoadBalancer nào được tạo trước, dựa theo thứ tự tạo resource. Những service tạo sau, khi pool không còn IP khả dụng, sẽ rơi vào trạng thái pending và không được cấp IP
+
+Cách giải quyết:
+- gán IPAddressPool cho từng service/namespace cụ thể bằng các trường serviceSelectors, namespaceSelectors trong spec của IPAddressPool — lúc này chỉ service hoặc namespace được chỉ định mới có quyền lấy IP từ pool đó.
+```
+apiVersion: metallb.io/v1beta1
+kind: IPAddressPool
+metadata:
+  name: ingress-pool
+  namespace: metallb-system
+spec:
+  addresses:
+    - 192.168.100.10/32
+  serviceSelectors:
+    - matchLabels:
+        app: ingress-controller
+```
+- hoặc sử dụng annotation metallb.io/address-pool (nếu cấu hình nhiều IP pools) để chỉ rõ pool mà service ingress sẽ sử dụng, tách biệt với pool dùng cho các service khác.
+
+```
+apiVersion: v1
+kind: Service
+metadata:
+  name: ingress-nginx-controller
+  namespace: ingress-nginx
+  annotations:
+    metallb.io/address-pool: ingress-pool #Service này sẽ chỉ nhận địa chỉ IP từ pool tên là ingress-pool, không bị ảnh hưởng bởi các pool khác trong cluster.
+spec:
+  type: LoadBalancer
+  selector:
+    app: ingress-controller
+  ports:
+    - port: 80
+      targetPort: 80
+```
