@@ -564,3 +564,9 @@ Provisioner thường được thực thi khi tài nguyên được tạo ra (cr
 Provisioner giúp đảm bảo rằng quá trình tạo hạ tầng không chỉ dừng lại ở việc tạo tài nguyên mà còn thực hiện các bước cấu hình cần thiết, làm cho việc tự động hóa hạ tầng trở nên hoàn chỉnh hơn và kiểm soát chặt chẽ hơn về trạng thái thành công của việc provision.
 
 Ví dụ, khi tạo một máy ảo EC2, provisioner remote-exec có thể dùng để cài đặt Apache HTTP Server ngay sau khi máy được tạo ra, và Terraform sẽ chỉ đánh dấu tài nguyên đó là thành công khi lệnh cài đặt thành công
+
+
+### module
+
+https://devops.vn/posts/su-dung-terraform-modules-tai-su-dung-ma-quan-ly-ha-tang/
+
