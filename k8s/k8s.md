@@ -381,3 +381,18 @@ spec:
     - port: 80
       targetPort: 80
 ```
+# Custom resource
+
+Custom Resource: Custom resource là loại tài nguyên mở rộng do người dùng tự định nghĩa, bổ sung vào API của Kubernetes ngoài các tài nguyên mặc định như Pod hay Service. Nó cho phép lưu trữ và truy xuất dữ liệu theo nhu cầu riêng biệt – ví dụ: bạn có thể tạo custom resource tên là MyApp để tự quản lý cấu hình hoặc trạng thái cho ứng dụng của mình như một tài nguyên trong cluster.
+
+Custom Resource Definition (CRD): Custom Resource Definition (CRD) là đối tượng để khai báo và đăng ký custom resource với API server của Kubernetes. CRD đóng vai trò như “class” trong lập trình hướng đối tượng, còn custom resource giống như “object”/thể hiện. Khi deploy một CRD, bạn sẽ có thể tạo nhiều resource thuộc loại đó, quản lý bằng lệnh kubectl như các tài nguyên gốc của Kubernetes.
+
+Controller: Controller là chương trình tự động theo dõi trạng thái của tài nguyên trong Kubernetes, giúp đảm bảo trạng thái thực tế (actual state) trùng với trạng thái mong muốn (desired state), Ví dụ: Deployment Controller sẽ đảm bảo số lượng pod luôn ổn định như đã khai báo. Controller giúp tạo tài nguyên thật sự trên máy chủ dựa vào manifest của resource, Ví dụ khi apply manifest của Pod thì Controller sẽ tạo ra các tài nguyên như containers, volumes,... tương ứng. Hoặc khi apply manifest của Service thì Controller sẽ update rule của iptables trên các node
+
+Ngoài controller mặc định, có thể viết custom controller để tự động hóa logic đặc biệt, ví dụ theo dõi và xử lý khi một ConfigMap được cập nhật.
+
+Operator: Operator là một pattern đặc biệt, kết hợp giữa custom resource và controller, đóng vai trò như “bộ não tự động” cho quản lý ứng dụng phức tạp. Operator thường gồm:
+- Định nghĩa custom resource mới cho app (CRD),
+- Viết controller tự động hóa quy trình tạo, cập nhật, khôi phục, hoặc xóa app đó.
+
+Ví dụ phổ biến: Prometheus Operator, MongoDB Operator giúp triển khai, quản lý lifecycle của các stack monitoring hay database tự động – tiện lợi như quản lý một Pod hay Service
