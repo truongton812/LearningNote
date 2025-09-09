@@ -4,7 +4,8 @@ Lệnh để generate cert tự ký
 openssl req -newkey rsa:4096 -nodes -sha256 -keyout certs/domain.key -subj "/CN=192.168.1.100" -addext "subjectAltName = DNS:192.168.1.100,IP:192.168.1.100" -x509 -days 365 -out certs/domain.crt
 
 Trong đó
-openssl req: Sử dụng module req để tạo yêu cầu chứng chỉ/xin cấp chứng chỉ (certificate request) hoặc tạo chứng chỉ X.509.
+
+- openssl req: Sử dụng module req để tạo yêu cầu chứng chỉ/xin cấp chứng chỉ (certificate request) hoặc tạo chứng chỉ X.509.
 
 -newkey rsa:4096: Tạo một cặp khóa mới dùng thuật toán RSA với độ dài 4096 bit.
 
@@ -25,6 +26,7 @@ openssl req: Sử dụng module req để tạo yêu cầu chứng chỉ/xin c�
 -out certs/domain.crt: File chứng chỉ xuất ra ở certs/domain.crt.
 
 Kết quả
+
 Sau khi chạy xong lệnh này, bạn sẽ có hai file:
 
 certs/domain.key: File private key (bí mật)
@@ -32,6 +34,7 @@ certs/domain.key: File private key (bí mật)
 certs/domain.crt: Chứng chỉ số (certificate) đã bao gồm thông tin SAN, phù hợp cho dùng trong môi trường nội bộ, server dev/test hoặc container private registry, v.v.
 
 Mục đích thực tế
+
 Lệnh này hay dùng trong các trường hợp bạn cần kết nối bảo mật cho các dịch vụ trên LAN mà không cần mua chứng chỉ SSL từ CA bên ngoài, ví dụ: cài đặt registry Docker, ứng dụng test, nội bộ doanh nghiệp.
 
 File domain.key là file khóa riêng tư (private key). Nó giữ vai trò rất quan trọng để mở khóa, giải mã dữ liệu được mã hóa gửi đến bạn và thực hiện các thao tác mã hóa/chữ ký số, bảo mật không cho người khác biết, đảm bảo rằng chỉ chủ sở hữu mới có thể sử dụng khóa này.
@@ -41,6 +44,7 @@ File domain.crt là file chứng chỉ số (certificate) chứa thông tin về
 ---
 
 Mối liên hệ giữa domain.key và domain.crt
+
 Khi trình duyệt kết nối HTTPS, nó nhận chứng chỉ domain.crt để kiểm tra tính hợp lệ, đồng thời dùng khóa công khai trong crt để mã hóa dữ liệu truyền.
 
 Máy chủ dùng private key trong file domain.key để giải mã dữ liệu đã mã hóa từ client.
