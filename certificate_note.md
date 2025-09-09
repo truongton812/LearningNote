@@ -5,7 +5,7 @@ openssl req -newkey rsa:4096 -nodes -sha256 -keyout certs/domain.key -subj "/CN=
 
 Trong đó
 
-- openssl req: Sử dụng module req để tạo yêu cầu chứng chỉ/xin cấp chứng chỉ (certificate request) hoặc tạo chứng chỉ X.509.
+openssl req: Sử dụng module req để tạo yêu cầu chứng chỉ/xin cấp chứng chỉ (certificate request) hoặc tạo chứng chỉ X.509.
 
 -newkey rsa:4096: Tạo một cặp khóa mới dùng thuật toán RSA với độ dài 4096 bit.
 
@@ -74,3 +74,27 @@ Nếu chứng chỉ hợp lệ, trình duyệt dùng khóa công khai trong doma
 Server dùng private key trong domain.key để giải mã khóa phiên này. Khóa phiên được sử dụng để mã hóa và giải mã dữ liệu trao đổi trong suốt phiên làm việc, đảm bảo tính riêng tư và bảo mật.
 
 Sau bước này, toàn bộ dữ liệu giữa trình duyệt và server được mã hóa, tránh bị nghe lén hoặc giả mạo.
+
+---
+
+Dùng certbot để lấy chứng chỉ Let's Encrypt miễn phí tự động:
+
+Certbot lấy chứng chỉ SSL miễn phí từ tổ chức uy tín Let's Encrypt, đảm bảo được trình duyệt công nhận là hợp lệ và không hiện cảnh báo bảo mật. Nó còn có khả năng tự động gia hạn chứng chỉ định kỳ, giúp bảo trì dễ dàng và liên tục.
+```
+# Cài đặt certbot (ví dụ trên Ubuntu)
+sudo apt install certbot
+
+# Mở cổng HTTP/HTTPS trên firewall
+sudo ufw allow 80
+sudo ufw allow 443
+
+# Lấy chứng chỉ với standalone mode (ngắt dịch vụ web chạy trên cổng 80,443 khi lấy)
+sudo certbot certonly --standalone -d yourdomain.com
+
+# Certbot tạo các file chứng chỉ tại /etc/letsencrypt/live/yourdomain.com/
+# và tự động cấu hình lịch gia hạn chứng chỉ
+```
+
+Certbot tạo ra chứng chỉ được trình duyệt công nhận, trong khi đó, openssl tạo ra chứng chỉ tự ký (self-signed certificate) hoàn toàn thủ công, không được CA nào xác nhận nên trình duyệt sẽ báo cảnh báo không tin cậy khi truy cập. Openssl chỉ phù hợp dùng cho thử nghiệm hoặc môi trường nội bộ.
+
+
