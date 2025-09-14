@@ -15,3 +15,26 @@ process.env.REACT_APP_BASE_API_URL: Đây là biến môi trường trong ReactJ
 -> Đoạn code này thiết lập axios.defaults.baseURL lấy giá trị từ biến môi trường REACT_APP_BASE_API_URL trong file .env, tức là URL của API backend mà frontend sẽ gọi đến.
 
 Khi frontend sử dụng Axios để gửi các request HTTP (GET, POST, v.v.), Axios sẽ tự động thêm tiền tố URL từ biến này để kết nối đúng đến backend.
+
+---
+
+Eureka là một dịch vụ Service Discovery giúp các dịch vụ trong hệ thống có thể tự động phát hiện và kết nối với nhau mà không cần biết địa chỉ IP hay cổng cụ thể trước. Eureka giống như một DNS nội bộ dành cho microservices, giúp tự động quản lý địa chỉ và trạng thái các dịch vụ trong kiến trúc phân tán.
+
+Hoạt động chính của Eureka gồm:
+
+- Eureka Server (Service Registry): Là nơi tập trung đăng ký thông tin các instance của dịch vụ. Các dịch vụ khi khởi động sẽ đăng ký (register) vào Eureka Server với thông tin như hostname, cổng, metadata.
+
+- Eureka Client: Các dịch vụ microservices sẽ dùng Eureka Client để đăng ký với Eureka Server và cũng để lấy danh sách các dịch vụ khác đã đăng ký nhằm gọi tới chúng dễ dàng.
+
+Ví dụ cấu hình cho Eureka client -> nó sẽ đăng ký service của mình với Eureka Server. 
+
+```
+eureka:
+  instance:
+    hostname: user-service #Thiết lập tên máy chủ (hostname) đại diện cho instance dịch vụ khi đăng ký với Eureka Server
+    instance-id: ${spring.application.name} #Định danh duy nhất của instance dịch vụ, dùng giá trị từ biến ${spring.application.name} (tên app)
+  client:
+    service-url:
+      defaultZone: http://discovery-server:8761/eureka/ #Đây là URL của server Eureka để client (ứng dụng này) đăng ký và lấy danh sách service khác. Client sẽ gửi yêu cầu đăng ký dịch vụ đến địa chỉ http://discovery-server:8761/eureka/.
+```
+
