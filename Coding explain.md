@@ -38,3 +38,12 @@ eureka:
       defaultZone: http://discovery-server:8761/eureka/ #Đây là URL của server Eureka để client (ứng dụng này) đăng ký và lấy danh sách service khác. Client sẽ gửi yêu cầu đăng ký dịch vụ đến địa chỉ http://discovery-server:8761/eureka/.
 ```
 
+---
+
+Spring Boot hỗ trợ cơ chế binding các biến môi trường vào các thuộc tính cấu hình ứng dụng (ví dụ thuộc tính datasource).
+
+Ví dụ biến môi trường SPRING_DATASOURCE_URL sẽ tự động được ánh xạ và gán giá trị cho thuộc tính spring.datasource.url trong cấu hình Spring Boot.
+
+Tương tự, SPRING_DATASOURCE_USERNAME sẽ gán cho spring.datasource.username và SPRING_DATASOURCE_PASSWORD cho spring.datasource.password.
+
+Khi khai báo environment của container trong Docker Compose, các biến môi trường như SPRING_DATASOURCE_URL, SPRING_DATASOURCE_USERNAME, SPRING_DATASOURCE_PASSWORD sẽ override những giá trị spring.datasource.url trong application.yaml
