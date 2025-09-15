@@ -378,7 +378,7 @@ Cách khai báo
 {{/* Common Labels */}}
 {{- define "helmbasics.labels"}} #named template phải là unique global, nên naming convention nên là <project_name>.<relevant__template_name>
     app: nginx
-    chartname: {{ .Chart.Name . }} #có template action thì khi gọi named template phải chỉ định context, nếu không giá trị sẽ là empty
+    chartname: {{ .Chart.Name }}
 {{- end }}
 ```
 
