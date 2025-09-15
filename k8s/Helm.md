@@ -897,3 +897,25 @@ Chart là do người ký đáng tin cậy phát hành (tính xác thực, ngu�
 Giúp team DevOps/Quản trị xác minh chart trước khi cài đặt vào hệ thống thật.
 
 ####
+
+
+
+helm repo add <repo_name> <url>
+
+helm repo list
+
+helm install <release_name> <chart>
+
+helm ls
+
+helm status <release_name> --show-resources
+
+helm get all <release_name>
+
+helm rollback <release_name> <revision>
+
+helm create <chart_name>
+
+helm package <path/to/chart>
+
+helm template --release-name <release_name> <chart_path>
