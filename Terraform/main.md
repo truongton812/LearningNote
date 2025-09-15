@@ -291,6 +291,7 @@ Nếu sửa hạ tầng một cách thủ công, tức là thay đổi trực ti
 - terraform providers -> xem tất cả providers có trong thư mục hiện tại
 - terraform providers mirror /path/to/other/configuration/directory -> copy provider ở current directory sang directory khác
 - terraform output -> in ra tất cả output trong thư mục configuration directory hiện tại. Thêm tên của output variable để chỉ lấy output của variable đấy
+-terraform apply -target=<resource_address> -> allows applying changes to specific resources or modules within a Terraform configuration, rather than applying the entire configuration. 
 - terraform apply -refresh-only -> dùng để sync file state với real-world state. Dùng trong trường hợp có thay đổi manually trên real-world infrastructure thì chạy lệnh này để update state file. Lưu ý là lệnh này chỉ modify state file
 - option -resfresh=false để bypass việc refresh terraform state
 - terraform graph -> visualize ra mối quan hệ dependencies giữa các resource (cần phải cài phần mềm đọc format dot)
