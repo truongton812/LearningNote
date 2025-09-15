@@ -135,15 +135,19 @@ helm install my-nginx bitnami/nginx
 
 `$helm dependency build` : build các dependencies khai báo trong file chart.yaml và lưu vào trong thư mục charts/ dưới dạng <name-version>.tgz
 
-`$helm dependency update` : khi update các dependencies khai báo trong file chart.yaml thì ta chạy lệnh này để sinh ra file <name-version>.tgz mới trong thư mục charts/
+`$helm dependency update` : có hai chức năng chính
+  - Nếu trong thư mục charts/ chưa có các dependency theo khai báo trong Chart.yaml, lệnh sẽ tự động tải các dependency này về thư mục đó, đồng thời tạo file Chart.lock chứa thông tin chính xác về phiên bản thực tế của từng chart phụ thuộc
+  - Nếu trong charts/ đã có dependency nhưng bị outdated (phiên bản không khớp hoặc cũ hơn phiên bản khai báo), lệnh sẽ cập nhật, tải lại dependency mới đúng version và xóa các phiên bản cũ không còn dùng nữa.
 
-Chatgpt: Lệnh này sẽ tự động tải về các chart phụ thuộc và lưu vào thư mục charts/ của chart chính, đồng thời tạo file Chart.lock chứa thông tin chính xác về phiên bản thực tế của từng chart phụ thuộc
+`$helm package <path_to_chart> -d <directory>` : đóng gói 1 chart và lưu vào <directory> để up lên repo . Nếu không chỉ định directory thì sẽ lưu vào thư mục hiện tại. Nếu sau này ta có update chart và muốn lưu thành version mới thì ta sửa thông tin chart version trong chart.yaml rồi chạy lại lệnh helm package, hoặc nếu không sửa chart.yaml thì có thể chỉ định option --version và --app-version khi chạy lệnh helm package (tuy nhiên không nên vì sẽ khó quản lý version)
 
-25. helm package <path_to_chart> -d <directory> -> đóng gói 1 chart và lưu vào <directory> để up lên repo (nếu không chỉ định directory thì lưu vào thư mục hiện tại). Nếu sau này ta có update chart và muốn lưu thành version mới thì ta sửa thông tin chart version trong chart.yaml rồi chạy lại lệnh helm package, hoặc nếu không sửa chart.yaml thì có thể chỉ định option --version và --app-version khi chạy lệnh helm package (tuy nhiên không nên vì sẽ khó quản lý version)
-26. helm repo index <path_to_chart> -> tạo file index.yaml. Cần có file này mới push được lên repo
-27. helm repo add <chart-name> <repo-url>
-28. Option --dry-run: dùng để lấy manifest cuối cùng sẽ được triển khai chứ không chạy thật. VD áp dụng cho helm install, helm upgrade, helm template, helm uninstall
-29. Option --debug: enable verbose output (dùng được với đa số lệnh helm)
+`$helm repo index <path_to_chart>` : tạo file index.yaml. Cần có file này mới push được lên repo
+
+#### Các option khác
+
+`Option --dry-run` : dùng để lấy manifest cuối cùng sẽ được triển khai chứ không chạy thật. VD áp dụng cho helm install, helm upgrade, helm template, helm uninstall
+
+`Option --debug` : enable verbose output (dùng được với đa số lệnh helm)
 
 
 
