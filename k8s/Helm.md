@@ -41,6 +41,14 @@ dependencies:
 ```
 c. Values.yaml: chứa các biến cấu hình mặc định, cho phép tùy biến khi cài đặt ứng dụng
 
+Giá trị trong file Values.yaml có precedence như sau: 
+
+- Giá trị mặc định trong values.yaml của subchart (chart con) có thể bị ghi đè bởi values.yaml của parent chart (chart cha).
+
+- Giá trị trong values.yaml của parent chart có thể bị ghi đè bởi file giá trị do người dùng cung cấp qua tham số -f myvalues.yaml. (Khi người dùng cài đặt hoặc nâng cấp một Helm chart, mặc định các giá trị cấu hình được lấy từ file values.yaml. Tuy nhiên, người dùng có thể cung cấp một file giá trị riêng (ví dụ myvalues.yaml) qua tham số -f trong lệnh Helm `helm install -f myvalues.yaml` -> giúp tùy biến cấu hình chart dễ dàng mà không cần chỉnh sửa trực tiếp file values.yaml gốc
+
+- Giá trị từ file người dùng có thể tiếp tục bị ghi đè bởi các giá trị truyền trực tiếp qua tham số --set khi chạy lệnh Helm.
+
 d. Thư mục templates/: chứa các file mẫu (template) định nghĩa các resource của Kubernetes (Deployment, Service, Ingress, v.v…), sử dụng ngôn ngữ Go template để sinh ra manifest hoàn chỉnh dựa trên các giá trị cấu hình từ file Values.yaml
 
 e.templates/_helpers.tpl: là một file đặc biệt dùng để định nghĩa các template helper (hàm mẫu) giúp tái sử dụng các logic phức tạp hoặc các cấu hình lặp lại nhiều lần trong các file template khác của chart. Ví dụ như định nghĩa các nhãn (labels) chuẩn cho các resource, hoặc tạo tên resource theo quy tắc nhất định, hay các đoạn cấu hình tùy chỉnh dùng chung.
@@ -152,95 +160,107 @@ helm install my-nginx bitnami/nginx
 
 
 
-## Values Hierarchy
 
+## Templating với helm
 
-Giá trị trong gile Values.yaml có precedence như sau: 
-
-- Giá trị mặc định trong values.yaml của subchart (chart con) có thể bị ghi đè bởi values.yaml của parent chart (chart cha).
-
-- Giá trị trong values.yaml của parent chart có thể bị ghi đè bởi file giá trị do người dùng cung cấp qua tham số -f myvalues.yaml. (Khi người dùng cài đặt hoặc nâng cấp một Helm chart, mặc định các giá trị cấu hình được lấy từ file values.yaml. Tuy nhiên, người dùng có thể cung cấp một file giá trị riêng (ví dụ myvalues.yaml) qua tham số -f trong lệnh Helm `helm install -f myvalues.yaml` -> giúp tùy biến cấu hình chart dễ dàng mà không cần chỉnh sửa trực tiếp file values.yaml gốc
-
-- Giá trị từ file người dùng có thể tiếp tục bị ghi đè bởi các giá trị truyền trực tiếp qua tham số --set khi chạy lệnh Helm.
-
----
-Comment trong helm: {{/* comment */}}
-
-Helm builtin object
-
+#### Helm builtin object
 
 Root object là dot (.) 
+
 Dưới root object có 6 builtin object:
+
 - .Release: thông tin của release. Các biến hay dùng: .Release.Name, .Release.Namespace, .Release.Revision
 - .Value: tất cả value trong file value.yaml và 2 option -f & --set
 - .Chart: thông tin từ file chart.yaml
 - .Capabilities: thông tin về cụm k8s (phiên bản k8s, phiên bản helm,...)
 - .Template: chứa thông tin của current template đang được triển khai (VD tên template, đường dẫn đến template.)
 - .Files: cách để truy cập đến các non-template file trong chart
-Khi gọi root object bằng syntax {{ . }} thì sẽ in 1 map của 6 object con
-Lưu ý quan trọng: range(.) và with(.) thì dấu . sẽ là current context
-
-Dùng function | toYaml để parse dễ đọc hơn
-
----
-Các function của .Files
-- Get: function Get của .Files được dùng để lấy nội dung của một file bất kỳ trong chart (trừ các file trong thư mục templates/). Cú pháp {{ .Files.Get "relative/path/to/file }}. VD: {{ .Files.Get "files/config.init" }} -> đọc nội dung file files/config.init. Ứng dụng: lấy nội dung của file đưa vào ConfigMap
-- .Glob(path/to/file) đọc nhiều file. Nếu chỉ dùng Glob thì sẽ ra kiểu data dành cho computer, phải chuyển thành human data bằng Config hoặc Secret
-  File Glob as Config: {{ (.Files.Glob "config-files/*").AsConfig }} -> hiển thị dưới dạng yaml
-  File Glob as Secret: {{ (.Files.Glob "config-files/*").AsSecrets }} -> hiển thị dưới dạng base64
-- .Line: ghép tất cả nội dung của file thành 1 dòng, mỗi dòng giờ sẽ thành 1 phần tử của array
   
-You can loop through Lines using a range function:
+Khi gọi root object bằng syntax {{ . }} thì sẽ in 1 map của 6 object con
+
+Lưu ý quan trọng: trong range(.) và with(.) thì dấu . sẽ là current context
+
+
+#### Các function của .Files
+
+- Get: function Get của .Files được dùng để lấy nội dung của một file bất kỳ trong chart (trừ các file trong thư mục templates/). Cú pháp {{ .Files.Get "relative/path/to/file }}. VD: {{ .Files.Get "files/config.init" }} -> đọc nội dung file files/config.init. Ứng dụng: lấy nội dung của file đưa vào ConfigMap
+  
+- .Glob(path/to/file) đọc nhiều file. Nếu chỉ dùng Glob thì sẽ ra kiểu data dành cho computer, phải chuyển thành human data bằng Config hoặc Secret
+  
+  File Glob as Config: {{ (.Files.Glob "config-files/*").AsConfig }} -> hiển thị dưới dạng yaml
+  
+  File Glob as Secret: {{ (.Files.Glob "config-files/*").AsSecrets }} -> hiển thị dưới dạng base64
+  
+- .Line: ghép tất cả nội dung của file thành 1 dòng, mỗi dòng giờ sẽ thành 1 phần tử của array
+
+  Để loop trên Lines thì dùng range function
+
 ```
 data:
   some-file.txt: {{ range .Files.Lines "foo/bar.txt" }}
     {{ . }}{{ end }}
 ```
----
-Cách code
-Helm dùng cú pháp của Go.
-Ký hiệu "{{ }}" gọi là template Action
-Anything in between Template Action {{ .Chart.Name }} is called Action Element. Action Element chỉ có thể là function hoặc builtin object của helm
-Anything in between Template Action {{ .Chart.Name }} will be rendered by helm template engine and replace necessary values
-Anything outside of the template action will be printed as it is.
+#### Coding
 
-- Nối chuỗi: {{ a_var }}-{{ b_var }} -> kết quả a_var-b_var
----
-Các function thông dụng
+Helm dùng cú pháp của Go.
+
+Ký hiệu "{{ }}" gọi là Template Action
+
+Thực thể nằm trong Template Action là Action Element. Action Element chỉ có thể là function hoặc builtin object của helm. Helm sẽ render Action Element thành giá trị thực tế
+
+Nối chuỗi trong helm : {{ a_var }}-{{ b_var }} -> kết quả a_var-b_var
+
+Comment trong helm: {{/* comment */}}
+
+##### Các function thông dụng
+
 - Pipe: dùng để thực hiện 1 chuỗi các hành động, output của hành động trước sẽ là input của hành động sau. VD {{ .Release.Service | quote | upper | squote }} 
 
 - quote và squote function: dùng để thêm dấu " hoặc '. Có thể đặt trước hoặc dùng qua pipe. VD {{ quote .Release.Service }} hoặc {{ .Release.Service | quote }}
+  
 - default: dùng để khai giá trị mặc định, nếu không ghi đè từ file values hoặc option -f hoặc --set thì helm sẽ dùng giá trị mặc định này. Lưu ý nếu string là "", null, hoặc không khai báo thì sẽ bị default ghi đè, nếu numeric là 0, null hoặc không khai báo thì sẽ bị default ghi đè. Tương tự Lists: [], Dicts: {}, Boolean: false
-  Syntax: default "foo" .Bar -> coi như function default sẽ cần 2 arguments 
-- {{- .Chart.name }}: If a hyphen is added before the statement, {{- .Chart.name }} then the leading whitespace will be ignored during the rendering (xóa tất cả khoảng trắng đằng trước)
-  {{ .Chart.name -}}: If a hyphen is added after the statement, {{ .Chart.name -}} then the trailing whitespace will be ignored during the rendering (xóa tất cả khoảng trắng đằng sau)
-Lưu ý: nếu ta dùng khoảng trắng để bắt đầu và ngay sau đó đặt template Action thì kết quả generate ra sẽ không có khoảng trắng nào. Nhưng chỉ cần đặt ký tự bất kỳ để bắt đầu, sau đó là khoảng trắng và sau đó là template Action thì kết quả genrate ra sẽ có khoảng trắng
+  
+  Syntax: default "foo" .Bar -> coi như function default sẽ cần 2 arguments
+  
+- Ký tự dash "-" dùng để xóa khoảng trắng. VD: 
+    + {{- .Chart.name }} : xóa tất cả khoảng trắng đằng trước 
+    + {{ .Chart.name -}}: xóa tất cả khoảng trắng đằng sau
+    
+    Lưu ý: nếu ta dùng khoảng trắng để bắt đầu và ngay sau đó đặt Template Action thì kết quả generate ra sẽ không có khoảng trắng nào. Nhưng chỉ cần đặt ký tự bất kỳ để bắt đầu, sau đó là khoảng trắng và sau đó là Template Action thì kết quả genrate ra sẽ có khoảng trắng
+
 - indent và nindent: indent dùng để thêm khoảng trắng, nindent dùng để xuống dòng và thêm khoảng trắng. VD {{ .Chart.Name | indent 4 }}
-- toYaml: là template function dùng để convert list, slice, array,dict hoặc object thành yaml. VD  {{- toYaml .Values.resources | nindent 10}}. Nếu không có toYaml thì kết quả sẽ là 1 map[limits:map[cpu:500m memory:128Mi] requests:map[cpu:250m memory:64Mi]]
+  
+- toYaml: dùng để convert list, slice, array,dict hoặc object thành yaml. VD  {{- toYaml .Values.resources | nindent 10}}. Nếu không có toYaml thì kết quả sẽ là 1 map[limits:map[cpu:500m memory:128Mi] requests:map[cpu:250m memory:64Mi]]
 
-
-- 
 - if else trong helm
-{{- if eq .Values.myapp.env "prod" }}
+```
+{{- if eq .Values.myapp.env "prod" }} #Khi env = prod thì replicas = 4
   replicas: 4 
-{{- else if eq .Values.myapp.env "qa" }}  
+{{- else if eq .Values.myapp.env "qa" }}  #Khi env = qa thì replicas = 2
   replicas: 2
 {{- else }}  
   replicas: 1
 {{- end }}
-
-Dấu "-" để xóa khoảng cách dòng 
+#Dấu "-" để xóa khoảng cách dòng 
+```
 
 - and: trả về true chỉ khi cả 2 cùng true. Syntax: and .Arg1 .Arg2
   {{- if and .Values.myapp.retail.enableFeature (eq .Values.myapp.env "prod") }}
 
-Tham khảo thêm các logic function khác (Helm includes numerous logic and control flow functions including and, coalesce, default, empty, eq, fail, ge, gt, le, lt, ne, not, or, and required.) tại https://helm.sh/docs/chart_template_guide/function_list/ 
-
 - or: trả về true khi 1 trong 2 bằng true. Syntax: or. Arg1 .Arg2
+  
 - not: đảo ngược boolean của argument. Syntax: not .Arg
   VD: {{ if not (eq .Values.myapp.env "prod") }}
-- with (là flow control): chỉ định context, thường dùng để chỉ định 1 context mà nhiều action dùng
-  VD
+
+Tham khảo thêm các logic function khác tại https://helm.sh/docs/chart_template_guide/function_list/ 
+
+
+- with (là flow control): dùng để chỉ định context, thường dùng để chỉ định 1 context mà nhiều action dùng. Context này có thể dùng ở bất kỳ đâu trong template, VD trong if else, range,... Lưu ý khi dùng with hoặc range mà muốn gọi đến root object thì ta có 2 cách:
+  + dùng $. thay vì dùng .
+  + Đặt variable ngoài scope của with hoặc range
+
+  Ví dụ sử dụng "with"
+
 ```
   template:
     metadata:
@@ -249,21 +269,40 @@ Tham khảo thêm các logic function khác (Helm includes numerous logic and co
         {{- toYaml . | nindent 8 }} #lúc này dấu chấm (.) sẽ là context thay thế cho .Values.podAnnotations       
       {{- end }}
 ```
-context có thể dùng ở bất kỳ đâu trong template, VD trong if else, range,...
-Khi dùng with để lấy root object thì gọi bằng $.
-Lưu ý có 2 cách để gọi root object khi dùng trong with, range
-- C1 là dùng $.
-- C2 là đặt variable ngoài scope của with hoặc range
 
-#### helm variable
-thường dùng với with, range action và named template
-cách định nghĩa variable: `{{ $<ten_var> := <gia_tri> }}`
-VD: `{{ $chartname := .Chart.Name }}`
-cách gọi: `{{ $<ten_var> }}`
-lưu ý quan trọng: nếu define variable trong with thì variable đấy sẽ lấy context của with, còn ngoài with thì là lấy Root làm context
+##### Helm variable
 
-#### range
-- range trong helm: là for, dùng để lặp 1 list. Khi khai báo range phải khai báo cả context, không thể dùng Root
+Helm variable giúp tạo biến nội bộ để lưu giá trị dùng nhiều lần, giảm lặp lại code, thường dùng với with, range action và named template
+
+Cách định nghĩa variable: `{{ $<ten_var> := <gia_tri> }}`
+
+Cách gọi variable: `{{ $<ten_var> }}`
+```
+{{- $image := .Values.image.repository }}
+containers:
+- name: myapp
+  image: {{ $image }}:{{ .Values.image.tag }}
+```
+
+Lưu ý quan trọng: nếu define variable trong with/range thì variable đấy sẽ lấy context của with, còn ngoài with thì là lấy Root làm context
+```
+#Ví dụ define variable trong with
+{{- $root := . }}         # root context
+{{- with .Values.app }}   # change context to .Values.app
+  {{- $within := . }}     # context là .Values.app
+  appName: {{ .name }}    # tham chiếu .name trong .Values.app
+{{- end }}
+```
+```
+#Ví dụ define variable trong range
+{{- $root := . }}
+{{- range .Values.servers }}
+  name: {{ .name }}          # context là phần tử đang duyệt trong servers
+  rootValue: {{ $root.globalValue }}  # truy cập giá trị root context
+{{- end }}
+```
+##### Range
+- range trong helm tương đương với for trong lập trình, dùng để lặp trên 1 list. Khi khai báo range phải khai báo cả context, không thể dùng Root
 - Example 1
 ```
 {{- range .Values.namespaces }} 
