@@ -371,7 +371,8 @@ data:
 ```
 #### Named templates
 
-Là những template hay dùng, có thể tái sử dụng. VD để định nghĩa các common label hay dùng
+Là những template hay dùng, có thể tái sử dụng. Ví dụ như để định nghĩa các common label hay dùng
+
 Cách khai báo
 ```
 {{/* Common Labels */}}
@@ -384,11 +385,15 @@ Cách khai báo
 Named template có thể khai báo trực tiếp ở đầu template (cho dễ nhìn) hoặc khai trong file templates/_helpers.tpl (các file có dấu _ ở đầu sẽ không được helm tạo thành manifest)
 
 Cách gọi named template
+
 C1: {{ template "<named_template>" }} . VD {{ template "helmbasics.labels" }}
+
 C2: {{ include "<named_template>" . }}. VD {{ include "helmbasics.labels" }}. Ưu điểm của C2 là có thê dùng pipeline vd  {{ include "helmbasics.labels" . | upper }}
+
 Lưu ý nếu trong named template chỉ có key-value thì không cần chỉ định context, tuy nhiên nếu có template action thì cần chỉ định context khi gọi, nếu không sẽ bị empty. VD {{ template "helmbasics.labels" . }}
 
 Tổng kết: Best practice khi dùng named template
+
 - Đặt named template trong template/_helpers.tpl
 - Luôn chỉ định context khi gọi named template
 - Dùng include thay vì dùng template
