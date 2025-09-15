@@ -396,3 +396,62 @@ Operator: Operator là một pattern đặc biệt, kết hợp giữa custom re
 - Viết controller tự động hóa quy trình tạo, cập nhật, khôi phục, hoặc xóa app đó.
 
 Ví dụ phổ biến: Prometheus Operator, MongoDB Operator giúp triển khai, quản lý lifecycle của các stack monitoring hay database tự động – tiện lợi như quản lý một Pod hay Service
+
+---
+
+# Upgrade cluster
+
+#### Upgrade master node
+1)
+sudo apt-cache madison kubeadm -> check các version kubeadm available -> lấy giá trị show ở lệnh này đưa xuống lệnh 2)
+Note: muốn upgrade cluster lên version X thì kubeadm phải ở version X
+Nếu kubeadm không có version mong muốn -> cần update repo 
+echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.31/deb/ /" | sudo tee /etc/apt/sources.list.d/kubernetes.list (thay v mong muốn vào)
+sudo apt-get update
+
+
+2)
+sudo apt-mark unhold kubeadm && \
+sudo apt-get update && sudo apt-get install -y kubeadm='1.30.x-*' && \
+sudo apt-mark hold kubeadm
+
+sudo kubeadm upgrade plan
+
+sudo kubeadm upgrade apply v1.30.x (xem manual)
+
+
+sudo apt-mark unhold kubelet kubectl && \
+sudo apt-get update && sudo apt-get install -y kubelet='1.30.x-*' kubectl='1.30.x-*' && \
+sudo apt-mark hold kubelet kubectl
+
+sudo systemctl daemon-reload
+sudo systemctl restart kubelet
+
+
+#### Upgrade worker node
+
+kubectl drain node01 (thực hiện trên control plane)
+
+1)
+sudo apt-cache madison kubeadm -> check các version kubeadm available -> lấy giá trị show ở lệnh này đưa xuống lệnh 2)
+Note: kubeadm ở worker node = ở master node
+Nếu kubeadm không có version mong muốn -> cần update repo 
+echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.31/deb/ /" | sudo tee /etc/apt/sources.list.d/kubernetes.list (thay v mong muốn vào)
+sudo apt-get update
+
+2)
+sudo apt-mark unhold kubeadm && \
+sudo apt-get update && sudo apt-get install -y kubeadm='1.30.x-*' && \
+sudo apt-mark hold kubeadm
+
+sudo kubeadm upgrade node (Lệnh này chỉ update config của kubelet, cần phải thực hiện update kubelet và kubectl manually)
+Note: ở worker node sẽ ko chạy được lệnh kubeadm upgrade plan
+
+sudo apt-mark unhold kubelet kubectl && \
+sudo apt-get update && sudo apt-get install -y kubelet='1.30.x-*' kubectl='1.30.x-*' && \
+sudo apt-mark hold kubelet kubectl
+
+sudo systemctl daemon-reload
+sudo systemctl restart kubelet
+
+Kubectl uncordon node01 (thực hiện trên control plane)
