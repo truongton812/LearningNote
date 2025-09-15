@@ -72,46 +72,78 @@ helm install my-nginx bitnami/nginx
 
 ## Các lệnh làm việc với Helm
 
-1. helm repo list -> xem các repo đã thêm vào helm. Repo là nơi lưu trữ helm chart
-2. helm repo add <ten_repo> <url> -> thêm repo vào helm. Trong đó <ten_repo> là tên trên local của helm chart, còn url là nơi lưu trữ chart
-3. helm repo remove <ten_repo> -> xóa repo
-4. helm repo update -> update list các chart trong repo
-5. helm search repo <pattern> -> Tìm trong các repo hiện đang có theo pattern (bất kỳ pattern gì xuất hiện sẽ được list ra). Thêm option --versions để xem thông tin version của các chart
-6. helm lint -> dùng để check lỗi syntax
-7. helm install <release-name> <chart> [flags] -> triển khai (deploy) một ứng dụng lên Kubernetes. Trong đó:
-- Release name là tên bạn gán cho một lần triển khai (release) của Helm chart lên Kubernetes. Nó giúp Helm theo dõi, quản lý và phân biệt các lần triển khai ứng dụng. Release name là duy nhất trong một namespace trên Kubernetes. Nếu bạn không chỉ định release name, Helm có thể tự sinh tên ngẫu nhiên:
-- <chart> có thể là tên chart từ repo (VD bitnami/nginx, lưu ý ở đây là tên repo trên máy local), file chart đóng gói (VD ./mychart-1.0.0.tgz), thư mục chart (VD ./mychart/) hoặc URL
-- Các flag có thể sử dụng: --namespace : triển khai lên ns nào  (mặc định là default)
-                           --create-namespace: tự động tạo ns nếu chưa tồn tại
-                           --version: Chỉ định phiên bản của chart cần cài (theo tag hoặc range). Nếu không chỉ định thì sẽ cài bản latest
-                           --atomic: xóa release khi quá trình installation thất bại (nếu không chỉ định thì release sẽ ở trạng thái failed)
-                           --set: ghi đè các giá trị mặc định đã được định nghĩa sẵn trong file values.yaml. Nếu --set <key>=null thì sẽ xóa key đấy.
-7. helm ls -> liệt kê các release đã triển khai bằng helm (kèm revision, appversion, chart version). Thêm option --namespace để xem ở 1 ns cụ thể
-8. helm show/inspect chart <chart_directory> hoặc <chart.tgz> -> xem thông tin chart (appversion, chart version, name,...) trong thư mục chart hoặc chart được đóng gói thành file tar, lệnh này sẽ xem được thông tin ngay cả khi chart chưa được install
-8. helm show/inspect value <chart.tgz> -> xem thông tin file value.yaml của file chart.tgz, hữu ích khi không cần giải nén hoặc install file lên thành release
-8. helm upgrade <release-name> <chart> --version 1.0.0 --set "image.tag=0.1.0" -> upgrade chart lên version khác, đồng thời set giá trị cho image.tag, lúc này revision sẽ tăng 1 đơn vị. Lưu ý nếu không chỉ định version thì version của chart vẫn giữ nguyên, chỉ có image là thay đổi
-Option --set là để thay thế giá trị trong file values.yaml
-9. helm history <release-name> -> xem lịch sử upgrade của release
-10. helm status <release-name> --show-resources -> xem thông tin tất cả các resources của release
-11. helm rollback <release-name> <revision> -> rollback release về version thấp hơn. Lưu ý khi rollback revision vẫn tăng 1 đơn vị. Nếu không chỉ định revision thì sẽ rollback về revision trước đấy
-12. helm uninstall <release-name> -> gỡ release ra khỏi cụm k8s
-13. helm uninstall <release-name> --kep-history -> gỡ release ra khỏi cụm k8s, tuy nhiên vẫn giữ history của release và ta có thể rollback lại bất cứ lúc nào
-14. helm list --uninstalled -> hiển thị các release đã bị gỡ với tùy chọn --kep-history
-15. helm get all <release-name> -> in ra tất cả các resources của chart đã cài đặt kèm file value
-16. helm get manifest <release-name> --revision 1 -> chỉ lấy ra manifest của resources của revision 1
-17. helm get values <release-name> --revision 1 -> chỉ lấy ra file value truyền vào khi tạo release với revision là 1. Nếu không truyền value thì sẽ trả về null
-18. helm create <chart-name> -> tạo ra 1 chart mới với structure chuẩn (chart.yaml, charts, templates, values.yaml)
-19. helm lint -> kiểm tra xem chart viết có lỗi không
-20. helm template --release-name <release-name> <chart_path> -f values.yaml -n default -> generate ra manifest của chart (chỉ gen ra chứ không deploy)
-21. helm dependency list -> xem các dependencies khai báo trong file chart.yaml (lưu ý cần đứng trong root directory của chart để chạy lệnh này)
-22. helm dependency build -> build các dependencies khai báo trong file chart.yaml và lưu vào trong thư mục charts dưới dạng <name-version>.tgz
-23. helm dependency update -> khi update các dependencies khai báo trong file chart.yaml thì ta chạy lệnh này sẽ sinh ra file <name-version>.tgz mới trong thư mục charts
+#### Làm việc với repo
+
+`$helm repo list` : hiển thị các Helm repository đã được thêm vào trên máy local
+
+`$helm repo add <ten_repo> <url>` : thêm repo vào helm. Trong đó <ten_repo> là tên trên local của helm chart, còn url là nơi lưu trữ chart
+
+`$helm repo remove <ten_repo>` : xóa repo khỏi helm
+
+`$helm repo update` : cập nhật thông tin mới nhất của các Helm repository đã được add vào trên máy local, giúp Helm lấy về phiên bản và danh sách các chart mới nhất từ các repo này về cache local
+
+`$helm search repo <pattern>` : Tìm trong các repo hiện đang có theo pattern (bất kỳ pattern gì xuất hiện sẽ được list ra). Thêm option --versions để xem thông tin version của các chart
+
+#### Làm việc với release
+   
+`$helm install <release-name> <chart> [flags]` : triển khai một chart lên thành ứng dụng trong cụm Kubernetes. Trong đó:
+  - Release name là tên bạn gán cho một lần triển khai (release) của Helm chart lên Kubernetes. Nó giúp Helm theo dõi, quản lý và phân biệt các lần triển khai ứng dụng. Release name là duy nhất trong một namespace trên Kubernetes. Nếu bạn không chỉ định release name, Helm có thể tự sinh tên ngẫu nhiên
+  - <chart> có thể là tên chart từ repo (VD bitnami/nginx, lưu ý ở đây là tên repo trên máy local), file chart đóng gói (VD ./mychart-1.0.0.tgz), thư mục chart (VD ./mychart/) hoặc URL
+  - Các flag có thể sử dụng: --namespace : triển khai lên ns nào  (mặc định là default)
+                             --create-namespace: tự động tạo ns nếu chưa tồn tại
+                             --version: Chỉ định phiên bản của chart cần cài (theo tag hoặc range). Nếu không chỉ định thì sẽ cài bản latest
+                             --atomic: xóa release khi quá trình installation thất bại (nếu không chỉ định thì release sẽ ở trạng thái failed)
+                             --set: ghi đè các giá trị mặc định đã được định nghĩa sẵn trong file values.yaml. Nếu --set <key>=null thì sẽ xóa key đấy.
+    
+`$helm ls` : liệt kê các release đã triển khai bằng helm (kèm revision, appversion, chart version). Thêm option --namespace để xem ở 1 namespace cụ thể
+
+`$helm upgrade <release-name> <chart> --version 1.0.0 --set "image.tag=0.1.0"` : upgrade chart lên version khác, đồng thời set giá trị cho image.tag, lúc này revision sẽ tăng 1 đơn vị. Lưu ý nếu không chỉ định version thì version của chart vẫn giữ nguyên, chỉ có image là thay đổi do option --set là để thay thế giá trị trong file values.yaml
+
+`$helm history <release-name>` : xem lịch sử upgrade của release
+
+`$helm status <release-name> --show-resources` : xem thông tin tất cả các resources của release
+
+`$helm get all <release-name>` : in ra tất cả các resources của release và file value
+
+`$helm get manifest <release-name> --revision 1` : chỉ lấy ra manifest của resources của revision 1
+
+`$helm get values <release-name> --revision 1` : chỉ lấy ra file value truyền vào khi tạo release với revision là 1. Nếu không truyền value thì sẽ trả về null
+
+`$helm rollback <release-name> <revision>` : rollback release về version thấp hơn. Lưu ý khi rollback revision vẫn tăng 1 đơn vị. Nếu không chỉ định revision thì sẽ rollback về revision trước đấy
+
+`$helm uninstall <release-name>` : gỡ release ra khỏi cụm k8s. Thêm option --keep-history để giữ lại history của release, dùng để rollback lại khi cần
+
+`$helm list --uninstalled` : hiển thị các release đã bị gỡ với tùy chọn --keep-history
+
+
+
+#### Làm việc với chart
+
+`$helm create <chart-name>` : tạo ra 1 chart mới với structure chuẩn (chart.yaml, charts, templates, values.yaml)
+
+`$helm lint` : kiểm tra lỗi syntax của chart
+
+`$helm template --release-name <release-name> <chart_path> -f values.yaml -n default` : render ra manifest YAML theo chuẩn của kubernetes ra output mà không triển khai
+
+`$helm show/inspect chart <chart_directory> hoặc <chart.tgz>` : xem thông tin chart (appversion, chart version, name,...) trong thư mục chart hoặc chart được đóng gói thành file tar, lệnh này sẽ xem được thông tin ngay cả khi chart chưa được triển khai
+
+`$helm show/inspect value <chart.tgz>` : xem thông tin file value.yaml của file chart.tgz, hữu ích khi không cần giải nén hoặc install file lên thành release
+
+
+#### Làm việc vớid dependency
+`$helm dependency list` : xem các dependencies khai báo trong file chart.yaml (lưu ý cần đứng trong root directory của chart để chạy lệnh này)
+
+`$helm dependency build` : build các dependencies khai báo trong file chart.yaml và lưu vào trong thư mục charts/ dưới dạng <name-version>.tgz
+
+`$helm dependency update` : khi update các dependencies khai báo trong file chart.yaml thì ta chạy lệnh này để sinh ra file <name-version>.tgz mới trong thư mục charts/
+
 Chatgpt: Lệnh này sẽ tự động tải về các chart phụ thuộc và lưu vào thư mục charts/ của chart chính, đồng thời tạo file Chart.lock chứa thông tin chính xác về phiên bản thực tế của từng chart phụ thuộc
-24. helm package <path_to_chart> -d <directory> -> đóng gói 1 chart và lưu vào <directory> để up lên repo (nếu không chỉ định directory thì lưu vào thư mục hiện tại). Nếu sau này ta có update chart và muốn lưu thành version mới thì ta sửa thông tin chart version trong chart.yaml rồi chạy lại lệnh helm package, hoặc nếu không sửa chart.yaml thì có thể chỉ định option --version và --app-version khi chạy lệnh helm package (tuy nhiên không nên vì sẽ khó quản lý version)
-25. helm repo index <path_to_chart> -> tạo file index.yaml. Cần có file này mới push được lên repo
-26. helm repo add <chart-name> <repo-url>
-27. Option --dry-run: dùng để lấy manifest cuối cùng sẽ được triển khai chứ không chạy thật. VD áp dụng cho helm install, helm upgrade, helm template, helm uninstall
-28. Option --debug: enable verbose output (dùng được với đa số lệnh helm)
+
+25. helm package <path_to_chart> -d <directory> -> đóng gói 1 chart và lưu vào <directory> để up lên repo (nếu không chỉ định directory thì lưu vào thư mục hiện tại). Nếu sau này ta có update chart và muốn lưu thành version mới thì ta sửa thông tin chart version trong chart.yaml rồi chạy lại lệnh helm package, hoặc nếu không sửa chart.yaml thì có thể chỉ định option --version và --app-version khi chạy lệnh helm package (tuy nhiên không nên vì sẽ khó quản lý version)
+26. helm repo index <path_to_chart> -> tạo file index.yaml. Cần có file này mới push được lên repo
+27. helm repo add <chart-name> <repo-url>
+28. Option --dry-run: dùng để lấy manifest cuối cùng sẽ được triển khai chứ không chạy thật. VD áp dụng cho helm install, helm upgrade, helm template, helm uninstall
+29. Option --debug: enable verbose output (dùng được với đa số lệnh helm)
 
 
 
