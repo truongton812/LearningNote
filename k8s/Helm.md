@@ -303,7 +303,8 @@ Lưu ý quan trọng: nếu define variable trong with/range thì variable đấ
 ```
 ##### Range
 - range trong helm tương đương với for trong lập trình, dùng để lặp trên 1 list. Khi khai báo range phải khai báo cả context, không thể dùng Root
-- Example 1
+
+  + Example 1
 ```
 {{- range .Values.namespaces }} 
 apiVersion: v1
@@ -320,7 +321,7 @@ namespaces:
   - name: myapp2
   - name: myapp3 #lưu ý các key phải là "name", nếu dùng key khác thì vòng loop đấy không nhận được giá trị (<no value>)
 ```
-Example 2: range + helm variable
+  + Example 2: range + helm variable
 ```
 # values.yaml
 # Flow Control: Range with List and Helm Variables
@@ -340,7 +341,7 @@ metadata:
 ---  
 {{- end }}           
 ```
-Examlple 3: range with dictionary
+  + Examlple 3: range with dictionary
 ```
 values.yaml
 myapps:
@@ -368,7 +369,7 @@ data:
 {{- $key | nindent 2 }}: {{ $value }}-{{ $chartname }}
 {{- end }}
 ```
-#### named templates
+#### Named templates
 
 Là những template hay dùng, có thể tái sử dụng. VD để định nghĩa các common label hay dùng
 Cách khai báo
