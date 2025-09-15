@@ -448,7 +448,7 @@ resource "aws_s3_bucket_object" "finance-2020" {
 
 data "aws_iam_group" "finance-data" {
   group_name = "finance-analysts"
-}
+} #Terraform lấy thông tin về IAM group có tên "finance-analysts" đã tồn tại trên AWS để sử dụng trong cấu hình Terraform, nhưng không tạo mới nhóm IAM này.
 
 resource "aws_s3_bucket_policy" "finance-policy" {
   bucket = aws_s3_bucket.finance.id
