@@ -56,25 +56,18 @@ Repo trong Helm (hay còn gọi là Helm Repository) là một kho lưu trữ c�
 
 Repo đóng vai trò là nơi lưu trữ tập trung, cho phép bạn publish, version, chia sẻ và tải về các ứng dụng đã được đóng gói dưới dạng chart.
 
-Repo thường được triển khai như một server HTTP, chứa file index.yaml với metadata về tất cả các charts có trong repo cũng như các file chart đã đóng gói.
+Repo thường được triển khai như một server HTTP, gồm file index.yaml chứa thông tin metadata về tất cả các charts có trong repo và các gói chart đã được đóng gói (định dạng .tgz). Khi bạn tạo một repo Helm (ví dụ trên GitHub hoặc một hosting HTTP), bạn chỉ cần thêm các file đóng gói chart vào repo, cập nhật lại file index.yaml, thì tất cả các chart này sẽ được cộng đồng hoặc hệ thống tìm kiếm và sử dụng thông qua lệnh helm CLI
 
 Bạn có thể sử dụng lệnh Helm (helm repo add, helm repo list, helm repo update) để quản lý các repo, tìm kiếm hoặc cài đặt charts một cách dễ dàng.
 
 Repo có thể là repo công khai (ví dụ: Artifact Hub, Bitnami) hoặc repo cá nhân của một tổ chức để triển khai các ứng dụng nội bộ.
 
-Một repo có thể chứa nhiều chart.
+Ví dụ khi muốn triển khai Nginx lên Kubernetes bằng Helm, bạn có thể thêm repo Bitnami vào Helm, sau đó cài đặt chart Nginx từ repo đó:
 
-Cụ thể, repo (chart repository) là một kho lưu trữ tập trung chứa các gói chart đã được đóng gói (định dạng .tgz) cùng với file index.yaml—tập hợp metadata liệt kê và trỏ tới từng chart có trong repo đó. Mỗi chart sẽ là một gói ứng dụng khác nhau (ví dụ: nginx, mysql, redis...), có thể được phân phối, quản lý version một cách độc lập trong cùng một repo.
-
-Khi bạn tạo một repo Helm (ví dụ trên GitHub hoặc một hosting HTTP), bạn chỉ cần thêm các file đóng gói chart vào repo, cập nhật lại file index.yaml, thì tất cả các chart này sẽ được cộng đồng hoặc hệ thống tìm kiếm và sử dụng thông qua lệnh helm CLI
-
-Ví dụ:
-Khi muốn triển khai Nginx lên Kubernetes bằng Helm, bạn có thể thêm repo Bitnami vào Helm, sau đó cài đặt chart Nginx từ repo đó:
-
-bash
+```bash
 helm repo add bitnami https://charts.bitnami.com/bitnami
 helm install my-nginx bitnami/nginx
-Lúc này, Helm sẽ lấy chart Nginx từ repo Bitnami, áp dụng thông tin cấu hình trong values.yaml, sinh ra các manifest K8S, và triển khai Nginx lên cluster
+```
 
 
 ## Các lệnh làm việc với Helm
