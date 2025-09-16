@@ -455,3 +455,7 @@ sudo systemctl daemon-reload
 sudo systemctl restart kubelet
 
 Kubectl uncordon node01 (thực hiện trên control plane)
+
+#### Cách Fix Bug Các Lỗi Thường Gặp Trong Kubernetes
+
+https://devops.vn/posts/cach-fix-bug-cac-loi-thuong-gap-trong-kubernetes/
