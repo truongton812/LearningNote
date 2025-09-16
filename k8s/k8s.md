@@ -459,3 +459,25 @@ Kubectl uncordon node01 (thực hiện trên control plane)
 #### Cách Fix Bug Các Lỗi Thường Gặp Trong Kubernetes
 
 https://devops.vn/posts/cach-fix-bug-cac-loi-thuong-gap-trong-kubernetes/
+
+#### Logging trong k8s
+
+trong Kubernetes, các ứng dụng chạy trong container sẽ xuất các thông tin log ra hai luồng dữ liệu chuẩn của hệ thống:
+
+stdout (standard output) là luồng chính dùng để ghi các thông tin đầu ra bình thường, ví dụ như kết quả xử lý, thông báo trạng thái hay thông tin vận hành ứng dụng.
+
+stderr (standard error) là luồng dùng để ghi các thông báo lỗi, cảnh báo, hoặc các vấn đề phát sinh trong quá trình ứng dụng hoạt động.
+
+Kubernetes không trực tiếp ghi log vào file, mà container runtime (như Docker) sẽ thu thập hai luồng này từ container. Log từ stdout và stderr được ghi lại và Kubernetes cho phép truy cập bằng lệnh kubectl logs
+
+Lưu ý để tận dụng cơ chế logging mặc định và hiệu quả trong Kubernetes, ứng dụng nên được code để xuất log ra stdout và stderr.
+
+Giải thích:
+
+Kubernetes và container runtime (như Docker) sẽ tự động thu thập mọi dữ liệu mà ứng dụng ghi ra stdout (đầu ra tiêu chuẩn) và stderr (đầu ra lỗi tiêu chuẩn) của container.
+
+Nếu ứng dụng không xuất log ra stdout hoặc stderr, Kubernetes sẽ không thể tự động thu thập log đó, và bạn sẽ khó xem log thông qua các công cụ chuẩn như kubectl logs.
+
+Việc này giúp cho log được đồng bộ dễ dàng, không cần cấu hình ghi log riêng biệt vào file trong container, tránh rắc rối về lưu trữ hoặc mất log khi container tái tạo.
+
+Trong trường hợp ứng dụng chỉ ghi log vào file, có thể phải dùng thêm container sidecar hoặc agent để đọc file log đó rồi xuất ra stdout/stderr để Kubernetes thu thập.
