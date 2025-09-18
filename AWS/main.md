@@ -9,6 +9,10 @@ Tổng quan mô hình 3 lớp
 
 Tầng Presentation (UI): Giao diện người dùng, nhận thao tác đầu vào và hiển thị dữ liệu; thường được deploy lên Amazon S3 (static web) hoặc EC2/Elastic Beanstalk cho web động (Node.js, PHP, Python...) kết hợp với Amazon CloudFront tăng tốc phân phối và Load Balancer để phân phối tải và tăng khả dụng UI.
 
+- EC2 dùng làm front-end thường được đặt trong public subnet để có thể nhận truy cập trực tiếp từ Internet thông qua địa chỉ IP public hoặc qua Load Balancer. Điều này cho phép người dùng bên ngoài dễ dàng truy cập ứng dụng front-end.
+
+- Nếu muốn tăng cường bảo mật, có thể dùng Application Load Balancer (ALB) nằm ở public subnet để nhận traffic, rồi chuyển tiếp đến EC2 front-end nằm trong private subnet, tuy nhiên trường hợp này phổ biến hơn cho các backend hoặc microservices
+
 Tầng Business Logic: Xử lý nghiệp vụ, xác thực, điều phối luồng dữ liệu giữa UI và Data; có thể triển khai trên EC2 (servers), ECS/ EKS (container microservices), hoặc Lambda (serverless functions). Sử dụng Auto Scaling Group để tăng scale
 
 Tầng Data: Lưu trữ, truy vấn dữ liệu, sử dụng Amazon RDS/Aurora (quan hệ) hoặc DynamoDB (phi quan hệ), kết hợp S3 lưu file hoặc backup.
@@ -23,7 +27,11 @@ Tầng Data: Lưu trữ, truy vấn dữ liệu, sử dụng Amazon RDS/Aurora (
 
 Sử dụng VPC riêng biệt, chia subnet (public/private) để kiểm soát truy cập. Application Load Balancer nằm ở public subnet, EC2/ECS/EKS/BLogic nằm ở private subnet, DB/Data chỉ truy cập nội bộ hoặc qua bảo mật.
 
-Tích hợp Auto Scaling, IAM, nhóm bảo mật Security Group, Network ACL, AWS WAF để nâng cao khả năng bảo vệ ứng dụng, truy cập đúng lớp.
+Tích hợp Auto Scaling, IAM, nhóm bảo mật Security Group, Network ACL , AWS WAF để nâng cao khả năng bảo vệ ứng dụng, truy cập đúng lớp.
+
+Khác biệt giữa NACL và Security Group
+- NACL bảo mật cho subnet, là stateless. NACL kiểm tra rule theo số thứ tự (từ thấp nhất), traffic khớp rule nào sẽ áp dụng ngay và dừng lại. NACL có thể deny
+- Security Group bảo mật cho EC2 instance, là statefull. Security Group thì áp dụng đồng thời tất cả rule (và chỉ cần một rule phù hợp là cho phép). SG chỉ có allow, không thể deny
 
 Định tuyến thông tin qua các tầng, cách ly truy cập trực tiếp database từ client, giảm rủi ro bảo mật.
 
@@ -35,7 +43,7 @@ Tích hợp Auto Scaling, IAM, nhóm bảo mật Security Group, Network ACL, AW
 - A Network Address Translation (NAT) Gateway is used to allow resources within a private subnet in a Virtual Private Cloud (VPC) to access the internet while keeping them hidden and protected from direct access. It’s important to note that a NAT gateway must always be launched in a public subnet.
 - Deploy UI (frontend) lên S3 hoặc EC2, sử dụng CloudFront/CDN.
 - Deploy Logic/backend trên EC2/ECS/Lambda theo specs nghiệp vụ, kết nối API Gateway nếu cần.
-- Tạo database, cấu hình RDS/DynamoDB/S3 theo loại dữ liệu xử lý. Để kiểm soát truy cập đến database We need a security group so that other applications inside our VPC can connect to our database instance. You can either create a security group for your instance or use an existing one. 
+- Tạo database, cấu hình RDS/DynamoDB/S3 theo loại dữ liệu xử lý. Để kiểm soát truy cập đến database RDS/Aurora we need a security group so that other applications inside our VPC can connect to our database instance. Còn để kiểm soát truy cập vào DynamoDB thì dùng role
 - Thiết lập Load Balancer, routing request (UI → Logic → Data).
 - Triển khai bảo mật, thiết lập IAM, WAF, Security Group, Auto Scaling.
 
@@ -131,3 +139,25 @@ Chức năng Auto Scaling, monitoring qua CloudWatch đảm bảo ổn định.
 - Sử dụng Amazon EventBridge để tạo các cronjob tự động chạy theo lịch trình ví dụ như bật/tắt EC2 instance theo giờ làm việc, giảm chi phí khi không dùng.
 
 - Thiết lập cảnh báo ngân sách: Đặt cảnh báo và hành động tự động khi chi phí vượt ngưỡng nhằm kiểm soát chi tiêu trước khi phát sinh cao.
+
+### Implement security cho AWS
+
+- Phân quyền bằng IAM, Group và role
+- Bật CloudTrail và AWS Config để ghi lại toàn bộ hoạt động và thay đổi cấu hình tài nguyên trên multi-region, bảo đảm có nhật ký đầy đủ để điều tra khi xảy ra sự cố.
+- Sử dụng VPC, Security Group, NACL để cô hoặc giới hạn luồng truy cập mạng, triển khai AWS WAF, Shield và các biện pháp chống DDoS cho hệ thống public-facing
+- Sử dụng Security Hub, GuardDuty, Inspector để liên tục kiểm tra, phát hiện sớm bất thường, tự động khắc phục và báo cáo
+- Các aws config rule hay thiết lập
+
+S3/Bucket: Ngăn public access, bắt mã hoá dữ liệu.
+
+EC2/EBS: Không để public IP, bắt buộc mã hoá, giám sát snapshot.
+
+CloudTrail: Luôn bật ghi log, audit các hoạt động tài khoản.
+
+RDS/Aurora: Storage phải mã hoá, không public endpoint.
+
+IAM: Không dùng access key cho root, rotate key thường xuyên, disable user/account không dùng.
+
+Tagging: Enterprise yêu cầu resource có tag chính xác để kiểm soát chi phí và vận hành.
+
+GuardDuty/Inspector: Bắt buộc kích hoạt các dịch vụ bảo mật cần thiết ở level account hoặc toàn bộ region
