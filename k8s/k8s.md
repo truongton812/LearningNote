@@ -481,3 +481,25 @@ Nếu ứng dụng không xuất log ra stdout hoặc stderr, Kubernetes sẽ kh
 Việc này giúp cho log được đồng bộ dễ dàng, không cần cấu hình ghi log riêng biệt vào file trong container, tránh rắc rối về lưu trữ hoặc mất log khi container tái tạo.
 
 Trong trường hợp ứng dụng chỉ ghi log vào file, có thể phải dùng thêm container sidecar hoặc agent để đọc file log đó rồi xuất ra stdout/stderr để Kubernetes thu thập.
+
+
+#### Istio
+Dùng để thực hiện deploy canary và blue green
+
+
+#### Truy cập IP của pod
+
+IP 10.244.137.105 mà khi dùng lệnh kubectl get pods -o wide thấy được là IP nội bộ của Pod trong mạng overlay của Kubernetes cluster. Đây là IP mạng Pod (Pod IP) do mạng Pod (Pod network) được Kubernetes và CNI plugin (ví dụ: Calico, Flannel, Weave) cấp phát cho từng Pod khi nó được tạo.
+
+
+IP này chỉ tồn tại trong phạm vi mạng nội bộ của Kubernetes cluster, không phải là IP công khai hay IP truy cập trực tiếp từ bên ngoài.
+
+IP 10.244.137.105 của Pod có thể được truy cập từ:
+
+- Các Pod khác trong cùng cụm Kubernetes. Mạng Pod là mạng phẳng cho phép các Pod giao tiếp trực tiếp với nhau qua IP Pod.
+
+- Các node trong cụm Kubernetes (bao gồm cả node worker và node master) vì tất cả node đều tham gia vào mạng Pod overlay nên có thể truy cập IP Pod.
+
+- Tuy nhiên, IP Pod này không thể truy cập trực tiếp từ bên ngoài cụm Kubernetes. Nếu muốn truy cập từ ngoài, cần cấu hình Service (ClusterIP, NodePort, LoadBalancer) hoặc Ingress để expose dịch vụ ra ngoài.
+
+Điều này giúp các ứng dụng chạy trong cluster có thể trao đổi dữ liệu qua địa chỉ IP Pod, và các node đều có thể định tuyến được tới các IP này nhờ mạng overlay của Kubernetes
