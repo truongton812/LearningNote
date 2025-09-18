@@ -1,0 +1,2 @@
+Thêm ổ vào server
+
