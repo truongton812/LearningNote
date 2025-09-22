@@ -1,4 +1,12 @@
-Thêm ổ vào server
+### Các lệnh linux thông dụng
+
+xem thông tin 1 directory mà không show file bên trong, dùng:
+
+```bash
+ls -ld <tên_directory>
+```
+
+### Thêm ổ vào server
 
 Để thêm ổ sdb vào LVM hiện tại trên ổ sda (Volume Group ubuntu-vg), bạn có thể thực hiện theo các bước dưới đây:
 
