@@ -503,3 +503,131 @@ IP 10.244.137.105 của Pod có thể được truy cập từ:
 - Tuy nhiên, IP Pod này không thể truy cập trực tiếp từ bên ngoài cụm Kubernetes. Nếu muốn truy cập từ ngoài, cần cấu hình Service (ClusterIP, NodePort, LoadBalancer) hoặc Ingress để expose dịch vụ ra ngoài.
 
 Điều này giúp các ứng dụng chạy trong cluster có thể trao đổi dữ liệu qua địa chỉ IP Pod, và các node đều có thể định tuyến được tới các IP này nhờ mạng overlay của Kubernetes
+
+---
+
+### Storage class
+
+Storage Class trong Kubernetes là một tài nguyên cluster giúp quản trị và tự động hóa quản lý bộ nhớ bền vững (persistent storage) cho các Pod thông qua việc cấp phát động Persistent Volume (PV) tùy theo yêu cầu của Persistent Volume Claim (PVC).
+
+Storage Class đại diện cho các "hạng" lưu trữ khác nhau trong cluster Kubernetes, ví dụ như NFS, Ceph, Longhorn, SSD, HDD, AWS EBS, v.v.
+
+Mỗi Storage Class mô tả cách cấp phát, các tham số kỹ thuật (parameters), loại provisioner, và chính sách reclaim (reclaimPolicy) cho PV được tạo động.
+
+Quản trị viên có thể khởi tạo nhiều Storage Class khác nhau để tận dụng các hệ thống lưu trữ phù hợp nhu cầu ứng dụng, từ hiệu năng cao tới dung lượng lớn
+
+Các thành phần chính của Storage Class:
+
+- provisioner: Định nghĩa loại bộ lưu trữ (ví dụ: kubernetes.io/aws-ebs, kubernetes.io/nfs, longhorn, ceph, ...).
+- parameters: Tham số cấu hình như loại ổ, định dạng hệ thống file, quyền truy cập, ... tùy thuộc từng backend storage.
+- reclaimPolicy: Chính sách xử lý PV sau khi xóa PVC (Retain, Delete, Recycle).
+- mountOptions, allowVolumeExpansion, volumeBindingMode: Tùy chọn nâng cao giúp mở rộng/cấu hình bộ nhớ chi tiết hơn
+
+Ví dụ Storage Class với NFS
+
+```
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: nfs-csi
+provisioner: nfs.csi.k8s.io
+parameters:
+  server: 10.7.9.5      # Địa chỉ IP của NFS server
+  share: /demo-nfs      # Đường dẫn thư mục dùng mount
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+mountOptions:
+  - nfsvers=4
+  - hard
+  - timeo=600
+  - retrans=3
+  - rsize=1048576
+  - wsize=1048576
+  - resvport
+  - async
+```
+
+Ví dụ Storage Class với Longhorn (Distributed Block Storage)
+```
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: longhorn
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+parameters:
+  numberOfReplicas: "3"
+  staleReplicaTimeout: "2880"   # timeout replica không hoạt động (phút)
+  fsType: "ext4"
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+```
+
+PVC sẽ tham chiếu Storage Class bằng trường storageClassName để yêu cầu loại lưu trữ mong muốn.
+
+Lưu ý 1:
+
+Provisioner trong Kubernetes chính là một thành phần chịu trách nhiệm cấp phát Persistent Volume (PV) khi có Persistent Volume Claim (PVC) yêu cầu. Kubernetes  có thể có nhiều loại provisioner khác nhau, mỗi loại tương ứng với một CSI driver cụ thể. Ví dụ: Provisioner cho NFS có thể là nfs.csi.k8s.io, Provisioner cho Longhorn là driver.longhorn.io. Khi trong StorageClass bạn chỉ định provisioner: nfs.csi.k8s.io hoặc driver.longhorn.io, bạn đang chỉ định tên của CSI driver đó. CSI driver này phải được cài đặt trước trong cluster (thường là một pod hoặc tập hợp các pod) để thực hiện các lệnh tạo, xóa, mở rộng volume.
+
+Provisioner trong Storage Class có thể là sẵn có (built-in) hoặc cần cài đặt/thêm vào cluster, tùy thuộc vào loại storage backend và môi trường sử dụng.
+
+- Provisioner nội bộ (built-in): Một số provisioner như AWS EBS, GCP PD, Azure Disk, vSphere thường đã được tích hợp sẵn trên Kubernetes (kubernetes.io/aws-ebs, kubernetes.io/gce-pd...). Khi cluster ở trên cloud, chỉ cần khai báo đúng tên provisioner là dùng ngay, không cần cài thêm driver.
+
+- Provisioner bên ngoài (external): Những loại như NFS, Longhorn, Ceph, S3 (hoặc các giải pháp custom), cần cài đặt thêm một controller/provisioner chạy trên cluster để xử lý các yêu cầu tạo volume.
+Ví dụ: NFS sử dụng external provisioner (như nfs-subdir-external-provisioner) phải deploy trước khi Storage Class hoạt động
+
+
+Lưu ý 2:
+
+Một số loại storage như Local Persistent Volume (Local PV) không có phần mềm (controller/provisioner) chạy trên Kubernetes để tự động tạo ra PersistentVolume (PV) khi cần. Nghĩa là khi có yêu cầu từ PersistentVolumeClaim (PVC), Kubernetes không tự động provision PV cho loại này.
+
+Do đó, quản trị viên hoặc người dùng phải tạo PV thủ công trước (bằng cách viết một manifest định nghĩa PersistentVolume liên quan đến ổ đĩa vật lý trên node cụ thể) rồi mới tạo PVC để liên kết với PV đó.
+
+Tóm lại, với Local PV, người dùng phải chuẩn bị và khai báo PersistentVolume trước bằng tay, còn với các loại storage hỗ trợ dynamic provisioning sẽ có provisioner chạy tự động tạo PV khi có PVC.
+
+Ví dụ đơn giản tạo PersistentVolume thủ công cho Local PV:
+
+```
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: local-pv-example
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+  - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Delete
+  storageClassName: local-storage
+  local:
+    path: /mnt/disks/ssd1
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: kubernetes.io/hostname
+          operator: In
+          values:
+          - node01
+```
+Sau đó tạo PVC để dùng StorageClass local-storage và Kubernetes sẽ bind với PV đã có này.
+
+Lưu ý với ví dụ trên StorageClass tên local-storage có provisioner là kubernetes.io/no-provisioner (thường dùng cho Local PV) KHÔNG giúp tự động tạo PV khi có yêu cầu PVC.
+
+Giải thích chi tiết:
+
+Dynamic provisioning (tự động tạo PV khi có PVC) chỉ xảy ra khi StorageClass được gán provisioner có khả năng cấp phát động (ví dụ AWS EBS, NFS CSI driver, Longhorn, v.v).
+
+Với StorageClass loại Local PV thường dùng provisioner kubernetes.io/no-provisioner, tức không có controller nào trên cluster xử lý việc tạo PV động.
+
+Khi có PVC dùng StorageClass này, Kubernetes sẽ không tự tạo PV mà phải có PV được tạo thủ công từ trước, PVC đi tìm PV phù hợp rồi gắn kết (bind) vào PVC.
+
+Nói cách khác, loại StorageClass này hỗ trợ “binding” PVC với PV có sẵn chứ không hỗ trợ “provisioning” PV mới tự động.
+
+Tuy StorageClass local-storage trong trường hợp dùng provisioner là kubernetes.io/no-provisioner  không tự động tạo PV nhưng vẫn mang lại một số lợi ích quản lý và tổ chức storage trong Kubernetes đó là:
+- Phân loại và tổ chức các PV local: Khi nhiều PersistentVolume sử dụng cùng StorageClass local-storage, người quản trị và các ứng dụng có thể dễ dàng phân biệt và nhóm các PV theo từng loại lưu trữ (vd: local-storage, fast-ssd, nfs, longhorn...), giúp quản lý rõ ràng hơn.
+ Tiện lợi khi tạo PVC: Pod chỉ cần khai báo storageClassName: local-storage trong PVC để tìm đúng tập PV tương ứng, giúp việc viết manifest PVC chuẩn hóa hơn thay vì dùng tên PV cụ thể.
+- Kiểm soát chính sách chung: StorageClass có thể định nghĩa các chính sách chung như reclaimPolicy (giữ hay xóa PV khi PVC xóa), giúp chuẩn hóa hành vi lưu trữ cho loại Local PV này.
+- Tương thích với các công cụ và pipeline: Một số pipeline hoặc hệ thống quản lý yêu cầu phải có StorageClass để hoạt động nhất quán, dù không dynamic provision được.
+
+Kết luận: Bạn không bắt buộc phải tạo StorageClass local-storage khi sử dụng Local Persistent Volume (Local PV), nhưng nếu muốn quản lý linh hoạt và tiện lợi hơn thì nên tạo.
