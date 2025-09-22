@@ -1,0 +1,8 @@
+1.
+Để tìm resource trên toàn bộ các namespace trong Kubernetes, dùng option --all-namespaces (hoặc viết tắt -A) với lệnh kubectl.
+
+Ví dụ:
+
+Liệt kê pods tất cả namespace:
+
+`kubectl get pods --all-namespaces`
