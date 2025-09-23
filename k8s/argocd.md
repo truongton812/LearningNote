@@ -561,3 +561,63 @@ parameters:
     value: "3"
 ```
 thì khi ArgoCD deploy, giá trị sẽ được thay thế thành service.type=LoadBalancer và replicaCount=3 thay vì mặc định.
+
+---
+
+##### Tổng quan về tích hợp Helm trong ArgoCD
+ArgoCD hỗ trợ native Helm charts, tức là ArgoCD sẽ sử dụng Helm để tạo ra manifests (dùng lệnh helm template) rồi mới áp dụng lên cluster Kubernetes. ArgoCD không chạy helm install thực sự mà quản lý manifests thuần túy, giúp tích hợp GitOps dễ dàng hơn và quản lý version, rollback cũng trực quan trong ArgoCD UI.
+
+##### Các bước tích hợp Helm với ArgoCD
+1. Thêm kho Helm Repo vào ArgoCD
+
+Truy cập ArgoCD UI, vào phần Settings > Repositories > chọn cách kết nối phù hợp (HTTPS, SSH, GitHub App).
+
+Chọn kiểu Repo là Helm và nhập URL repo Helm chart.
+
+Nếu repo private, thêm thông tin xác thực cần thiết.
+
+2. Tạo Application trong ArgoCD dùng Helm Chart
+
+Vào ArgoCD UI, chọn Applications > New App.
+
+Nhập tên app, chọn project, sync policy (manual hoặc auto-sync).
+
+Chọn repo Helm đã thêm ở bước trên.
+
+Trong trường Chart, chọn chart Helm muốn deploy. Trường Revision sẽ hiển thị các version của chart để chọn.
+
+Nhập thông tin cluster đích (cluster URL, namespace, namespace có thể được auto-create).
+
+Ấn tạo application. Khi tạo xong, app sẽ ở trạng thái OutOfSync vì chưa deploy tài nguyên lên cluster.
+
+3. Cấu hình giá trị Helm (values) trong ArgoCD
+
+Có thể truyền tham số Helm thông qua manifest ArgoCD với các trường values, valueFiles, valuesObjects hoặc parameters tương tự như --set của Helm CLI.
+
+Ví dụ trong manifest có thể truyền như:
+
+```
+source:
+  helm:
+    valuesObject:
+      replicaCount: 2
+```
+ArgoCD sẽ render Helm chart với các giá trị này rồi deploy.
+
+4. Đồng bộ và quản lý ứng dụng Helm qua ArgoCD
+
+Sau khi tạo app, cần ấn Sync hoặc dùng lệnh CLI argocd app sync <app-name> để đồng bộ tạo tài nguyên.
+
+ArgoCD UI sẽ hiển thị trạng thái deploy, sức khỏe (Health) và bạn có thể thao tác resync hay rollback ngay trên UI.
+
+Cập nhật Helm chart, thay đổi giá trị, commit lên Git rồi sync lại sẽ tự động deploy các thay đổi.
+
+##### Lưu ý quan trọng
+
+ArgoCD dùng helm template để render chart, không phải chạy helm install. Vì vậy, không thể dùng lệnh Helm CLI để quản lý release do ArgoCD tạo ra.
+
+Nên cấu hình namespace rõ ràng trong app hoặc bật auto-create namespace.
+
+Hỗ trợ tốt cho đa môi trường, có thể tạo nhiều ứng dụng ứng với nhiều environemnt khác nhau từ cùng một Helm chart.
+
+Đồng bộ trạng thái và rollback trực tiếp từ ArgoCD UI hoặc CLI rất tiện lợi
