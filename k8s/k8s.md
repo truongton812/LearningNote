@@ -622,7 +622,7 @@ Với StorageClass loại Local PV thường dùng provisioner kubernetes.io/no-
 
 Khi có PVC dùng StorageClass này, Kubernetes sẽ không tự tạo PV mà phải có PV được tạo thủ công từ trước, PVC đi tìm PV phù hợp rồi gắn kết (bind) vào PVC.
 
-Nói cách khác, loại StorageClass này hỗ trợ “binding” PVC với PV có sẵn chứ không hỗ trợ “provisioning” PV mới tự động.
+Nói cách khác, loại StorageClass này hỗ trợ “binding” PVC với PV có sẵn chứ không hỗ trợ “provisioning” PV mới tự động. Note là khi dùng provisioner kubernetes.io/no-provisioner ta chỉ thông báo với Kubernetes là không tự động provision storage khi có PVC, còn ta vẫn có thể dùng StorageClass có provisioner là kubernetes.io/no-provisioner cho nhiều loại storage khác nhau (NFS, Longhorn,...)
 
 Tuy StorageClass local-storage trong trường hợp dùng provisioner là kubernetes.io/no-provisioner  không tự động tạo PV nhưng vẫn mang lại một số lợi ích quản lý và tổ chức storage trong Kubernetes đó là:
 - Phân loại và tổ chức các PV local: Khi nhiều PersistentVolume sử dụng cùng StorageClass local-storage, người quản trị và các ứng dụng có thể dễ dàng phân biệt và nhóm các PV theo từng loại lưu trữ (vd: local-storage, fast-ssd, nfs, longhorn...), giúp quản lý rõ ràng hơn.
