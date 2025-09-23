@@ -631,3 +631,58 @@ Tuy StorageClass local-storage trong trường hợp dùng provisioner là kuber
 - Tương thích với các công cụ và pipeline: Một số pipeline hoặc hệ thống quản lý yêu cầu phải có StorageClass để hoạt động nhất quán, dù không dynamic provision được.
 
 Kết luận: Bạn không bắt buộc phải tạo StorageClass local-storage khi sử dụng Local Persistent Volume (Local PV), nhưng nếu muốn quản lý linh hoạt và tiện lợi hơn thì nên tạo.
+
+---
+
+### SubPath trong mount volume
+```
+volumeMounts:
+- name: config-volume
+  mountPath: /app/application.properties
+  subPath: application.properties
+volumes:
+- name: config-volume
+  configMap:
+    name: shopnow-discovery-service-configmap
+```
+
+Phải sử dụng subPath khi mount ConfigMap (hoặc một volume) để chỉ định mount một file hoặc thư mục cụ thể trong volume đó, thay vì mount toàn bộ volume.
+
+Nếu không dùng subPath mà mount trực tiếp ConfigMap vào một đường dẫn file như /app/application.properties thì Kubernetes sẽ mount nguyên thư mục volume ConfigMap vào đường dẫn đó, khiến đường dẫn này trở thành một thư mục chứ không phải một file đơn lẻ. Điều này gây ra lỗi, vì container mong đợi một file nhưng lại nhận được một thư mục.
+
+Cụ thể:
+
+ConfigMap thường chứa nhiều file (key) trong một thư mục volume.
+
+Dùng subPath chỉ lấy đúng file tương ứng (ví dụ application.properties) để mount tại vị trí mong muốn (ví dụ /app/application.properties). Giá trị của subPath ở đây trỏ đến tên file (hoặc key) trong ConfigMap, do trong ConfigMap, dữ liệu được lưu dưới dạng key-value, mỗi key như một file riêng biệt.
+
+Khi mount ConfigMap làm volume, các key sẽ trở thành các file trong volume đó.
+
+Không có subPath thì toàn bộ volume (thư mục chứa các file config) sẽ ghi đè lên vị trí mount, làm mất cấu trúc và không đúng mục đích.
+
+Tóm lại, subPath cho phép mount chính xác một file riêng trong ConfigMap vào vị trí file cụ thể trong container. Nếu không dùng subPath, mountPath phải là thư mục, không thể là file, nên không phù hợp khi muốn mount một file config riêng biệt
+
+
+Nếu trong ConfigMap có các key như value1, value2, value3 mà mount toàn bộ ConfigMap làm volume (không dùng subPath), thư mục mount trên container sẽ là một thư mục chứa các file tương ứng từng key đó với nội dung là value tương ứng.
+
+Ví dụ ta mount như sau:
+```
+volumeMounts:
+- name: config-volume
+  mountPath: /app/application.properties
+volumes:
+- name: config-volume
+  configMap:
+    name: shopnow-discovery-service-configmap
+```
+
+Cấu trúc thư mục trong container tại mountPath sẽ trông như sau:
+
+```
+/app/
+  └── application.properties/ (nếu mountPath là /app/application.properties mà không dùng subPath thì thành thư mục)
+      ├── value1  # file với nội dung value1 trong ConfigMap
+      ├── value2
+      └── value3
+```
+
