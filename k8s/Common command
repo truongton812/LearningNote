@@ -6,3 +6,6 @@ Ví dụ:
 Liệt kê pods tất cả namespace:
 
 `kubectl get pods --all-namespaces`
+
+
+kubectl get pods --all-namespaces | grep ContainerStatusUnknown | awk '{print "kubectl delete pod " $2 " -n " $1}' | bash
