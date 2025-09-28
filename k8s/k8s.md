@@ -383,7 +383,7 @@ spec:
 ```
 # Custom resource
 
-Custom Resource: Custom resource là loại tài nguyên mở rộng do người dùng tự định nghĩa, bổ sung vào API của Kubernetes ngoài các tài nguyên mặc định như Pod hay Service. Nó cho phép lưu trữ và truy xuất dữ liệu theo nhu cầu riêng biệt – ví dụ: bạn có thể tạo custom resource tên là MyApp để tự quản lý cấu hình hoặc trạng thái cho ứng dụng của mình như một tài nguyên trong cluster.
+Custom Resource: Custom resource là loại tài nguyên mở rộng do người dùng tự định nghĩa, bổ sung vào API của Kubernetes ngoài các tài nguyên mặc định như Pod hay Service. Nó cho phép lưu trữ và truy xuất dữ liệu theo nhu cầu riêng biệt – ví dụ: bạn có thể tạo custom resource tên là MyDatabase bao gồm ConfigMap, Deployment, Service, Volume
 
 Custom Resource Definition (CRD): Custom Resource Definition (CRD) là đối tượng để khai báo và đăng ký custom resource với API server của Kubernetes. CRD đóng vai trò như “class” trong lập trình hướng đối tượng, còn custom resource giống như “object”/thể hiện. Khi deploy một CRD, bạn sẽ có thể tạo nhiều resource thuộc loại đó, quản lý bằng lệnh kubectl như các tài nguyên gốc của Kubernetes.
 
