@@ -29,7 +29,7 @@ Muốn scale số lượng replica theo biến môi trường build, Kustomize k
 Ví dụ, khi CI/CD pipeline build xong image v1.2.3, nó sẽ truyền tag này vào manifest thông qua biến runtime rồi triển khai luôn lên cluster. Nếu dùng Helm, chỉ cần chạy helm install --set image.tag=v1.2.3 là biến được truyền vào và manifest sẽ sinh ra đúng giá trị tag đó.
 
 Kustomize thì không hỗ trợ truyền biến ở thời điểm này một cách native
-Không thể trực tiếp sửa giá trị trong file patch.yaml của Kustomize để truyền biến động ở runtime theo cách native của Kustomize. File patch.yaml là tĩnh, tức nó chứa giá trị cố định, được áp dụng lúc build manifest trước khi deploy, không hỗ trợ thay biến hoặc nhận biến từ môi trường runtime như Helm. nếu muốn thay đổi phải build lại file trước hoặc dùng công cụ ngoài, chứ không có support trực tiếp như Helm.
+Không thể trực tiếp sửa giá trị trong file patch.yaml của Kustomize để truyền biến động ở runtime theo cách native của Kustomize. File patch.yaml là tĩnh, tức nó chứa giá trị cố định, được áp dụng lúc build manifest trước khi deploy, không hỗ trợ thay biến hoặc nhận biến từ môi trường runtime như Helm. nếu muốn thay đổi phải build lại file trước hoặc dùng công cụ ngoài như dùng script hoặc công cụ bên ngoài như envsubst, sed, hoặc CI/CD pipeline để thay giá trị biến trong patch.yaml trước khi chạy Kustomize build hoặc deploy
 
 Lý do
 Kustomize chỉ xử lý các file YAML một cách tĩnh, không có cơ chế native cho phép chèn biến runtime trực tiếp vào patch.yaml khi apply manifest lên cluster.
