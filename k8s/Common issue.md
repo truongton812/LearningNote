@@ -44,3 +44,8 @@ Gán tag image mới build được từ CI/CD.
 Truyền cấu hình môi trường (env, replica, ingress host…) theo môi trường deploy hôm đó.
 
 Update secret/token hoặc cấu hình nhạy cảm mà phải lấy từ CI/CD hoặc vault
+
+
+
+### Pod postgres không khởi động được do mount point
+https://www.perplexity.ai/search/ban-kiem-tra-phan-mount-cua-ma-u.Xlj9ptS6OsuqemTvvOxg
