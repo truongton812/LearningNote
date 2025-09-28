@@ -49,3 +49,31 @@ Update secret/token hoặc cấu hình nhạy cảm mà phải lấy từ CI/CD 
 
 ### Pod postgres không khởi động được do mount point
 https://www.perplexity.ai/search/ban-kiem-tra-phan-mount-cua-ma-u.Xlj9ptS6OsuqemTvvOxg
+
+
+### Lỗi do nfs server down
+
+Log lỗi
+```
+kubernetes.io/csi: attacher.MountDevice failed to create newCsiDriverClient: driver name nfs.csi.k8s.io not found in the list of registered CSI drivers
+
+rpc error: code = DeadlineExceeded desc = context deadline exceeded
+```
+
+Tóm tắt lại quá trình xử lý sự cố:
+
+Lỗi ban đầu: Pod báo lỗi FailedMount với hai thông báo: driver name nfs.csi.k8s.io not found và context deadline exceeded.
+
+Phân tích Lỗi:
+
+Lỗi driver not found -> Kiểm tra xem NFS CSI Driver đã được cài đặt chưa. Chạy lệnh sau để liệt kê tất cả các CSI driver đã được đăng ký trong cluster của bạn:
+
+```
+kubectl get csidrivers
+```
+
+Nếu các pod driver đang running bình thường thì nghĩa là kubelet trên worker node không thể tìm thấy hoặc giao tiếp được với tiến trình của NFS CSI driver đang chạy trên cùng node đó.
+
+Lỗi context deadline exceeded (timeout) là hệ quả, cho thấy yêu cầu mount không nhận được phản hồi.
+
+Khoanh vùng sự cố: Khi driver chạy nhưng không thể mount, nghi ngờ lớn nhất chuyển sang các yếu tố bên ngoài mà driver phụ thuộc vào: kết nối mạng và tình trạng của NFS server.
