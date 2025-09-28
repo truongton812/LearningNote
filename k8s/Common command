@@ -14,6 +14,8 @@ kubectl get pods --all-namespaces | grep ContainerStatusUnknown | awk '{print "k
 
 kubectl run curl-test --image=curlimages/curl --rm -it --restart=Never -- curl http://<ten-service>:<port>t>
 
+k run --image=curlimages/curl mycurl -- sh -c 'sleep infinity'
+
 
 kubectl patch svc $servicename --type='json' -p '[{"op":"replace","path":"/spec/type","value":"NodePort"}]'; kubectl get svc $servicename -o jsonpath='{.spec.ports[0].nodePort}'; echo
 
