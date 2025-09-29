@@ -26,3 +26,7 @@ Chuyển kiểu Service sang NodePort
 Lấy nodePort của port đầu tiên trong Service đó
 
 In ra nodePort ra terminal
+
+
+
+"C:\Program Files\Google\Chrome\Application\chrome.exe" --disable-web-security --user-data-dir="C:/ChromeDevSession"
