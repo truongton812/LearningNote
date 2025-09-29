@@ -89,7 +89,7 @@ sudo ufw allow 80
 sudo ufw allow 443
 
 # Lấy chứng chỉ với standalone mode (ngắt dịch vụ web chạy trên cổng 80,443 khi lấy)
-sudo certbot certonly --standalone -d yourdomain.com
+sudo certbot certonly --standalone -d yourdomain.com --preferred-challenges http --agree-tos --keep-until-expiring
 
 # Certbot tạo các file chứng chỉ tại /etc/letsencrypt/live/yourdomain.com/
 # và tự động cấu hình lịch gia hạn chứng chỉ
