@@ -141,33 +141,34 @@ spec:
 
 Diễn giải từng bước:
 
-Chạy trước tiên: Khi Pod của bạn được tạo, Kubernetes thấy có một initContainer và khởi động nó trước. Nó mount PersistentVolumeClaim (volume NFS của bạn) vào đường dẫn /var/lib/postgresql/data bên trong initContainer này.
+1. Chạy trước tiên: Khi Pod của bạn được tạo, Kubernetes thấy có một initContainer và khởi động nó trước. Nó mount PersistentVolumeClaim (volume NFS của bạn) vào đường dẫn /var/lib/postgresql/data bên trong initContainer này.
 
-Kiểm tra điều kiện if [ -z "$(ls -A ...)" ]:
+2. Kiểm tra điều kiện if [ -z "$(ls -A ...)" ]:
 
-Lệnh ls -A /var/lib/postgresql/data sẽ liệt kê tất cả các file và thư mục (kể cả file ẩn) bên trong volume.
+- Lệnh ls -A /var/lib/postgresql/data sẽ liệt kê tất cả các file và thư mục (kể cả file ẩn) bên trong volume.
 
-Lệnh [ -z "..." ] kiểm tra xem kết quả của ls -A có phải là một chuỗi rỗng hay không.
+- Lệnh [ -z "..." ] kiểm tra xem kết quả của ls -A có phải là một chuỗi rỗng hay không.
 
-Lần đầu tiên Pod chạy: Volume của bạn hoàn toàn trống. ls -A không trả về gì. Điều kiện if đúng, và khối lệnh bên trong if được thực thi.
+- Lần đầu tiên Pod chạy: Volume của bạn hoàn toàn trống. ls -A không trả về gì. Điều kiện if đúng, và khối lệnh bên trong if được thực thi.
 
-Những lần sau Pod khởi động lại: Volume đã có dữ liệu từ lần chạy trước. ls -A trả về danh sách file. Điều kiện if sai, và khối lệnh else được thực thi, chỉ in ra một thông báo rồi kết thúc ngay lập tức. Điều này đảm bảo dữ liệu không bị ghi đè.
+- Những lần sau Pod khởi động lại: Volume đã có dữ liệu từ lần chạy trước. ls -A trả về danh sách file. Điều kiện if sai, và khối lệnh else được thực thi, chỉ in ra một thông báo rồi kết thúc ngay lập tức. Điều này đảm bảo dữ liệu không bị ghi đè.
 
-Khởi tạo dữ liệu (chỉ xảy ra lần đầu):
+3. Khởi tạo dữ liệu (chỉ xảy ra lần đầu):
 
-cp -R /var/lib/postgresql/data-init/* ...: Lệnh này giả định rằng image postgres:13-alpine có một thư mục /var/lib/postgresql/data-init chứa một bản sao của cấu trúc thư mục PostgreSQL đã được khởi tạo sẵn. Nó sao chép toàn bộ cấu trúc này vào volume đã được mount.
+- cp -R /var/lib/postgresql/data-init/* ...: Lệnh này giả định rằng image postgres:13-alpine có một thư mục /var/lib/postgresql/data-init chứa một bản sao của cấu trúc thư mục PostgreSQL đã được khởi tạo sẵn. Nó sao chép toàn bộ cấu trúc này vào volume đã được mount.
 
-Đây chính là điểm mấu chốt: Thay vì để container chính chạy lệnh initdb phức tạp trên một volume mạng (NFS), initContainer chỉ thực hiện một thao tác cp (sao chép file) đơn giản. Thao tác này ít phức tạp hơn nhiều và tránh được các lỗi liên quan đến "mount propagation" và quyền sở hữu mà bạn đã gặp.
+- Đây chính là điểm mấu chốt: Thay vì để container chính chạy lệnh initdb phức tạp trên một volume mạng (NFS), initContainer chỉ thực hiện một thao tác cp (sao chép file) đơn giản. Thao tác này ít phức tạp hơn nhiều và tránh được các lỗi liên quan đến "mount propagation" và quyền sở hữu mà bạn đã gặp.
 
-Kết thúc và chuyển giao:
+4. Kết thúc và chuyển giao:
 
-Khi initContainer chạy xong và thoát với mã lỗi 0 (thành công), Kubernetes sẽ hủy nó đi.
+- Khi initContainer chạy xong và thoát với mã lỗi 0 (thành công), Kubernetes sẽ hủy nó đi.
 
-Bây giờ, Kubernetes mới bắt đầu khởi động container ứng dụng chính (shopnow-postgresql).
+- Bây giờ, Kubernetes mới bắt đầu khởi động container ứng dụng chính (shopnow-postgresql).
 
-Container chính này cũng mount cùng một PersistentVolumeClaim vào /var/lib/postgresql/data. Nhưng lúc này, volume đó đã chứa đầy đủ dữ liệu hợp lệ.
+- Container chính này cũng mount cùng một PersistentVolumeClaim vào /var/lib/postgresql/data. Nhưng lúc này, volume đó đã chứa đầy đủ dữ liệu hợp lệ.
 
-Script khởi động của PostgreSQL bên trong container chính sẽ thấy thư mục dữ liệu đã tồn tại, nó sẽ bỏ qua bước initdb và khởi động thẳng server để phục vụ kết nối.
+- Script khởi động của PostgreSQL bên trong container chính sẽ thấy thư mục dữ liệu đã tồn tại, nó sẽ bỏ qua bước initdb và khởi động thẳng server để phục vụ kết nối.
+  
 ### Lỗi do nfs server down
 
 Log lỗi
