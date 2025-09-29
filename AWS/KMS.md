@@ -38,6 +38,7 @@
   Action: [ kms:CreateGrant, kms:ListGrant, kms:RevokeGrant ]
   Resource: *
 }
+```
 
 => User A có thể tạo grant cho user B, user B có thể dùng key X mà key X không cần policy cho phép user B sử dụng
 
