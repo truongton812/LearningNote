@@ -95,11 +95,13 @@ Muốn move 1 EC2 từ AZ này sang AZ khác thì dùng AMI (AMI underlying sẽ
 ### CROSS ACCOUNT AMI SHARING
 Nếu muốn share AMI với account khác:
 
-- AMI đẩy có EBS là unencrypted snapshot -> share thoải mái
+- AMI đấy có EBS là unencrypted snapshot -> share thoải mái
 
-- AMI đẩy có EBS là encrypted snapshot (lưu ý chỉ chấp nhận encrypted = KMS CMK) -> phải share cả customer managed key = IAM permission. Nếu ko account kia sẽ không giải mã được AMI dù được share
+- AMI đấy có EBS là encrypted snapshot (lưu ý chỉ chấp nhận encrypted = KMS CMK) -> phải share cả customer managed key = IAM permission. Nếu ko account kia sẽ không giải mã được AMI dù được share
 
 Cách share: vào AMI -> action -> Edit AMI permission
+
+Lưu ý: Nếu muốn share 1 encrypted AMI cho account khác thì snapshot của AMI đấy phải unencrypt = KMS key; không thể share nếu snapshot đấy được encrypt bằng default AWS-managed key.
 
 ### CROSS ACCOUNT AMI COPY
 
