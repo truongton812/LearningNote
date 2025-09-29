@@ -165,21 +165,22 @@ http {
 
     server {
         listen 443 ssl;
-        server_name example.com www.example.com;
-
-        ssl_certificate     /etc/nginx/ssl/example.com.crt;
-        ssl_certificate_key /etc/nginx/ssl/example.com.key;
-
-        ssl_protocols       TLSv1 TLSv1.1 TLSv1.2;
-        ssl_ciphers         HIGH:!aNULL:!MD5;
-
+        server_name gitlab.tuna-devops.site;
+    
+        ssl_certificate     /etc/letsencrypt/live/gitlab.tuna-devops.site/fullchain.pem;
+        ssl_certificate_key /etc/letsencrypt/live/gitlab.tuna-devops.site/privkey.pem;
+    
         location / {
+            proxy_pass http://192.168.102.64:80;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection keep-alive;
             proxy_set_header Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
+            proxy_cache_bypass $http_upgrade;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
             proxy_set_header X-Forwarded-Proto $scheme;
-            proxy_pass http://backend;
         }
-    }
+}
+
 }
 ```
