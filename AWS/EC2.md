@@ -1,5 +1,6 @@
-EC2
+# EC2
 
+### Tổng quan về EC2
 - Là dịch vụ máy chủ ảo của AWS
 
 - Khởi tạo EC2 sẽ sinh ra 1 primary ENI gắn vào EC2 đó. (Nếu stop EC2 → primary ENI cũng bị xóa theo). Primary ENI chứa các thông tin mạng:
@@ -72,3 +73,62 @@ EC2 health check có thể dùng cho:
 - ASG (mặc định ASG dùng health check này).
 
 - ELB (optional, do ELB cũng có health check riêng).
+
+### EC2 pricing:
+Có các loại:
+- On-demand: standard, dùng bao nhiêu trả bấy nhiêu, không có discount/commitment
+- Reserved: 1-3 năm commitment dùng EC2. Cần cam kết type (VD t2.micro), region, HĐH (window, linux)
+  - Standard reserved instance: có thể thay đổi AZ, instance size, networking type
+  - Convertable reserved instance: thay đổi được AZ, instance size, networking type, family, OS, tenancy và payment option
+- Spot instance: EC2 có thể bị terminate bất kỳ lúc nào
+  - spot instance: 1 hoặc nhiều spot EC2
+  - spot fleet: duy trì số lượng spot/on-demand EC2 đáp ứng được dung lượng (capacity) cụ thể
+  - EC2 fleet: duy trì số lượng nhất định spot/on-demand/reserved instance EC2
+- Spot block: duy trì 1 số lượng EC2 nhất định trong 1 khoảng thời gian. Trong thời gian đó EC2 không bị terminate
+- dedicated instance: máy chủ vật lý dành riêng cho 1 AWS account, tuy nhiên ta ko kiểm soát đc instance nào nằm trên máy chủ nào, isolate với các instance của khách hàng khác (vẫn cùng host) về mặt hardware. Trả tiền theo instance
+- Dedicated host: máy chủ vật lý dành riêng cho 1 AWS account, ta có thể kiểm soát đc instance nào đặt trên máy chủ nào, isolate về mặt host. Biết được thông tin socket, core, hostID. Trả tiền theo host. Thích hợp cho các app cần licenses bound với server
+- Saving plan: cam kết sử dụng EC2/ Fargate/ Lambda từ 1-3 năm. Ko cần cam kết instance type, region, HĐH. Giảm giá ít hơn reserved instance
+
+### EC2 MIGRATION GIỮA CÁC AZ
+Muốn move 1 EC2 từ AZ này sang AZ khác thì dùng AMI (AMI underlying sẽ tạo snapshot của EBS) (lưu ý chỉ move được cùng region)
+
+### CROSS ACCOUNT AMI SHARING
+Nếu muốn share AMI với account khác:
+
+- AMI đẩy có EBS là unencrypted snapshot -> share thoải mái
+
+- AMI đẩy có EBS là encrypted snapshot (lưu ý chỉ chấp nhận encrypted = KMS CMK) -> phải share cả customer managed key = IAM permission. Nếu ko account kia sẽ không giải mã được AMI dù được share
+
+Cách share: vào AMI -> action -> Edit AMI permission
+
+### CROSS ACCOUNT AMI COPY
+
+Acc A share AMI cho acc B, acc B copy AMI đẩy vào acc B -> acc B là owner của copied AMI
+
+Điều kiện: acc A phải grant read permission vào EBS cho acc B. Nếu AMI có EBS là encrypted snapshot thì acc A phải share cả key
+
+Khi copy sang thì có thể encrypt bản copy = CMK của acc B
+
+### EC2 Image Builder (Bổ sung sau)
+
+### Instance profile
+
+- Là phương tiện duy nhất để truyền IAM role cho EC2 instance. Khi muốn EC2 instance sử dụng quyền của 1 IAM role, ta cần tạo instance profile chứa role đó, sau đó gán instance profile cho EC2 instance.
+
+- Khi EC2 instance được gán instance profile, AWS sẽ cung cấp cho instance đấy các temporary credential (thông qua instance metadata service tại địa chỉ http://169.254.169.254/latest/meta-data/iam/security-credentials/<role-name>). Các SDK và CLI trên instance sẽ dùng credential này để truy cập tài nguyên AWS theo quyền của role.
+
+- 1 instance profile chỉ chứa 1 IAM role, nhưng 1 IAM role có thể được gán vào nhiều instance profile khác nhau.
+
+- Khi gán role cho EC2 trên AWS console thì instance profile sẽ được tạo tự động.
+
+- Cách tạo instance profile bằng CLI:
+
+  - Tạo IAM role: aws iam create-role ...
+
+  - Gán policy cho role: aws iam attach-role-policy ...
+
+  - Tạo instance profile: aws iam create-instance-profile
+
+  - Thêm role vào instance profile: aws iam add-role-to-instance-profile
+
+  - Gán instance profile cho EC2: aws ec2 associate-iam-instance-profile
