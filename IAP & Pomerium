@@ -1,0 +1,12 @@
+Identity Aware Proxy (IAP)
+Identity Aware Proxy (IAP) là một dịch vụ bảo mật chặn các yêu cầu đến ứng dụng web, xác thực người dùng tạo ra yêu cầu và chỉ cho phép các yêu cầu từ người dùng được ủy quyền có thể tiếp cận hệ thống. IAP thiết lập một lớp ủy quyền trung tâm cho các ứng dụng được truy cập qua HTTPS, cho phép sử dụng mô hình kiểm soát truy cập cấp ứng dụng thay vì chỉ dựa vào tường lửa cấp mạng. Thay vì yêu cầu VPN truyền thống, IAP kiểm soát quyền truy cập dựa trên danh tính người dùng và ngữ cảnh của yêu cầu như vị trí, thiết bị và vai trò.
+
+IAP hoạt động bằng cách xác thực người dùng thông qua Dịch vụ nhận dạng của Google và thực hiện kiểm tra ủy quyền trước khi cho phép truy cập. Dịch vụ này có thể sửa đổi header của yêu cầu để bao gồm thông tin về người dùng đã xác thực, giúp ứng dụng nhận biết danh tính mà không cần tự mình thực hiện xác thực. IAP có thể bảo vệ các ứng dụng chạy trên nhiều nền tảng bao gồm App Engine, Compute Engine, Cloud Run và các dịch vụ đằng sau Google Cloud Load Balancer.
+
+Các trường hợp sử dụng IAP
+IAP phù hợp khi cần thiết lập quyền truy cập dựa trên nhóm, ví dụ một tài nguyên có thể truy cập được cho nhân viên nhưng không cho nhà thầu, hoặc chỉ truy cập được cho một phòng ban cụ thể. Tổ chức có thể chỉ định người dùng được xác thực bằng địa chỉ email công ty, địa chỉ Gmail, Google Workspace, hoặc địa chỉ từ các nhà cung cấp danh tính phổ biến khác. IAP còn có thể đặt ra chính sách cho thiết bị bao gồm yêu cầu về phiên bản hệ điều hành, sử dụng hồ sơ công ty, hoặc chỉ cho phép thiết bị thuộc sở hữu công ty.
+
+Pomerium
+Pomerium là một phần mềm mã nguồn mở hoạt động như Identity-Aware Proxy, được xây dựng dựa trên các nguyên tắc BeyondCorp và zero trust. Pomerium giúp bảo vệ các ứng dụng nội bộ, máy chủ và dịch vụ bằng cách xác minh liên tục danh tính người dùng, trạng thái thiết bị và ngữ cảnh yêu cầu trước khi cho phép truy cập. Không giống VPN truyền thống đã lỗi thời, Pomerium không yêu cầu phần mềm client riêng biệt và cung cấp giải pháp trung gian bảo vệ truy cập đa môi trường (đám mây, tại chỗ, đa đám mây).
+
+Pomerium hỗ trợ xác thực qua nhiều nhà cung cấp identity provider như Google, Okta, GitHub và có thể kiểm soát truy cập đến cả các dịch vụ TCP như SSH, RDP, và cơ sở dữ liệu. Kiến trúc của Pomerium bao gồm các thành phần xử lý xác thực (Authenticate), phân quyền (Authorize), và lưu trữ dữ liệu phiên (Cache), giúp tổ chức triển khai mô hình zero trust một cách hiệu quả.
