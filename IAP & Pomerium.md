@@ -10,3 +10,32 @@ Pomerium
 Pomerium là một phần mềm mã nguồn mở hoạt động như Identity-Aware Proxy, được xây dựng dựa trên các nguyên tắc BeyondCorp và zero trust. Pomerium giúp bảo vệ các ứng dụng nội bộ, máy chủ và dịch vụ bằng cách xác minh liên tục danh tính người dùng, trạng thái thiết bị và ngữ cảnh yêu cầu trước khi cho phép truy cập. Không giống VPN truyền thống đã lỗi thời, Pomerium không yêu cầu phần mềm client riêng biệt và cung cấp giải pháp trung gian bảo vệ truy cập đa môi trường (đám mây, tại chỗ, đa đám mây).
 
 Pomerium hỗ trợ xác thực qua nhiều nhà cung cấp identity provider như Google, Okta, GitHub và có thể kiểm soát truy cập đến cả các dịch vụ TCP như SSH, RDP, và cơ sở dữ liệu. Kiến trúc của Pomerium bao gồm các thành phần xử lý xác thực (Authenticate), phân quyền (Authorize), và lưu trữ dữ liệu phiên (Cache), giúp tổ chức triển khai mô hình zero trust một cách hiệu quả.
+
+
+
+
+Quy trình xác thực khi truy cập qua Pomerium
+Client gửi request đến verify.localhost.pomerium.io:
+Trình duyệt truy cập domain nằm sau Pomerium. Request này ban đầu chưa có session hoặc token xác thực.
+
+Pomerium kiểm tra session:
+Proxy Pomerium sẽ kiểm tra cookie nếu client đã xác thực hay chưa. Nếu chưa, nó chuyển hướng (redirect) client đến dịch vụ xác thực Pomerium Authenticate Service.
+
+Chuyển hướng đến IdP:
+Dịch vụ Authenticate sẽ yêu cầu người dùng đăng nhập qua IdP (theo cấu hình, ví dụ Google/GitHub), thực hiện luồng xác thực OAuth hoặc OIDC chuẩn.
+
+Nhận và lưu session:
+Sau khi xác thực thành công, nhà cung cấp IdP trả về access token và thông tin người dùng cho dịch vụ Authenticate. Dịch vụ này sẽ sinh ra session, lưu trữ dữ liệu trong Pomerium Databroker, và trả cho client một cookie bảo mật chứa session đã xác thực.
+
+Kiểm tra quyền truy cập:
+Proxy Pomerium lấy thông tin session, truy vấn chính sách phân quyền (cấu hình policy), kiểm tra email, group, claim... xem người dùng có quyền với route này hay không. Nếu có, request mới được forward đến ứng dụng gốc (verify).
+
+Forward request kèm thông tin xác thực:
+Pomerium có thể thêm các identity header (như email, user id, thông tin OIDC claim, JWT...) vào request trước khi gửi về cho ứng dụng thật phía sau proxy. Ứng dụng verify nhận request này và biết rằng request đã được xác thực, không cần xử lý xác thực riêng nữa.
+
+Minh họa flow
+User → Pomerium Proxy → (nếu chưa xác thực: redirect) → Pomerium Authenticate → Identity Provider (Google/Github)
+
+Khi thành công:
+Pomerium Proxy kiểm tra session + policy → Ứng dụng verify
+(request đi qua đã được xác thực bằng các header bổ sung)
