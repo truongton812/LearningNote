@@ -39,3 +39,50 @@ User → Pomerium Proxy → (nếu chưa xác thực: redirect) → Pomerium Aut
 Khi thành công:
 Pomerium Proxy kiểm tra session + policy → Ứng dụng verify
 (request đi qua đã được xác thực bằng các header bổ sung)
+
+---
+
+Cách setup Pomerium
+
+
+DNS: 
+- trỏ CNAME authenticate.myapp.com → IP hoặc hostname của Pomerium Authenticate service.
+
+- Main domain (myapp.com): trỏ A/ALIAS (hoặc CNAME) myapp.com → IP/hostname của Pomerium Proxy. Khi client truy cập https://myapp.com, request sẽ đến Pomerium Proxy -> Các request HTTPS tới myapp.com luôn đi qua Pomerium Proxy. Khi xác thực chưa có session, Pomerium Proxy sẽ redirect sang authenticate.myapp.com để login. Sau login, Pomerium Proxy forward request đến backend gốc (ví dụ service nội bộ trên port 8080).
+- Lưu ý: Cả myapp.com và authenticate.myapp.com cần TLS.
+
+Cấu hình Pomerium
+
+pomerium.yaml
+
+```
+authenticate_service_url: https://authenticate.myapp.com
+authorize_service_url:    https://authorize.myapp.com
+shared_secret:            "<một chuỗi ngẫu nhiên để mã hóa cookie>"
+idp_provider:             "google"
+idp_client_id:            "<CLIENT_ID>"
+idp_client_secret:        "<CLIENT_SECRET>"
+# Định nghĩa route cho myapp.com
+policies:
+  - from: https://myapp.com
+    to:   http://127.0.0.1:8080
+    allowed_users:
+      - "*@mycompany.com"
+```
+
+
+- Luồng truy cập
+
+Client đi tới https://myapp.com.
+
+Pomerium Proxy kiểm tra session cookie.
+
+Nếu chưa tồn tại, redirect tới https://authenticate.myapp.com/oauth2/start?....
+
+Client login tại Identity Provider.
+
+Sau khi xác thực, client được redirect lại tới Pomerium Authenticate, sau đó trở về Proxy với session cookie.
+
+Pomerium Proxy gọi dịch vụ Authorize (nội bộ) để kiểm tra policy.
+
+Nếu được phép, Pomerium Proxy forward request đến ứng dụng gốc tại http://127.0.0.1:8080.
