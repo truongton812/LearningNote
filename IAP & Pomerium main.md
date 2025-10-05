@@ -13,49 +13,25 @@
 ## Pomerium
 
 - Pomerium là một phần mềm opensource giúp triển khai Identity-Aware Proxy
+- Các thành phần chính của Pomerium:
+  - Pomerium Proxy: là thành phần nhận request trực tiếp từ người dùng, đóng vai như một chốt chặn đầu tiên cho toàn bộ các services phía sau
+  - Pomerium Authenticate: là thành phần giúp xác thực danh tính người dùng, quyết định xem người dùng có hợp lệ hay không
+  - Pomerium Authorize: là thành phần giúp xác thực quyền của người dùng, đảm bảo chỉ những người dùng có đủ quyền mới được truy cập
+  - Pomerium Broker: 
+
+
+
+#### Quy trình xác thực khi truy cập qua Pomerium
 
 <img width="848" height="606" alt="2025-10-05_171129" src="https://github.com/user-attachments/assets/99554850-1edd-4db6-8e34-dca20f013cec" />
 
+- Client gửi request đến địa chỉ website cần truy cập thông qua Pomerium Proxy. Request này ban đầu chưa có session hoặc token xác thực.
+- Proxy Pomerium kiểm tra cookie nếu client đã xác thực hay chưa. Nếu chưa sẽ redirect client đến dịch vụ xác thực Pomerium Authenticate Service.
+- Pomerium Authenticate sẽ yêu cầu người dùng đăng nhập qua IdP (theo cấu hình, ví dụ Google/GitHub), thực hiện luồng xác thực OAuth hoặc OIDC chuẩn.
+- Sau khi xác thực thành công, IdP trả về access token và thông tin người dùng cho dịch vụ Pomerium Authenticate. Pomerium Authenticate sinh ra session, lưu trữ dữ liệu trong Pomerium Databroker, và trả cho client một cookie bảo mật chứa session đã xác thực.
+- Proxy Pomerium lấy thông tin session, truy vấn chính sách phân quyền (cấu hình policy), kiểm tra email, group, claim... xem người dùng có quyền với route này hay không. Nếu có, request mới được forward website
 
-In practice:
-
-Authenticate: Users sign in through your identity provider.
-Authorize: Pomerium checks policies to decide who gets access.
-Proxy: Traffic to internal apps flows through a secure, policy-enforced route.
-This approach simplifies managing access to internal services—no more network-level trust. Instead, trust is tied to identity, context, and a dynamic access policy.
-
-
-
-
-Quy trình xác thực khi truy cập qua Pomerium
-Client gửi request đến verify.localhost.pomerium.io:
-Trình duyệt truy cập domain nằm sau Pomerium. Request này ban đầu chưa có session hoặc token xác thực.
-
-Pomerium kiểm tra session:
-Proxy Pomerium sẽ kiểm tra cookie nếu client đã xác thực hay chưa. Nếu chưa, nó chuyển hướng (redirect) client đến dịch vụ xác thực Pomerium Authenticate Service.
-
-Chuyển hướng đến IdP:
-Dịch vụ Authenticate sẽ yêu cầu người dùng đăng nhập qua IdP (theo cấu hình, ví dụ Google/GitHub), thực hiện luồng xác thực OAuth hoặc OIDC chuẩn.
-
-Nhận và lưu session:
-Sau khi xác thực thành công, nhà cung cấp IdP trả về access token và thông tin người dùng cho dịch vụ Authenticate. Dịch vụ này sẽ sinh ra session, lưu trữ dữ liệu trong Pomerium Databroker, và trả cho client một cookie bảo mật chứa session đã xác thực.
-
-Kiểm tra quyền truy cập:
-Proxy Pomerium lấy thông tin session, truy vấn chính sách phân quyền (cấu hình policy), kiểm tra email, group, claim... xem người dùng có quyền với route này hay không. Nếu có, request mới được forward đến ứng dụng gốc (verify).
-
-Forward request kèm thông tin xác thực:
-Pomerium có thể thêm các identity header (như email, user id, thông tin OIDC claim, JWT...) vào request trước khi gửi về cho ứng dụng thật phía sau proxy. Ứng dụng verify nhận request này và biết rằng request đã được xác thực, không cần xử lý xác thực riêng nữa.
-
-Minh họa flow
-User → Pomerium Proxy → (nếu chưa xác thực: redirect) → Pomerium Authenticate → Identity Provider (Google/Github)
-
-Khi thành công:
-Pomerium Proxy kiểm tra session + policy → Ứng dụng verify
-(request đi qua đã được xác thực bằng các header bổ sung)
-
----
-
-Cách setup Pomerium
+#### Cách setup Pomerium
 
 
 DNS: 
@@ -84,21 +60,5 @@ policies:
 ```
 
 
-- Luồng truy cập
 
-Client đi tới https://myapp.com.
-
-Pomerium Proxy kiểm tra session cookie.
-
-Nếu chưa tồn tại, redirect tới https://authenticate.myapp.com/oauth2/start?....
-
-Client login tại Identity Provider.
-
-Sau khi xác thực, client được redirect lại tới Pomerium Authenticate, sau đó trở về Proxy với session cookie.
-
-Pomerium Proxy gọi dịch vụ Authorize (nội bộ) để kiểm tra policy.
-
-Nếu được phép, Pomerium Proxy forward request đến ứng dụng gốc tại http://127.0.0.1:8080.
-
----
 
