@@ -86,3 +86,15 @@ Sau khi xác thực, client được redirect lại tới Pomerium Authenticate,
 Pomerium Proxy gọi dịch vụ Authorize (nội bộ) để kiểm tra policy.
 
 Nếu được phép, Pomerium Proxy forward request đến ứng dụng gốc tại http://127.0.0.1:8080.
+
+---
+
+<img width="848" height="606" alt="2025-10-05_171129" src="https://github.com/user-attachments/assets/99554850-1edd-4db6-8e34-dca20f013cec" />
+
+
+In practice:
+
+Authenticate: Users sign in through your identity provider.
+Authorize: Pomerium checks policies to decide who gets access.
+Proxy: Traffic to internal apps flows through a secure, policy-enforced route.
+This approach simplifies managing access to internal services—no more network-level trust. Instead, trust is tied to identity, context, and a dynamic access policy.
