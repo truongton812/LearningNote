@@ -29,7 +29,7 @@
 - Proxy Pomerium kiểm tra cookie nếu client đã xác thực hay chưa. Nếu chưa sẽ redirect client đến dịch vụ xác thực Pomerium Authenticate Service.
 - Pomerium Authenticate sẽ yêu cầu người dùng đăng nhập qua IdP (theo cấu hình, ví dụ Google/GitHub), thực hiện luồng xác thực OAuth hoặc OIDC chuẩn.
 - Sau khi xác thực thành công, IdP trả về access token và thông tin người dùng cho dịch vụ Pomerium Authenticate. Pomerium Authenticate sinh ra session, lưu trữ dữ liệu trong Pomerium Databroker, và trả cho client một cookie bảo mật chứa session đã xác thực.
-- Proxy Pomerium lấy thông tin session, truy vấn chính sách phân quyền (cấu hình policy), kiểm tra email, group, claim... xem người dùng có quyền với route này hay không. Nếu có, request mới được forward website
+- Proxy Pomerium lấy thông tin session, truy vấn chính sách phân quyền (cấu hình policy), kiểm tra email, group, claim... xem người dùng có quyền với route này hay không. Nếu có, request mới được forward tới website
 
 #### Cách setup Pomerium
 
