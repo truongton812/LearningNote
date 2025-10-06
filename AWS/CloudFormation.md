@@ -1,6 +1,6 @@
 # CloudFormation
 
-## Định nghĩa
+## I. Định nghĩa
 - Là dịch vụ giúp tạo và quản lý infra bằng code (IaC).
 - Các khái niệm chính:
   - Template: là code để hướng dẫn CloudFormation tạo infra. Muốn update hạ tầng thì ta upload new version của template (không edit template được).
@@ -20,7 +20,7 @@ Template ──────▶ S3 ◀────── CloudFormation ───
   - Output: reference những resources đã tạo
   - Conditionals: list các điều kiện, rẽ nhánh
 
-##  CloudFormation template’s components:
+##  II. CloudFormation template’s components:
 
 ### 1. Resources
 - Là thành phần bắt buộc trong template
@@ -131,7 +131,7 @@ Resources:
 
 
 ### 5. Output
-- Dùng để lấy thông tin của resource trong 1 stack, output này có thể dùng cho các stack khác (cần export trước).
+- Dùng để lấy thông tin của resource trong 1 stack, output này có thể dùng cho các stack khác (cần phải export ).
 - Output có thể custom chứ không nhất thiết phải là built-in output của AWS.
 
 Ví dụ output security group
@@ -140,28 +140,98 @@ Ví dụ output security group
 Outputs:
   SSHSecurityGroup:     #output name
     Value: !Ref <MySecurityGroup>   #get được Security Group name/ID
-    Export:
-      Name: SSHSecurityGroup    #Các stack khác có thể dùng để Security Group tên SSHSecurityGroup (lưu ý tên phải unique across region).
+    Export:    #Export để cho các stack khác có thể dùng để Security Group tên SSHSecurityGroup (lưu ý tên phải unique across region). Nếu không export mà chỉ dùng output thì chỉ in thông tin ra màn hình
+      Name: SSHSecurityGroup    
 ```
-Cách để stack khác dùng được output:
+Import thông tin vào stack khác:
 
+```
 Resources:
+  MyInstance:
+    Properties:
+      SecurityGroups:
+        !ImportValue SSHSecurityGroup
+```
+Lưu ý: Nếu stack 2 đang ref đến stack 1, không thể delete stack 1.
 
-MyInstance:
+### 6. Condition
+- Dùng để control việc tạo resource hoặc output. VD: khi parameter env = dev ⭢ chỉ tạo EC2, còn khi env = prod ⭢ tạo EC2, ELB,...
+- Condition có thể refer đến condition khác, parameter value hoặc mapping
 
-Properties:
+Ví dụ
+```
+Conditions:
+  CreateProdResources: !Equals [!Ref EnvType, prod]
+  (name, tùy ý)         (ngoài Equals còn có And/Or/If/Not)
+Resources:
+  MountPoint:
+    Type: AWS::EC2::VolumeAttachment
+    Condition: CreateProdResources    #Nếu condition = true thì tạo mountpoint
+```
+##  III. Intrinsic function
+- Là các hàm tích hợp sẵn trong CloudFormation cho phép thực hiện các phép toán và thao tác trong template của CloudFormation
+- Một số function thông dụng: Ref, GetAtt, FindInMap, ImportValue, Condition, Base64,...
 
-SecurityGroups:
+### 1. Hàm Ref
+- Dùng để lấy giá trị của 1 resource hoặc parameter
+- VD: Ref của AWS::EC2::Instance là instance ID
+- Do Ref lấy được giá trị của cả resource và parameter ⭢ logical ID của resource và parameter phải khác nhau
 
-!ImportValue SSH Security Group
+### 2. Hàm GetAtt
+- Dùng để lấy giá trị của thuộc tính cụ thể của một resource sau khi khởi tạo
+- VD
+```
+Resources:
+  EBSVolume:
+    Type: AWS::EC2::Volume
+    Properties:
+      Size: 100
+      AvailabilityZone: !GetAtt MyInstance.AvailabilityZone
+```
 
-Ghi chú: Nếu stack 2 đang ref đến stack 1, không thể delete stack 1.
+### 3. Hàm Base64
+- Dùng để convert string thành base64, thường dùng để đưa data vào EC2 User data
+- User data log được lưu tại /var/log/cloud-init-output.log.
 
-f) Condition
+## IV. CloudFormation Rollback
+- Khi tạo stack mà fails có 2 options (config trong “stack failure option”):
+  - Rollback (default): xóa tất cả resources.
+  - Disable rollback: giữ lại các resources đã tạo thành công ⭢ có thể troubleshoot, còn các resources fail sẽ bị rollback.
+- Khi update stack mà fails có 2 options:
+  - Automatically rollback (default): tự động rollback về version trước (version hoạt động bình thường), và delete tất cả resources mới tạo fail.
+  - Giữ lại các resources tạo thành công và rollback các resources bị fail.
+- Lưu ý:
+  - Khi tạo stack mà fails thì chỉ có duy nhất 1 option là delete stack chứ không update lại bằng template mới được
+  - Khi stack update fails ⭢ rollback mà rollback tiếp tục fails ⭢ cần phải “fix” resource manually và issue lại ContinueUpdateRollback API.
 
-Dùng để control việc tạo resource hoặc output
-VD: parameter env = dev -> chỉ tạo EC2
-env = prod -> tạo EC2, ELB,...
+## V. CloudFormation Service Role
+- Là IAM role cho phép CloudFormation tạo/update/xóa resource. Mỗi khi tạo stack ta sẽ gắn service role này vào stack ⭢ stack sẽ dùng role này để vận hành các resource.
+- Nếu không gán role cho stack thì mặc định stack sẽ dùng role/permission của user tạo ra stack. Lưu ý là permission này chỉ áp dụng lúc stack thực hiện lần đầu. Ví dụ user A có quyền tạo S3 và dùng CloudFormation để tạo S3 thì sẽ thành công được, tuy nhiên sau đó user B không có quyền tạo S3 mà update stack thì sẽ bị failed.
+- Với CloudFormation Service Role, ta gán quyền trực tiếp cho stack ⭢ không cần quyền của user để vận hành stack. Lưu ý user cần có quyền passRole (iam:PassRole là quyền dùng để grant 1 role cụ thể cho user/service khác).
+- Ví dụ: Tạo Service role tên CloudFormationS3Create để cho phép tạo S3 bucket
+```
+#Trust policy:
+{
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": { "Service": "cloudformation.amazonaws.com" },
+      "Action": "sts:AssumeRole"
+    }
+  ]
+}
+```
 
-
+```
+#Permissions policy:
+{
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": "s3:*",
+      "Resource": "*"
+    }
+  ]
+}
+```
 
