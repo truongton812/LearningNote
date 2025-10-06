@@ -234,4 +234,79 @@ Resources:
   ]
 }
 ```
+Sau đó ta có thể gán quyền passRole cho user A ⭢ User A có thể tạo CloudFormation stack để tạo S3 bucket mà không cần trực tiếp có quyền tạo S3 bucket.
+```
+{
+  "Effect": "Allow",
+  "Action": "iam:PassRole",
+  "Resource": "arn:aws:iam::<account-id>:role/CloudFormationS3Create"
+}
+```
 
+
+
+## VI. CloudFormation Capabilities
+- CAPABILITY_NAMED_IAM và CAPABILITY_IAM: cần phải tick chọn các option này nếu muốn dùng CloudFormation để tạo/update 1 IAM resource (IAM user/role/group/policy/access key/instance profile/...).
+  - Specify CAPABILITY_NAMED_IAM nếu resource được đặt tên.
+  - Specify CAPABILITY_IAM nếu resource không được đặt tên.
+- CAPABILITY_AUTO_EXPAND: dùng để xác nhận CloudFormation template có thể thay đổi trước khi deploy ⭢ cần tick chọn nếu trong template có dùng Macros hoặc Nested Stack.
+- Nếu launch template bằng API mà trả về lỗi InsufficientCapabilitiesException thì nguyên nhân là do thiếu xác nhận capability 
+
+## VII. CloudFormation Deletion Policy
+- Dùng để control behavior khi stack bị xóa hoặc resource bị remove khỏi stack.
+- Định nghĩa deletion policy trong resource block của template.
+- Deletion policy default là Delete: khi stack bị xóa ⭢ tất cả resources bị xóa theo. Lưu ý có exception đối với S3: nếu trong S3 bucket còn object thì không thể xóa được, cần phải delete objects thủ công hoặc tạo custom resource (Lambda) để xóa.
+- Deletion policy options:
+  - Retain: giữ lại resource nếu stack bị xóa. VD:
+```
+Resources:
+  MyDynamoDBTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+```
+  - Snapshot: tạo snapshot của resource sau khi xóa resource, chỉ áp dụng cho 1 số resource:
+    - EBS volume, ElastiCache Cluster, ElastiCache Replication Group
+    - RDS DB Instance, RDS DB Cluster, Redshift Cluster, Neptune DB Cluster, DocumentDB DB Cluster
+
+## VIII. Stack Policy
+- Khi update 1 stack, mặc định CloudFormation sẽ update tất cả resources của stack. Ta có thể dùng stack policy để control resource nào không được update khi update stack.
+- Stack policy chỉ assign với stack lúc khởi tạo stack.
+- Nếu muốn update 1 resource được protected, cần sửa policy thành allow.
+- Ví dụ 1 stack policy không cho phép update VPC resource:
+
+```
+{
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": "Update:*",    #Có thể chi tiết hơn bằng cách dùng Update: Modify/Delete/Replace
+      "Principal": "*",
+      "Resource": "*" 
+    },
+    {
+      "Effect": "Deny",
+      "Action": "Update:Replace",
+      "Principal": "*",
+      "Resource": "LogicalResourceId/VPC",
+      "Condition": {
+        "StringLike": {
+          "ResourceType": ["AWS::EC2::VPC"]
+        }
+      }
+    }
+  ]
+}
+```
+## IX. Termination Policy
+- Dùng để tránh xóa nhầm stack.
+- Enable bằng cách chọn stack ⭢ Stack actions ⭢ Activate ⭢ Termination protection.
+
+## X. Custom resource
+- Là resource trong CloudFormation giúp mở rộng khả năng của CloudFormation bằng cách gọi các dịch vụ hoặc logic tuỳ chỉnh trong quá trình triển khai stack. Có thể là:
+  - Chạy 1 lambda function và lấy kết quả trong khi đang create/update/delete stack.
+  - Tạo resource dựa trên logic.
+  - Tạo resource mà CloudFormation chưa support hoặc non-AWS resource (on-prem, third-party).
+- Cách hoạt động:
+  - CloudFormation tạo custom resource ⭢ CloudFormation gửi event create/update/delete đến 1 specific endpoint.
+  - Endpoint xử lý yêu cầu (thường là Lambda).
+  - Endpoint trả kết quả cho CloudFormation: gửi HTTP response đến 1 pre-signed S3 URL mà CloudFormation cung cấp.
