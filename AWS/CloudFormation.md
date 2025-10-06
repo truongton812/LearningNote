@@ -100,14 +100,68 @@ Lưu ý:
 
 ### 3. Pseudo Parameters
 - Là built-in parameter của AWS, bao gồm 1 số Pseudo Parameters quan trọng:
-  - AWS::AccountID -> ID của AWS account mình
+  - AWS::AccountID ⭢  ID của AWS account mình
   - AWS::Region
   - AWS::StackID
   - AWS::StackName
   - AWS::NotificationARNs
-  - AWS::NoValue -> không return value
+  - AWS::NoValue ⭢  không return value
 
 ### 4. Mapping
 - Là static var trong template
 - Dùng khi có nhiều env (dev, prod,...), nhiều region, nhiều AMI type...
+
+Ví dụ:
+```
+Mappings:
+  RegionMap:    #mapping name
+    us-east-1:
+      HVM64: <ami-id-1>
+      HVMG2: <ami-id-2>
+    us-west-1:
+      HVM64: <ami-id-1>
+      HVMG3: <ami-id-2>
+#Sử dụng mapping vào trong resource
+Resources:
+  MyEC2Instance:    #resource name
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !FindInMap [RegionMap, !Ref "AWS::Region", HVM64]
+```
+
+
+### 5. Output
+- Dùng để lấy thông tin của resource trong 1 stack, output này có thể dùng cho các stack khác (cần export trước).
+- Output có thể custom chứ không nhất thiết phải là built-in output của AWS.
+
+Ví dụ output security group
+
+```
+Outputs:
+  SSHSecurityGroup:     #output name
+    Value: !Ref <MySecurityGroup>   #get được Security Group name/ID
+    Export:
+      Name: SSHSecurityGroup    #Các stack khác có thể dùng để Security Group tên SSHSecurityGroup (lưu ý tên phải unique across region).
+```
+Cách để stack khác dùng được output:
+
+Resources:
+
+MyInstance:
+
+Properties:
+
+SecurityGroups:
+
+!ImportValue SSH Security Group
+
+Ghi chú: Nếu stack 2 đang ref đến stack 1, không thể delete stack 1.
+
+f) Condition
+
+Dùng để control việc tạo resource hoặc output
+VD: parameter env = dev -> chỉ tạo EC2
+env = prod -> tạo EC2, ELB,...
+
+
 
