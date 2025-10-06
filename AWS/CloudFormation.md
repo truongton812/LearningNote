@@ -22,25 +22,74 @@ Template ──────▶ S3 ◀────── CloudFormation ───
 
 ##  CloudFormation template’s components:
 
-a) Resources
+##### 1. Resources
+- Là thành phần bắt buộc trong template
+- Resource type có dạng: service-provider::servicename::data-type-name. VD: AWS::EC2::Instance
 
-Là thành phần bắt buộc trong template
+##### 2. Parameters
+- Là pre-input để đưa vào template (Lúc tạo stack sẽ trigger để user khai báo)
+- Parameter có các options sau:
+  - Type:
+    - String
+    - Number
+    - CommaDelimitedList
+    - List<number>
+    - AWS-specific Parameter: để catch invalid value hoặc match với existing values trong AWS account, VD lấy key name hoặc VPC ID
+    - List <AWS-specific Parameter>. VD: “List<AWS::EC2::Subnet::Id>”
+    - SSM parameter: lấy parameter từ SSM Parameter Store
+  - Description: mô tả cho parameter
+  - Constraint description: mô tả khi constraint không thỏa mãn. VD không đúng allowed value, không đúng min/max value, sẽ hiện warning, ta define trong Constraint Description.
+  - Min/max length
+  - Min/max value
+  - Default
+  - Allowed Values: là dropdown để chọn các giá trị
+  - Allowed Pattern: allow theo dạng regex. VD: regex của IP là `(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})`
+  - No Echo: hiển thị dưới dạng *** trên console và trong log.
 
-Resource type có dạng: service-provider::servicename::data-type-name
-VD: AWS::EC2::Instance
+Parameter không bắt buộc: “AWSTemplateFormatVersion, Description, Transform và Mapping”
 
-b) Parameters
+Ví dụ 1:
 
-Là pre-input để đưa vào template (Lúc tạo stack sẽ trigger để user khai báo)
+Parameters:
 
-Parameter có các options sau:
+InstanceType
 
-Type: string
+Type: String
 
-Number
+AllowedValues:
 
-CommaDelimitedList
+t2.micro
 
-List<number>
+t2.small
 
-AWS-specific Parameter: để catch invalid value hoặc match với existing values trong AWS account, VD lấy key name hoặc VPC ID
+Default: t2.micro
+
+ConstraintDescription: must be a valid EC2 type
+
+SecurityGroupPort: # parameter name
+
+Description: port allowed
+
+Type: number
+
+MinValue: 1150
+
+MaxValue: 65535
+
+KeyName: # parameter name
+
+Type: AWS::EC2::KeyPair::KeyName # AWS-specific parameter
+
+VPCId
+
+Type: AWS::EC2::VPC::Id # AWS-specific parameter
+
+Resources:
+
+MyInstance: # resource name
+
+Type: AWS::EC2::Instance
+
+Properties:
+
+InstanceType: !Ref InstanceType
