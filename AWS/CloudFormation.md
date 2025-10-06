@@ -45,51 +45,32 @@ Template ──────▶ S3 ◀────── CloudFormation ───
   - Allowed Values: là dropdown để chọn các giá trị
   - Allowed Pattern: allow theo dạng regex. VD: regex của IP là `(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})`
   - No Echo: hiển thị dưới dạng *** trên console và trong log.
+- Parameter không được dùng ở AWSTemplateFormatVersion, Description, Transform và Mapping
 
-Parameter không bắt buộc: “AWSTemplateFormatVersion, Description, Transform và Mapping”
+###### Ví dụ sử dụng Parameter
 
-Ví dụ 1:
-
+```
 Parameters:
-
-InstanceType
-
-Type: String
-
-AllowedValues:
-
-t2.micro
-
-t2.small
-
-Default: t2.micro
-
-ConstraintDescription: must be a valid EC2 type
-
-SecurityGroupPort: # parameter name
-
-Description: port allowed
-
-Type: number
-
-MinValue: 1150
-
-MaxValue: 65535
-
-KeyName: # parameter name
-
-Type: AWS::EC2::KeyPair::KeyName # AWS-specific parameter
-
-VPCId
-
-Type: AWS::EC2::VPC::Id # AWS-specific parameter
-
+  InstanceType:    #parameter name, có thể đặt tùy ý
+    Type: String
+    AllowedValues:
+    - t2.micro
+    - t2.small
+    Default: t2.micro
+    ConstraintDescription: must be a valid EC2 type
+  SecurityGroupPort:     #parameter name
+    Description: port allowed
+    Type: Number
+    MinValue: 1150
+    MaxValue: 65535
+  KeyName:     #parameter name
+    Description: Name of an existing EC2 KeyPair to enable SSH access to the instances
+    Type: AWS::EC2::KeyPair::KeyName # AWS-specific parameter, when declaring this parameter in a CloudFormation template, the user will see a dropdown list of the existing key pairs available in the account to select from. This allows the user to choose the key pair to use when creating the EC2 instance without hardcoding the key pair name in the template.
+  VPCId
+    Type: AWS::EC2::VPC::Id # AWS-specific parameter
 Resources:
-
-MyInstance: # resource name
-
-Type: AWS::EC2::Instance
-
-Properties:
-
-InstanceType: !Ref InstanceType
+  MyInstance:     #resource name
+  Type: AWS::EC2::Instance
+  Properties:
+    InstanceType: !Ref InstanceType    #tham chiếu đến parameter bằng hàm !Ref
+```
