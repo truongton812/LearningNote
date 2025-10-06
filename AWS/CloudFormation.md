@@ -65,7 +65,7 @@ Parameters:
     MaxValue: 65535
   KeyName:     #parameter name
     Description: Name of an existing EC2 KeyPair to enable SSH access to the instances
-    Type: AWS::EC2::KeyPair::KeyName # AWS-specific parameter, when declaring this parameter in a CloudFormation template, the user will see a dropdown list of the existing key pairs available in the account to select from. This allows the user to choose the key pair to use when creating the EC2 instance without hardcoding the key pair name in the template.
+    Type: AWS::EC2::KeyPair::KeyName # AWS-specific parameter, Khi khai báo parameter này trong template CloudFormation, người dùng sẽ thấy một dropdown list các key pair đã có sẵn trong tài khoản để chọn. Việc này cho phép người dùng chọn key pair để sử dụng lúc tạo EC2 instance mà không cần hardcode tên key pair trong template.
   VPCId
     Type: AWS::EC2::VPC::Id # AWS-specific parameter
 Resources:
