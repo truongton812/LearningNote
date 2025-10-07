@@ -310,3 +310,44 @@ Resources:
   - CloudFormation tạo custom resource ⭢ CloudFormation gửi event create/update/delete đến 1 specific endpoint.
   - Endpoint xử lý yêu cầu (thường là Lambda).
   - Endpoint trả kết quả cho CloudFormation: gửi HTTP response đến 1 pre-signed S3 URL mà CloudFormation cung cấp.
+  - CloudFormation tiếp tục triển khai stack dựa vào kết quả trả về từ Custom Resource.
+- Cách tạo custom resource:
+```
+  Type: Custom::<Name>
+  ServiceToken:     #endpoint mà CloudFormation gọi vào để xử lý, có thể là
+                      - lambda arn ⭢ gọi lambda xử lý trong quá trình deploy stack.
+                      - SNS topic arn ⭢ gửi sự kiện đến SNS để các subscriber (VD: lambda) xử lý.
+                      - SQS Queue
+```
+
+- Use case:
+  - Empty S3 bucket trước khi delete stack có chứa S3 bucket.
+  - Gọi API AWS không có trong CloudFormation (VD: tạo tài khoản AWS Organization, bật WAF logging).
+- Điểm khác nhau giữa tạo Custom resource và tạo Lambda bằng CloudFormation template:
+
+| | Lambda function	| Custom resource |
+|---|---|---|
+| Tạo lambda function |	Có	| Không (chỉ gọi lambda có sẵn) |
+| Chạy lambda ngay trong deploymen | Không | Có |
+| Trả kết quả về CloudFormation | Không | Có | 
+| Gọi API không có trong CloudFormation | Không | Có | 
+
+## XI. Dynamic Reference
+- Ta có thể refer value trong SSM Parameter Store và Secret Manager vào CloudFormation template ⭢ CloudFormation sẽ retrieve value lúc create/update/delete stack.
+- Syntax: {{resolve:<service-name>:<reference-key> }}
+- Ví dụ: lấy plain text store trong SSM
+```
+Resource:
+  MyBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      AccessControl: '{{resolve:ssm:S3AccessControl:2}}'  #trong đó ssm là service name; S3AccessControl là reference key; 2 là version của parameter
+```
+- Ví dụ: Lấy secure string trong SSM:
+```
+Password: '{{resolve:ssm-secure:IAMUserPassword:10}}'
+```
+- Ví dụ lấy secret value trong Secret Manager:
+```
+Password: '{{resolve:secretsmanager:MyRDSSecret:SecretString:password}}'
+```
