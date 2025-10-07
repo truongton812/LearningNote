@@ -14,3 +14,7 @@ Khi tạo tài nguyên EC2 trong AWS, bạn cần chỉ định Subnet chứ kh�
 
 Tóm lại:
 Subnet là mạng con được chứa trong một AZ cố định, còn AZ là khu vực vật lý/phần cứng của AWS trong một Region. Mối quan hệ này giúp phân tách và cách ly tài nguyên trong mạng một cách vật lý và logic hiệu quả.
+
+
+
+Internet GW là bound với VPC
