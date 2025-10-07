@@ -334,7 +334,7 @@ Resources:
 
 ## XI. Dynamic Reference
 - Ta có thể refer value trong SSM Parameter Store và Secret Manager vào CloudFormation template ⭢ CloudFormation sẽ retrieve value lúc create/update/delete stack.
-- Syntax: {{resolve:<service-name>:<reference-key> }}
+- Syntax: `{{ resolve:<service-name>:<reference-key> }}`
 - Ví dụ: lấy plain text store trong SSM
 ```
 Resource:
@@ -351,3 +351,86 @@ Password: '{{resolve:ssm-secure:IAMUserPassword:10}}'
 ```
 Password: '{{resolve:secretsmanager:MyRDSSecret:SecretString:password}}'
 ```
+
+## XII.Dùng CloudFormation để tạo RDS
+### 1. Tạo RDS đồng thời tự động tạo password:
+
+```
+Resources:
+  MyCluster:
+    Type: AWS::RDS::DBCluster
+    Properties:
+      Engine: aurora-mysql
+      MasterUsername: masteruser
+      ManageMasterUserPassword: true # tự động tạo password và store trong Secret Manager
+Output:
+  Secret:
+    Value: !GetAtt MyCluster.MasterUserSecret.SecretArn # lấy ra ARN của secret password
+```
+
+### 2. Tạo RDS, Secret và Attachment:
+
+```
+Resources:
+  MyDatabaseSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: MyDatabaseSecret
+      GenerateSecretString:
+        SecretStringTemplate: '{"username":"admin"}'
+        GenerateStringKey: 'password'
+
+  DatabaseInstance:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      Engine: mysql
+      MasterUsername: '{{resolve:secretsmanager:MyDatabaseSecret:SecretString:username}}'
+      MasterUserPassword: '{{resolve:secretsmanager:MyDatabaseSecret:SecretString:password}}'
+
+  SecretRDSAttachment:
+    Type: AWS::SecretsManager::SecretTargetAttachment
+    Properties:
+      SecretId: !Ref MyDatabaseSecret
+      TargetId: !Ref DatabaseInstance
+      TargetType: AWS::RDS::DBInstance
+```
+
+## XIII. CloudFormation Helper Scripts
+- Là các Python script được cài sẵn trong Linux AMI (nằm trong thư mục /opt/aws/bin/cfn-*). Nếu EC2 không có thể cài bằng lệnh:
+```
+yum/dnf install aws-cfn-bootstrap
+```
+- Helper script giúp:
+  - Config instance nhiều dòng (dùng UserData sẽ bị rối)
+  - Thay đổi hoặc cập nhật trạng thái của EC2 (VD cấu hình, phần mềm, file, dịch vụ) mà không cần khởi tạo lại hoặc terminate instance
+  - Get status code (0 hoặc 1) của EC2 UerData Script
+- Các script hay dùng: cfn-init, cfn-signal, cfn-get-metadata, cfn-hup
+
+### 1. cfn-init
+- Dùng để đọc metadata từ CloudFormation và thiết lập cấu hình cho EC2 instance (VD: cài packages, tạo files, thiết lập services...)
+- Ví dụ:
+```yaml
+Resources:
+  MyEC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      UserData:    #dùng UserData để run cfn-init script
+        Fn::Base64:
+          !Sub |
+            #!/bin/bash
+            dnf update -y aws-cfn-bootstrap
+            /opt/aws/bin/cfn-init -s ${AWS::StackID} -r MyEC2Instance --region ${AWS::Region} || error exit "failed to run cfn-init script"
+  Metadata:
+    Comment: Install an http page
+    AWS::CloudFormation::Init:    #cfn-init sẽ đọc data từ đây để execute
+      config:
+        packages:    #download và install package
+          yum:
+            httpd: []
+        files:    #tạo file
+          /var/www/html/index.html:
+            content: "Hello world"
+        commands:    #khai báo command cần thực thi
+          hello:
+            command: "echo 'hello world'"
+        services:    # enable service
