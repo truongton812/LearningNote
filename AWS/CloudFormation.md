@@ -510,10 +510,25 @@ Resources:
 ```
 
 ## XIV. Nested stack
+- Nested stack là một stack CloudFormation được khởi tạo bên trong một stack khác bằng resource AWS::CloudFormation::Stack. Có thể hình dung nested stack giống như việc nhúng một template thành phần nhỏ vào một template tổng.
+- Nested stack dùng để chia nhỏ hạ tầng thành các module logic, quản lý dễ hơn và thúc đẩy khả năng tái sử dụng, ví dụ: tách các template của VPC, Database, Application ra từng file độc lập.
+- Root stack là stack chủ (top-level stack), khởi tạo từ template chính và chứa các nested stack cũng như các resource khác. Khi thực hiện các thao tác cập nhật, rollback, xóa... root stack sẽ quản lý quá trình đó và đồng bộ tới toàn hệ thống nested stack phía dưới. Để update nested stack cần update root stack 
 
-- Là stack lồng trong stack, mục đích là giúp reuse các stack hay dùng
-- Để update nested stack cần update root stack (stack chứa nested stack)
-- So sánh:
+- Ví dụ:
+```
+Resources:
+  myStack:
+    Type: AWS::CloudFormation::Stack   # nested stack type
+    Properties:
+      TemplateURL: https://s3.amazonaws.com/...  # url của nested stack template
+Outputs:
+  StackRef:
+    Value: !Ref myStack        # lấy stack ID
+  OutputFromNestedStack:
+    Value: !GetAtt myStack.Outputs.websiteURL  # lấy output của nested stack
+```
+- Cross-stack reference là kiểu kiến trúc mà một stack dùng các giá trị output (output values) của một stack khác thông qua cơ chế Export/Import. Thay vì tạo lại các resource giống nhau trong mỗi stack, có thể tạo shared resource (như VPC, Security Group) trong một stack riêng, sau đó xuất giá trị output và cho stack khác nhập vào dùng chung.
+- So sánh giữa nested stack và cross stack reference:
 #### Nested Stack: Mỗi stack là độc lập. Mỗi lần tạo sẽ tạo 1 stack mới
 ```
 +-------------------------+
@@ -541,34 +556,84 @@ Resources:
 
 ``` 
 
-Ví dụ:
+## XV. Depends On
+- Dùng để chỉ định thứ tự tạo resource (default là tạo cùng lúc)
+- VD: Tạo DB xong mới tạo EC2
+```
 Resources:
-myStack:
-Type: AWS::CloudFormation::Stack # nested stack type
-Properties:
-TemplateURL: https://s3.amazonaws.com/... # url của nested stack template
+  DBInstance:
+    Type: AWS::RDS::DBInstance
 
-Outputs:
-StackRef:
-Value: !Ref myStack # trả về stack ID
+  EC2Instance:
+    Type: AWS::EC2::Instance
+    DependsOn: DBInstance
+```
+- Intrinsic function !Ref và !GetAtt mặc định có DependsOn. VD nếu EC2 !Ref đến 1 security group thì CloudFormation sẽ tạo security group trước
+- Khi delete stack thì CloudFormation sẽ delete resource có DependsOn trước, sau đó mới đến resource còn lại
 
-Output from Nested Stack:
-Value: !GetAtt myStack.outputs.websiteURL # lấy output của nested stack
+## XVI. Stackset
+- Giúp create/update/delete stack across multiple accounts & regions chỉ bằng 1 template (do 1 stack chỉ bound với 1 region)
+- Cách hoạt động: trong 1 admin account tạo template và run lên thành StackSet → stackSet tạo các stack instance - mỗi 1 stack instance tương ứng với 1 stack ở target account (target account chỉ biết đến sự tồn tại của stack, stack instance là khái niệm chỉ tồn tại trong giao diện quản lý của admin account)
+- Mỗi khi update StackSet thì tất cả các stack instances đều được update
+- Trong 1 StackSet, nếu thay đổi 1 stack bằng CloudFormation của account đẩy thì khi thực hiện drift detection sẽ không bị NON_COMPLIANT (tuy nhiên đây là bad practice, ta nên thực hiện thay đổi ở StackSet level)
+- Setup permission để dùng StackSet:
+  - Self-managed permission (trong trường hợp không dùng AWS Organization):
+    - Tạo IAM role trong admin account và target account, thiết lập trusted relationship giữa các IAM role này → cho phép admin account deploy stack lên target account
+    - Trong admin account tạo role có trust entity là CloudFormation, permission là role cần tạo trong từng target account
 
-Depends On
+Trong mỗi target account tạo CFStackSetExecutionRole có trust entity là role vừa tạo trong admin account, permission AdministratorAccess
++) Service-managed permission (trong trường hợp dùng AWS Organization):
 
-Dùng để chỉ định thứ tự tạo resource (default là tạo cùng lúc)
+Phải enable Trusted Access giữa Org. Organization và CF StackSet
 
-VD: Tạo DB xong mới tạo EC2
+Vào Organization -> Services -> CF StackSet -> enable thì AWS sẽ tự động tạo IAM role, tên AWSCloudFormationStackSetExecutionRole trên tất cả member account, kể cả account mới gia nhập Organization
 
-Resources:
-EC2 Instance:
-Type: AWS::EC2::Instance
-DependsOn: DBInstance
+Có thể trao quyền StackSet admin cho member account
 
-DB Instance:
-Type: AWS::RDS::DBInstance
+Khi delete stackSet, để delete StackSet cần delete stack instance trước, khi delete stack instance có 2 options:
 
-Intrinsic function !Ref và !GetAtt mặc định có DependsOn. VD nếu EC2 !Ref đến security group thì CF sẽ tạo SG trước
+Delete stack instance nhưng vẫn giữ lại stack trong member acc
 
-Khi delete stack thì CF sẽ delete resource có DependsOn trước, sau đó mới đến resource kia
+Delete stack instance đồng thời delete stack
+
+Trouble shooting CloudFormation
+
+DELETED_FAIL: 1 số resource phải empty mới delete đc (VD S3 bucket), security group phải không attach với EC2 nào mới xóa được
+
+Trang 2:
+
+UPDATE_ROLLBACK_FAILED: là trạng thái stack không rollback lại được khi update fail (nguyên nhân: có thể do resources thay đổi ngoài CF, thiếu quyền, ASG có nhóm chưa đủ signal, ...). Cần manually fix và run lại API ContinueUpdateRollback
+
+OUTDATED: là trạng thái hiện thì của stack instance khi có stack operation failed, cho biết stack instance không được update
+
+Sử dụng CF, management acc. có đủ quyền để tạo resource ở target account
+
+Tạo global resource nhưng không unique (VD S3 bucket name)
+
+Management acc. không có trust relationship với target acc
+
+Reach limit quota ở target acc (quá nhiều resources)
+
+Deploy CF stack vào tài khoản khác bằng CodePipeline
+B1: Trong acc 1 (có CodePipeline), tạo:
+
+CMK KMS có key policy cho phép codepipeline của acc 1 dùng (cho codepipeline lưu import artifact)
+
+Service role cho CodePipeline policy cho phép acc 2 access
+B2: Tạo cross-account IAM role và set quyền cần thiết
+B3: Trong acc 1 set CodePipeline service role cho phép assume role vừa tạo trong acc 2
+B4: Trong acc 2 tạo service role cho CF stack với các quyền cần thiết
+B5: Trong acc 1 update CodePipeline configuration để include các resources của acc 2
+
+Drift
+
+Dùng để audit xem resources có bị thay đổi ‘manually’ so với template không
+
+Có thể detect toàn bộ stack hoặc từng resource trong stack
+
+Có thể dùng với stackset, có thể có các STATUS:
+stack drifted
+stack instance drifted
+stackset drifted
+
+Integrates với “Self Service Portal” VD Service Now
