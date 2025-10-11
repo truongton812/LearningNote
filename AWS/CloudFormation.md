@@ -408,6 +408,8 @@ yum/dnf install aws-cfn-bootstrap
 
 ### 1. cfn-init
 - Dùng để đọc metadata từ CloudFormation và thiết lập cấu hình cho EC2 instance (VD: cài packages, tạo files, thiết lập services...)
+- Ưu điểm: code tường mình hơn và giúp integrate với cfn-signal
+- Log của cfn-init nằm trong /var/log/cfn-init.log và /var/log/cfn-init-cmd.log
 - Ví dụ:
 ```yaml
 Resources:
@@ -434,3 +436,139 @@ Resources:
           hello:
             command: "echo 'hello world'"
         services:    # enable service
+```
+### 2. cfn-signal
+- Dùng kết hợp với cfn-init để thông báo cho CloudFormation biết về kết quả của cfn-init, do default CloudFormation stack vẫn tiếp tục chạy kể cả khi cfn-init fails
+- Cần define WaitCondition để bắt stack chờ cho đến khi nhận được signal. WaitCondition chỉ available cho EC2 và ASG
+- Ví dụ:
+```
+Resources:
+  MyEC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      UserData:    #dùng UserData để run cfn-init script
+        Fn::Base64:
+          !Sub |
+            #!/bin/bash
+            dnf update -y aws-cfn-bootstrap
+            /opt/aws/bin/cfn-init -s ${AWS::StackID} -r MyEC2Instance --region ${AWS::Region} || error exit "failed to run cfn-init script"
+            INIT_STATUS=$?
+            /opt/aws/bin/cfn-signal -e $INIT_STATUS --stack ${AWS::StackName} --resource SampleWaitCondition --region ${AWS::Region}
+            exit $INIT_STATUS
+    Metadata:
+      AWS::CloudFormation::Init:
+        # (cấu hình khởi tạo nếu cần)
+  SampleWaitConditionResource:
+    Type: AWS::CloudFormation::WaitCondition
+    DependsOn: MyEC2Instance
+    CreationPolicy:  #WaitCondition sẽ yêu cầu nhận đủ số lượng tín hiệu trong thời gian quy định
+      ResourceSignal:
+        Timeout: 120   # PT2M, thời gian chờ, đơn vị là giây
+        Count: 1       # Số lần fail
+```
+
+- Nếu WaitCondition tạo thành công → stack tạo thành công và ngược lại
+- Nếu WaitCondition không nhận được signal từ EC2 thì cần check
+  - OS có helper script không, nếu không có sẵn thì phải tự cài
+  - EC2 phải kết nối được đến CloudFormation (thông qua internet nếu trong public subnet, hoặc thông qua NATGW/VPC endpoint nếu trong private subnet)
+  - Examine log trong /var/log/cfn-init.log hoặc /var/log/cfn-init-cmd.log (lưu ý, cần disable option "rollback on failure" để giữ lại EC2)
+    
+### 3. cfn-get-metadata
+- Dùng để lấy metadata trực tiếp từ CloudFormation stack
+
+### 4. cfn-hup
+- Là 1 script chạy nền trong EC2 liên tục theo dõi CloudFormation stack metadata ⭢ Nếu có thay đổi sẽ phát hiện và apply thay đổi đó bằng cách rerun lại cfn-init script, giúp update EC2 mà không cần phải terminate đi tạo lại
+- Config của cfn-hup nằm trong /etc/cfn/cfn-hup.conf và /etc/cfn/hooks.d/cfn-auto-reloader.conf
+- Ví dụ
+```
+Resources:
+  MyInstance:
+    Type: AWS::EC2::Instance
+    Metadata:
+      AWS::CloudFormation::Init:
+        config:
+          files:    #thay đổi config của cfn-init process
+            "/etc/cfn/cfn-hup.conf":
+              content: !Sub |
+                [main]
+                stack = ${AWS::StackId}
+                region = ${AWS::Region}
+                interval = 1    #1 phút check metadata một lần
+            "/etc/cfn/hooks.d/cfn-auto-reloader.conf":
+              content: !Sub |
+                [cfn-auto-reloader-hook]
+                triggers = post.update
+                path = Resources.MyInstance.Metadata.AWS::CloudFormation::Init
+                action = /opt/aws/bin/cfn-init -v --stack ${AWS::StackName} --resource MyInstance --region ${AWS::Region}  #khi metadata thay đổi sẽ trigger cfn-init rerun
+    Properties:
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          /opt/aws/bin/cfn-init -v --stack ${AWS::StackName} --resource MyInstance --region ${AWS::Region}   # initialize cfn-init
+          /opt/aws/bin/cfn-hup || error_exit 'fail to start'   # start cfn-hup
+          /opt/aws/bin/cfn-signal -e $? --stack ${AWS::StackName} --resource MyInstance --region ${AWS::Region}   # send signal
+```
+
+## XIV. Nested stack
+
+- Là stack lồng trong stack, mục đích là giúp reuse các stack hay dùng
+- Để update nested stack cần update root stack (stack chứa nested stack)
+- So sánh:
+#### Nested Stack: Mỗi stack là độc lập. Mỗi lần tạo sẽ tạo 1 stack mới
+```
++-------------------------+
+|      Stack 1            |
+|  - RDS Stack            |
+|  - ASG Stack            |
++-------------------------+
+
++-------------------------+
+|      Stack 2            |
+|  - RDS Stack            |
+|  - ASG Stack            |
++-------------------------+
+```
+#### Cross Stack Reference: Các stack cùng refer đến một shared stack
+```
+        +----------------+
+        |   VPC Stack    |
+        +----------------+
+            ^        ^
+            |        |
+    +----------+    +----------+
+    | Stack 1  |    | Stack 2  |
+    +----------+    +----------+ 
+
+``` 
+
+Ví dụ:
+Resources:
+myStack:
+Type: AWS::CloudFormation::Stack # nested stack type
+Properties:
+TemplateURL: https://s3.amazonaws.com/... # url của nested stack template
+
+Outputs:
+StackRef:
+Value: !Ref myStack # trả về stack ID
+
+Output from Nested Stack:
+Value: !GetAtt myStack.outputs.websiteURL # lấy output của nested stack
+
+Depends On
+
+Dùng để chỉ định thứ tự tạo resource (default là tạo cùng lúc)
+
+VD: Tạo DB xong mới tạo EC2
+
+Resources:
+EC2 Instance:
+Type: AWS::EC2::Instance
+DependsOn: DBInstance
+
+DB Instance:
+Type: AWS::RDS::DBInstance
+
+Intrinsic function !Ref và !GetAtt mặc định có DependsOn. VD nếu EC2 !Ref đến security group thì CF sẽ tạo SG trước
+
+Khi delete stack thì CF sẽ delete resource có DependsOn trước, sau đó mới đến resource kia
