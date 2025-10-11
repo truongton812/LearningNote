@@ -579,61 +579,45 @@ Resources:
 - Setup permission để dùng StackSet:
   - Self-managed permission (trong trường hợp không dùng AWS Organization):
     - Tạo IAM role trong admin account và target account, thiết lập trusted relationship giữa các IAM role này → cho phép admin account deploy stack lên target account
-    - Trong admin account tạo role có trust entity là CloudFormation, permission là role cần tạo trong từng target account
+    - Trong admin account tạo role có trust entity là CloudFormation, permission là được assumeRole vào CloudFormationStackSetExecutionRole (là role cần tạo trong từng target account)
+    - Trong mỗi target account tạo CloudFormationStackSetExecutionRole có trust entity là role vừa tạo trong admin account, permission là AdministratorAccess
+  - Service-managed permission (trong trường hợp dùng AWS Organization):
+    - Chỉ cần enable "Trusted Access" giữa Organization và CloudFormation StackSet (Vào Organization ⭢ Services ⭢ CloudFormation StackSet ⭢ enable) thì AWS sẽ tự động tạo IAM role tên AWSCloudFormationStackSetExecutionRole trên tất cả member account, kể cả account mới gia nhập Organization
+    - Có thể trao quyền StackSet admin cho member account
+- Delete stackSet: để delete StackSet cần delete stack instance trước. Khi delete stack instance có 2 options:
+  - Delete stack instance nhưng vẫn giữ lại stack trong member account
+  - Delete stack instance đồng thời delete stack
 
-Trong mỗi target account tạo CFStackSetExecutionRole có trust entity là role vừa tạo trong admin account, permission AdministratorAccess
-+) Service-managed permission (trong trường hợp dùng AWS Organization):
+## XVII. Troubleshooting CloudFormation
+- DELETED_FAIL:
+  - 1 số resource phải empty mới delete đc (VD S3 bucket)
+  - Security group phải không attach với EC2 nào mới xóa được
+- UPDATE_ROLLBACK_FAILED: là trạng thái stack không rollback lại được khi update fail (nguyên nhân có thể do resources bị thay đổi manually ngoài phạm vi CloudFormation, thiếu quyền, ASG không nhận được đủ signal, ...) ⭢ Cần manually fix và run lại API ContinueUpdateRollback
+- OUTDATED: là trạng thái hiện thị của stack instance khi có stack operation failed, có thể do:
+  - CloudFormation ở management account không đủ quyền để tạo resource ở target account
+  - Tạo global resource nhưng không unique (VD S3 bucket name)
+  - Management account không có trust relationship với target acc
+  - Reach limit quota ở target account (quá nhiều resources)
 
-Phải enable Trusted Access giữa Org. Organization và CF StackSet
+## XVII. Deploy CloudFormation stack vào tài khoản khác bằng CodePipeline
+- B1: Trong account 1 (account có CodePipeline), tạo:
+  - CMK KMS có key policy cho phép:
+    - Codepipeline của acc 1 dùng (do codepipeline luôn encrypt artifact)
+    - Account 2 dùng
+  - S3 bucket có bucket policy cho phép account 2 access
+- B2: Tạo cross-account IAM role trong account 2 với các quyền:
+  - Gọi CloudFormation API
+  - Truy cập S3 bucket ở account 1
+  - Dùng CMK KMS key ở account 1
+- B3: Trong account 1 set CodePipeline service role cho phép assume role vừa tạo trong account 2
+- B4: Trong account 2 tạo service role cho CloudFormation stack với các quyền cần thiết
+- B5: Trong account 1 update CodePipeline configuration để include các resources của account 2
 
-Vào Organization -> Services -> CF StackSet -> enable thì AWS sẽ tự động tạo IAM role, tên AWSCloudFormationStackSetExecutionRole trên tất cả member account, kể cả account mới gia nhập Organization
-
-Có thể trao quyền StackSet admin cho member account
-
-Khi delete stackSet, để delete StackSet cần delete stack instance trước, khi delete stack instance có 2 options:
-
-Delete stack instance nhưng vẫn giữ lại stack trong member acc
-
-Delete stack instance đồng thời delete stack
-
-Trouble shooting CloudFormation
-
-DELETED_FAIL: 1 số resource phải empty mới delete đc (VD S3 bucket), security group phải không attach với EC2 nào mới xóa được
-
-Trang 2:
-
-UPDATE_ROLLBACK_FAILED: là trạng thái stack không rollback lại được khi update fail (nguyên nhân: có thể do resources thay đổi ngoài CF, thiếu quyền, ASG có nhóm chưa đủ signal, ...). Cần manually fix và run lại API ContinueUpdateRollback
-
-OUTDATED: là trạng thái hiện thì của stack instance khi có stack operation failed, cho biết stack instance không được update
-
-Sử dụng CF, management acc. có đủ quyền để tạo resource ở target account
-
-Tạo global resource nhưng không unique (VD S3 bucket name)
-
-Management acc. không có trust relationship với target acc
-
-Reach limit quota ở target acc (quá nhiều resources)
-
-Deploy CF stack vào tài khoản khác bằng CodePipeline
-B1: Trong acc 1 (có CodePipeline), tạo:
-
-CMK KMS có key policy cho phép codepipeline của acc 1 dùng (cho codepipeline lưu import artifact)
-
-Service role cho CodePipeline policy cho phép acc 2 access
-B2: Tạo cross-account IAM role và set quyền cần thiết
-B3: Trong acc 1 set CodePipeline service role cho phép assume role vừa tạo trong acc 2
-B4: Trong acc 2 tạo service role cho CF stack với các quyền cần thiết
-B5: Trong acc 1 update CodePipeline configuration để include các resources của acc 2
-
-Drift
-
-Dùng để audit xem resources có bị thay đổi ‘manually’ so với template không
-
-Có thể detect toàn bộ stack hoặc từng resource trong stack
-
-Có thể dùng với stackset, có thể có các STATUS:
-stack drifted
-stack instance drifted
-stackset drifted
-
-Integrates với “Self Service Portal” VD Service Now
+## XVIII. Drift
+- Dùng để audit xem resources có bị thay đổi ‘manually’ so với template không
+- Có thể detect toàn bộ stack hoặc từng resource trong stack
+- Có thể dùng với stackset, có thể có các STATUS:
+  - stack drifted
+  - stack instance drifted
+  - stackset drifted
+- Integrates với “Self Service Portal” VD Service Now
