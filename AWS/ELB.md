@@ -38,3 +38,17 @@ Do đó, để EC2 nhận traffic từ ALB, SG của EC2 phải cho phép nhận
 
 Nói cách khác, SG của EC2 cần có rule inbound cho phép traffic đến từ SG của ALB, thường là cho các port ứng dụng mà EC2 đang chạy (ví dụ port 80 cho web).
 
+---
+
+
+mỗi Load Balancer node của NLB thường có một hoặc nhiều IP tĩnh riêng biệt, khác với ALB thường không có IP tĩnh mà sử dụng DNS dynamic.
+
+NLB tạo các node load balancer nằm tại các Availability Zone (AZ) mà bạn chọn.
+
+Mỗi node NLB trong mỗi AZ sẽ được cấp IP tùy thuộc vào cách cấu hình:
+- nếu chọn internet facing NLB thì node NLB sẽ có ip public (do AWS cấp hoặc ta có thể tự gán EIP). Lưu ý nếu sử dụng dạng internet facing NLB thì subnet phải là public subnet, nếu là private sẽ không nhận được traffic
+- nếu chọn internal NLB thì node sẽ chỉ được gán private ip
+
+
+DNS của loại internet facing NLB được ánh xạ tới các địa chỉ IP public của các node trong các AZ. Khi client truy cập, DNS phân giải dựa trên địa lý và trạng thái để đưa client đến node phù hợp.
+
