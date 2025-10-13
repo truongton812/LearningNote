@@ -1,3 +1,17 @@
+Target group là gì
+
+Target Group trong AWS Load Balancer là một tập hợp các đích (mục tiêu) mà Load Balancer phân phối lưu lượng truy cập đến. Mục tiêu có thể là các EC2 instances, địa chỉ IP, Lambda function hoặc các Load Balancer khác.
+
+Vai trò của Target Group:
+- Target Group giúp tổ chức và quản lý các backend server (ví dụ EC2 instance) phục vụ ứng dụng.
+
+- Load Balancer sẽ route (điều hướng) lưu lượng mạng đến các target trong nhóm này dựa trên quy tắc và thuật toán cân bằng tải.
+
+- Target Group còn thực hiện kiểm tra sức khỏe (Health Check), để chỉ gửi traffic đến các mục tiêu đang hoạt động tốt.
+
+Lưu ý: option stickiness được enable/disable trong target group
+
+---
 
 Option "Availability Zones and subnets" khi tạo Application Load Balancer trên AWS cho phép chọn khu vực khả dụng (AZ - Availability Zone) và các subnet tương ứng mà Load Balancer sẽ hoạt động trong đó và phân phối traffic tới các EC2 instance hoặc resources bên trong các subnet này
 
