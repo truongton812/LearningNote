@@ -17,3 +17,24 @@ Mỗi node load balancer tương ứng với một ENI riêng biệt trong subne
 ENI này giữ vai trò như gateway nhận request từ client và chuyển tiếp request đến các target (ví dụ EC2 instance) trong target group.
 
 AWS cần quản lý ENI này riêng để có thể bảo trì, tự động thay thế khi cần, cũng như đảm bảo đủ IP để mở rộng (scale) load balancer.
+
+---
+
+Security Group (SG) cho Application Load Balancer (ALB) là một thành phần tường lửa ảo giúp kiểm soát lưu lượng mạng vào và ra của chính ALB.
+
+SG của ALB kiểm soát các kết nối đến từ client (người dùng hoặc dịch vụ ngoài).
+
+Ví dụ, SG của ALB thường mở các port phổ biến như HTTP (80), HTTPS (443) để nhận lưu lượng truy cập web.
+
+ALB sẽ chấp nhận hoặc từ chối các yêu cầu dựa trên quy tắc SG này.
+
+Mối liên hệ giữa Security Group của ALB và Security Group của EC2
+
+EC2 instance thường có SG riêng riêng biệt, kiểm soát lưu lượng Vào/Ra từ instance đó.
+
+Khi ALB chuyển tiếp traffic đến các EC2 (thường qua Target Group), các request này được thực hiện giữa ALB và các EC2 trong mạng nội bộ. Lưu ý cần cấu hình Security Group cho EC2 để chấp nhận traffic từ ALB, chứ Không cấu hình cho target group, vì target group chỉ là tập hợp các target (EC2), không phải entity có SG riêng.
+
+Do đó, để EC2 nhận traffic từ ALB, SG của EC2 phải cho phép nhận lưu lượng từ SG của ALB (chấp nhận inbound traffic từ SG của ALB).
+
+Nói cách khác, SG của EC2 cần có rule inbound cho phép traffic đến từ SG của ALB, thường là cho các port ứng dụng mà EC2 đang chạy (ví dụ port 80 cho web).
+
