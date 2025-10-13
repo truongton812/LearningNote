@@ -52,3 +52,11 @@ Mỗi node NLB trong mỗi AZ sẽ được cấp IP tùy thuộc vào cách c�
 
 DNS của loại internet facing NLB được ánh xạ tới các địa chỉ IP public của các node trong các AZ. Khi client truy cập, DNS phân giải dựa trên địa lý và trạng thái để đưa client đến node phù hợp.
 
+
+
+Lợi ích khi dùng NLB trỏ tới ALB:
+- Hỗ trợ IP tĩnh và Elastic IP (EIP): NLB cho phép bạn có IP tĩnh hoặc Elastic IP trên mỗi AZ, thuận tiện cho các hệ thống hoặc firewall, DNS yêu cầu IP cố định. ALB mặc định chỉ có DNS name và IP động, nên nếu cần IP tĩnh thì đặt NLB trước ALB là tốt.
+
+- Kết nối ở Layer 4 với throughput cao và độ trễ thấp: NLB xử lý ở lớp 4 với TCP/UDP, giúp xử lý lượng lớn kết nối nhanh và bền bỉ. Khi làm frontend cho ALB (làm backend), NLB có thể tiếp nhận traffic khổng lồ một cách hiệu quả, rồi chuyển tới ALB ở Layer 7 xử lý logic nghiệp vụ.
+
+- Giảm tải cho ALB: NLB có thể chịu nhiều kết nối đến với hiệu suất rất cao, giúp giảm bớt áp lực trực tiếp cho ALB, giữ cho ALB tập trung xử lý các logic tầng ứng dụng như routing, authentication, cookie.
