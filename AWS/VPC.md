@@ -20,3 +20,5 @@ Subnet là mạng con được chứa trong một AZ cố định, còn AZ là k
 Internet GW là bound với VPC
 
 security group bound với vpc
+
+elb bound với vpc, có thể span trên nhiều az
