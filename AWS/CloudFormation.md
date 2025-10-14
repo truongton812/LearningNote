@@ -32,10 +32,15 @@ Template ──────▶ S3 ◀────── CloudFormation ───
   - Type:
     - String
     - Number
-    - CommaDelimitedList
+    - CommaDelimitedList: Danh sách chuỗi phân tách dấu phẩy (dùng cho nhiều chuỗi hoặc ID tùy ý)
     - List<number>
     - AWS-specific Parameter: để catch invalid value hoặc match với existing values trong AWS account, VD lấy key name hoặc VPC ID
-    - List <AWS-specific Parameter>. VD: `'List<AWS::EC2::Subnet::Id>'`
+    - List <AWS-specific Parameter>. Ví dụ:
+      - `'List<AWS::EC2::Subnet::Id>'`: danh sách các Subnet ID
+      - `List<AWS::EC2::VPC::Id>`: Danh sách các VPC ID
+      - `List<AWS::EC2::KeyPair::KeyName>`: Danh sách tên key pair EC2
+      - `List<AWS::EC2::AvailabilityZone::Name>`: Danh sách tên Availability Zone
+      - `List<AWS::SSM::Parameter::Value<String>>`: Danh sách tên tham số trong Systems Manager Parameter Store
     - SSM parameter: lấy parameter từ SSM Parameter Store
   - Description: mô tả cho parameter
   - Constraint description: mô tả khi constraint không thỏa mãn. VD không đúng allowed value, không đúng min/max value, sẽ hiện warning, ta define trong Constraint Description.
@@ -46,6 +51,15 @@ Template ──────▶ S3 ◀────── CloudFormation ───
   - AllowedPattern: allow theo dạng regex. VD: regex của IP là `(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})`
   - NoEcho: hiển thị dưới dạng *** trên console và trong log.
 - Parameter không được dùng ở AWSTemplateFormatVersion, Description, Transform và Mapping
+
+
+
+
+
+
+Ngoài ra, CloudFormation cũng hỗ trợ các kiểu đơn như AWS::EC2::SecurityGroup::Id, AWS::EC2::Subnet::Id, AWS::EC2::VPC::Id, AWS::EC2::KeyPair::KeyName
+
+
 
 #### Ví dụ sử dụng Parameter
 
