@@ -35,7 +35,7 @@ Template ──────▶ S3 ◀────── CloudFormation ───
     - CommaDelimitedList
     - List<number>
     - AWS-specific Parameter: để catch invalid value hoặc match với existing values trong AWS account, VD lấy key name hoặc VPC ID
-    - List <AWS-specific Parameter>. VD: “List<AWS::EC2::Subnet::Id>”
+    - List <AWS-specific Parameter>. VD: `'List<AWS::EC2::Subnet::Id>'`
     - SSM parameter: lấy parameter từ SSM Parameter Store
   - Description: mô tả cho parameter
   - Constraint description: mô tả khi constraint không thỏa mãn. VD không đúng allowed value, không đúng min/max value, sẽ hiện warning, ta define trong Constraint Description.
