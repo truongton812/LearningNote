@@ -33,9 +33,13 @@ Template ──────▶ S3 ◀────── CloudFormation ───
     - String
     - Number
     - CommaDelimitedList: Danh sách chuỗi phân tách dấu phẩy (dùng cho nhiều chuỗi hoặc ID tùy ý)
-    - List<number>
-    - AWS-specific Parameter: để catch invalid value hoặc match với existing values trong AWS account, VD lấy key name hoặc VPC ID
-    - List <AWS-specific Parameter>. Ví dụ:
+    - List <number>
+    - AWS-specific Parameter: Khi dùng trên AWS Management Console để deploy stack, CloudFormation sẽ hiển thị dropdown có danh sách các giá trị hợp lệ mà user có thể chọn. Ví dụ:
+      - `AWS::EC2::SecurityGroup::Id`: Là kiểu chuỗi đại diện cho ID của một Security Group trong EC2 (ví dụ: "sg-123abc").
+      - `AWS::EC2::Subnet::Id`: Là kiểu chuỗi đại diện cho ID của một Subnet trong VPC (ví dụ: "subnet-456def").
+      - `AWS::EC2::VPC::Id`: Là kiểu chuỗi đại diện cho ID của một VPC (ví dụ: "vpc-789ghi").
+      - `AWS::EC2::KeyPair::KeyName`: Là kiểu chuỗi đại diện cho tên một EC2 Key Pair đã tạo sẵn dùng để SSH vào instance.
+    - List <AWS-specific Parameter>. Tương tự như AWS-specific Parameter, khác là với List thì user có thể chọn nhiều giá trị. Ví dụ:
       - `'List<AWS::EC2::Subnet::Id>'`: danh sách các Subnet ID
       - `List<AWS::EC2::VPC::Id>`: Danh sách các VPC ID
       - `List<AWS::EC2::KeyPair::KeyName>`: Danh sách tên key pair EC2
