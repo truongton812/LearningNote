@@ -79,3 +79,92 @@ Lưu ý:
 - Network Load Balancer (NLB) không có một IP tĩnh duy nhất chung cho toàn bộ Load Balancer. Thay vào đó: Mỗi Load Balancer node của NLB tồn tại trong một Availability Zone (AZ) và được cấp một hoặc nhiều địa chỉ IP tĩnh riêng biệt. Các IP tĩnh này có thể là địa chỉ IP private trong subnet tương ứng, hoặc là Elastic IP (EIP) nếu bạn gán IP public cho NLB Internet-facing.
 
 - Nếu bạn có NLB forward traffic đến 3 AZ, Bạn cần whitelist từng IP tĩnh của từng node NLB trong mỗi AZ. Nghĩa là nếu NLB hoạt động trên 3 AZ, bạn sẽ có ít nhất 3 IP tĩnh (một cho mỗi AZ), hoặc nhiều hơn nếu mỗi node có nhiều IP tĩnh. Bạn không chỉ whitelist một IP duy nhất, mà phải bao gồm đủ tất cả các IP tĩnh tương ứng với các node ở từng AZ của NLB.
+
+---
+
+CloudFormation template để tạo ALB
+
+```
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Mẫu CloudFormation tạo ALB kết hợp Auto Scaling Group
+
+Parameters:
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC ID để tạo resources
+  SubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: Danh sách subnet cho ALB và Auto Scaling Group
+  KeyName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: KeyPair để truy cập instance
+  InstanceType:
+    Type: String
+    Default: t3.micro
+    Description: Loại instance EC2
+
+Resources:
+  MyLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: MyALB
+      Subnets: !Ref SubnetIds
+      Scheme: internet-facing
+      Type: application
+
+  MyTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: MyTargetGroup
+      Port: 80
+      Protocol: HTTP
+      VpcId: !Ref VpcId
+      HealthCheckPath: /
+      Matcher:
+        HttpCode: 200
+      TargetType: instance
+
+  MyListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref MyLoadBalancer
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref MyTargetGroup
+
+  LaunchConfig:
+    Type: AWS::AutoScaling::LaunchConfiguration
+    Properties:
+      ImageId: ami-0c55b159cbfafe1f0  # AMI Amazon Linux 2 (thay theo region của bạn)
+      InstanceType: !Ref InstanceType
+      KeyName: !Ref KeyName
+      SecurityGroups: []  # Thêm nếu cần
+
+  AutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      VPCZoneIdentifier: !Ref SubnetIds
+      LaunchConfigurationName: !Ref LaunchConfig
+      MinSize: 1
+      MaxSize: 3
+      DesiredCapacity: 1
+      TargetGroupARNs:
+        - !Ref MyTargetGroup
+      Tags:
+        - Key: Name
+          Value: MyASGInstance
+          PropagateAtLaunch: true
+```
+
+Đúng vậy, khi bạn dùng Application Load Balancer (ALB) kết hợp với Auto Scaling Group (ASG), thì ASG cần phải được khai báo trỏ đến target group của ALB.
+
+Điều này có nghĩa là:
+
+ASG không đính trực tiếp với ALB mà đính với target group (nhóm đích) mà ALB dùng để cân bằng tải.
+
+Khi ASG tạo hoặc huỷ instance, AWS sẽ tự động đăng ký hoặc gỡ các instance này vào target group để cân bằng tải qua ALB.
+
+Việc liên kết này cũng cho phép ASG sử dụng các health check của target group để quyết định duy trì hay thay thế instance không khỏe.
+
