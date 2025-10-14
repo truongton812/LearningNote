@@ -193,6 +193,20 @@ Resources:
 - Dùng để convert string thành base64, thường dùng để đưa data vào EC2 User data
 - User data log được lưu tại /var/log/cloud-init-output.log.
 
+### 4. Hàm Select
+- Dùng để chọn một phần tử cụ thể trong một danh sách dựa trên vị trí index của phần tử đó.
+- Syntax: !Select [index, listOfItems]
+- Ví dụ 1: !Select [1, ["apple", "banana", "cherry"]] sẽ trả về banana vì đó là phần tử index 1.
+- Ví dụ 2: !Select [0 , !GetAZs ""] sẽ trả về  phần tử đầu tiên trong mảng các Availability Zones đó
+
+### 5. Hàm Sub
+- Dùng để thay thế biến trong chuỗi bằng giá trị thực tế trong quá trình deploy.
+- Cú pháp: !Sub "chuỗi có ${variable}" . Trong đó ${variable} là biến sẽ được thay thế bằng giá trị tương ứng. Biến có thể là giá trị tham số, giá trị từ stack hoặc một tham số truyền vào.
+- Ví dụ !Sub "${AWS::StackName}-Subnet1" sẽ thay thế ${AWS::StackName} bằng tên stack hiện tại rồi nối thêm "-Subnet1".
+
+### 6. Hàm GetAZs ""
+- Dùng để lấy về một mảng các Availability Zones của vùng (region) hiện tại, sắp xếp theo thứ tự chữ cái.
+
 ## IV. CloudFormation Rollback
 - Khi tạo stack mà fails có 2 options (config trong “stack failure option”):
   - Rollback (default): xóa tất cả resources.
