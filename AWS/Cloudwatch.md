@@ -1,24 +1,25 @@
-CloudWatch
+# CloudWatch
 
-Dùng để giám sát hiệu năng, cảnh báo, thu thập log, react với các events (alarm, automation) trên on-prem và cloud.
+## I. Định nghĩa & Khái niệm
 
-Use cases: react với state change của resource, react với metric vượt ngưỡng, react với logs system.
+- CloudWatch dùng để giám sát hiệu năng, cảnh báo, thu thập log, react với các events (alarm, automation) trên on-prem và cloud.
+- Use cases:
+  - react với state change của resource
+  - react với metric vượt ngưỡng
+  - react với logs system.
+- Các core components của CloudWatch:
+  - CloudWatch Metric: gửi metric của resource đến CloudWatch.
+  - CloudWatch Alarm: để react với metric vượt ngưỡng.
+  - CloudWatch Log: quản lý log system/app.
+  - CloudWatch EventBridge: giúp react với state change của resource.
 
-Các core components của CloudWatch:
-
-CloudWatch Metric: gửi metric của resource đến CloudWatch.
-
-CloudWatch Alarm: để react với metric vượt ngưỡng.
-
-CloudWatch Log: quản lý log system/app.
-
-CloudWatch EventBridge: giúp react với state change của resource.
-
-CloudWatch Metric
-
-Tất cả service trong AWS đều gửi metric đến CloudWatch. Metric của mỗi service sẽ có namespace (VD: EC2, Application ELB, ASG,...).
-
-Metric có dimension để giúp phân biệt metric của object nào (VD: instance ID, environment, ...). Một metric có tối đa 30 dimensions và khi vẽ dashboard của CloudWatch sẽ cần chọn metric với dimension1, dimension2,... metric name.
+## II. CloudWatch Metric
+- Tất cả services trong AWS đều gửi metric đến CloudWatch. Metric của mỗi service thuộc 1 namespace (VD namespace EC2, ApplicationELB, ASG,...).
+- Metric có dimension để giúp phân biệt metric của object nào (VD: instance ID, environment, ...). Khi tìm 1 metric trong dashboard của Cloudwatch sẽ có dạng
+```
+  dimension1    dimension2    ...    dimensionN    metricName
+   <value>        <value>              <value>       <name>
+```
 
 Có thể tạo dashboard để nhóm các metric mong muốn (Xao Metric).
 
