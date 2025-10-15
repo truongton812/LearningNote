@@ -227,8 +227,11 @@ Resources:
 - Cú pháp: !Join [ "delimiter", [ "value1", "value2", "value3" ] ]
 - Ví dụ:  !Join [ "-", [ !Ref NamePrefix, !Ref Env, !Ref AWS::Region ] ]
 
-### 6. Hàm GetAZs ""
-- Dùng để lấy về một mảng các Availability Zones của vùng (region) hiện tại, sắp xếp theo thứ tự chữ cái.
+### 7. Hàm GetAZs ""
+- dùng để lấy danh sách các Availability Zones (AZs) của một vùng (region) cụ thể.
+- kết quả trả về một mảng các AZ theo thứ tự chữ cái
+- Cú pháp: !GetAZs "region" . Lưu ý nếu sử dụng chuỗi rỗng thay vì "region" thì sẽ lấy region hiện tại (tương tự dùng !GetAZs: !Ref AWS::Region )
+
 
 ## IV. CloudFormation Rollback
 - Khi tạo stack mà fails có 2 options (config trong “stack failure option”):
