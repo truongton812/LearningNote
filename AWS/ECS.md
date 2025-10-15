@@ -68,3 +68,11 @@ Task Definition: Kế hoạch chi tiết.
 Task: Phiên bản chạy thực tế.
 
 Service: Đơn vị quản lý nhiều Task liên tục.
+
+---
+
+phân biệt task execution role và task role
+
+Khi container khởi tạo lên sẽ có 2 giai đoạn:
+- giai đoạn khởi động sẽ cần sử dụng task execution role (VD gọi ECR, viết log vào CW) -> task execution role là bắt buộc phải có, có thể dùng role do aws tạo sẵn tên là AmazonECSTaskExecutionRolePolicy
+- giai đoạn thực thi sau khi khởi động lên sẽ dùng task role (VD gọi vào dynamodb, s3,..)
