@@ -154,36 +154,35 @@ Acc B: Cloudwatch ---> Subscription filter ---> |      - Cần policy cho phép 
 ```
 
 ## V. EventBridge (former CloudWatch Event)
+### 1. EventBridge
 - Là service giúp định tuyến sự kiện (event routing) từ nhiều nguồn đến các AWS services khác hoặc external API → từ đó react với các thay đổi của AWS và non-AWS resources.
 - EventBridge còn dùng để tạo cronjob (VD 1 tiếng trigger lambda 1 lần)
 - Các khái niệm trong EventBridge:
   - Event: định dạng json, sinh ra khi các resources trên AWS thay đổi trạng thái.
   - Event source: sinh ra từ nhiều nguồn
+    - AWS:
+      - EC2, S3, ECS, Lambda, CloudTrail, CodePipeline, CodeBuild,... là các dịch vụ tự động gửi event về EventBridge mà không cần cấu hình.
+      - Các dịch vụ không tự động gửi event về EventBridge, VD cloudwatch log (cần thiết lập subscription), thay đổi dữ liệu trong S3 (cần enable S3 Event Notification), thay đổi dữ liệu trong DynamoDB (cần enable DynamoDB stream).
+    - Custom event của application trên AWS
+    - Event của 3rd party ngoài AWS (DataDog, Zendesk, Auth0,...)
+  - Event bus: nhận event và process data, trong event bus có các rule để quy định cách mà event được xử lý và định tuyến đến destination nào (SNS, Lambda, Kinesis, AWS Config,...). Có 3 loại bus:
+    - Default: mặc định các AWS Services gửi event vào đây
+    - Partner event bus: để nhận event từ các non-AWS resources
+    - Custom: dùng khi muốn separate event
+    - Note: có thể áp resource-based policy lên event bus → dùng Event bus trong 1 account làm nơi tổng hợp event của Organization.
+  - Event Dest: Lambda, AWS Batch, ECS task, SQS, SNS, Kinesis, Step Function, CodePipeline, CodeBuild, SSM, EC2 action (start, restart,...).
+- Flow: Từ event source gửi về EventBridge (filter here - optional) → EventBridge generate dạng json của event (có thể transform) → gửi đến event dest.
+- Event (all hoặc đc filter) trong event bus có thể archive để lưu trữ (vô hạn/có thời hạn). Archived events có thể replay để debug/troubleshoot.
+- EventBridge có thể analyze event trong event bus và suy ra schema. "Schema registry" giúp generate code cho app.
 
-Event Dest: Lambda, AWS Batch, ECS task, SQS, SNS, Kinesis, Step Function, CodePipeline, CodeBuild, SSM, EC2 action (start, restart,...).
+### 2. Các ví dụ sử dụng EventBridge
+- Trigger lambda khi có file upload vào S3: tạo Event Rule với source là S3.amazonaws.com và event type PutObject, chỉ định target là Lambda
+- Chạy step function khi ECS task hoàn thành
+- Gửi thông báo khi EC2 bị terminated
 
-Flow: Từ event source gửi về EventBridge (filter here - optional) → EventBridge generate dạng json của event (có thể transform) → gửi đến event dest.
-
-Event (all hoặc đc filter) trong event bus có thể archive để lưu trữ (có hạn/có thời hạn). Archived events có thể replay để debug/troubleshoot.
-
-EventBridge có thể analyze event trong event bus và suy ra schema. Schema registry giúp generate code cho app.
-
-Các ví dụ sử dụng EventBridge
-
-Trigger khi có file upload vào S3, tạo Event Rule với source là S3.amazonaws.com và event type PutObject, chỉ định target là Lambda, ECS task, function.
-
-Gửi thông báo khi EC2 bị terminated.
-
-EventBridge cross-account
-
-EventBridge có thể nhận và theo dõi sự kiện cross-account.
-
-Để nhận event từ account khác thì có thể dùng default event bus hoặc tạo custom event bus, sau đó cấu hình resource policy của bus để cho phép nhận sự kiện.
-
-Ở account nguồn thì có event tạo dùng AWS CLI/SDK gửi event sang account đích.
-
-Để theo dõi sự kiện cross-account thì:
-
-Trong account nguồn: tạo EventBridge, rule để theo dõi event cần và chọn target là event bus ở account đích, lưu ý cần đảm bảo IAM role của EventBridge trong account nguồn có quyền PutEvents.
-
-Trong account đích: tạo EventBridge rule để nhận và xử lý sự kiện từ account nguồn.
+### 3. EventBridge cross-account
+- EventBridge có thể nhận và theo dõi sự kiện cross-account.
+- Để nhận event từ account khác thì có thể dùng default event bus hoặc tạo custom event bus, sau đó cấu hình resource policy của bus để cho phép nhận sự kiện. Ở account nguồn, khi có event ta dùng AWS CLI/SDK để gửi event sang account đích.
+- Để theo dõi sự kiện cross-account thì:
+  - Trong account nguồn: tạo EventBridge rule để theo dõi event cần và chọn target là event bus ở account đích. Lưu ý cần đảm bảo IAM role của EventBridge trong account nguồn có quyền events:PutEvents.
+  - Trong account đích: tạo EventBridge rule để nhận và xử lý sự kiện từ account nguồn.
