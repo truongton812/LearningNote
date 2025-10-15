@@ -1,4 +1,5 @@
 Amazon Elastic Container Service (ECS) là dịch vụ quản lý container của AWS giúp chạy và quản lý các ứng dụng container.
+<img width="800" height="348" alt="image" src="https://github.com/user-attachments/assets/e84fb4d7-9296-404a-aa7c-a41531b1f09f" />
 
 1. Task Definition (Định nghĩa tác vụ)
 Đây là bản thiết kế (blueprint) của ứng dụng container bạn muốn chạy.
