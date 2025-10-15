@@ -96,3 +96,11 @@ Sự khác biệt giữa Farget và EC2 launch type
 Khi tạo EC2 launch type thì các task có thể nằm chung trong 1 EC2 instance, muốn truy cập phải thông qua IP của EC2 instance + port được cấp ngẫu nhiên
 
 Khi tạo Fargate thì mỗi task sẽ có 1 IP riêng (cả IP public và IP private), truy cập thông qua IP của task, và port là port của container chứ ko phải ngẫu nhiên. Câu hỏi: Nếu hết ip private thì có sinh ra thêm được task mới không? Trả lời là không. Fargate thì không thể xem log = lệnh docker logs được, chỉ có thể xem trên giao diện
+
+---
+
+Các loại network trong ECS
+
+- host mode: map giữa ip của host và eni của container??? không thể run nhiều replicas của 1 task do sẽ bị conflict port
+- bridge mode: map giữa ip của host và eni của container, sau đó đẩy đến network bridge??? Có thể run nhiều replicas của 1 task. Nhược điểm là dynamic port
+- awsvpc mode
