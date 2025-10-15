@@ -14,91 +14,69 @@
   - CloudWatch EventBridge: giúp react với state change của resource.
 
 ## II. CloudWatch Metric
+### 1. Standard metric
 - Tất cả services trong AWS đều gửi metric đến CloudWatch. Metric của mỗi service thuộc 1 namespace (VD namespace EC2, ApplicationELB, ASG,...).
 - Metric có dimension để giúp phân biệt metric của object nào (VD: instance ID, environment, ...). Khi tìm 1 metric trong dashboard của Cloudwatch sẽ có dạng
 ```
-  dimension1    dimension2    ...    dimensionN    metricName
+  dimension1    dimension2    ...    dimensionN    Metric Name    Alarms
    <value>        <value>              <value>       <name>
 ```
+- Có thể tạo dashboard để nhóm các metric mong muốn (Vào Metric ➝ Action ➝ Add to dashboard).
+- Cloudwath metrics có thể stream continuosly vào Kinesis Data Firehose hoặc các 3rd party app như Splunk, Datadog, NewRelic theo kiểu near-real-time. Có thể chọn để stream all metrics hoặc filter metrics mong muốn.
+- Mặc định EC2 gửi metric đến Cloudwatch 5 phút 1 lần và chỉ gửi được các metrics như CPUUtilization, DiskReadOps, NetworkIn, StatusCheckFailed.
+  - Nếu enable detailed EC2 monitoring có thể gửi metrics 1 phút 1 lần (mất phí)
+  - Nếu cài UCA (Unified CloudWatch Agent) thì có thể collect thêm system-level metric (memory, disk usage, ...) và log. UCA còn có thể cài trên on-prem. Config của các UCA có thể quản lý tập trung bằng SSM Parameter Store.
 
-Có thể tạo dashboard để nhóm các metric mong muốn (Xao Metric).
+### 2. Custom Metric
+- Ngoài các metric có sẵn, có thể dùng PutMetricData API để tạo custom metric (bản chất UCA cũng dùng API này).
+- Custom metric có thể push dữ liệu vào thời gian 2 tuần ngược về quá khứ và 2 giờ tới trong tương lai, không nhất thiết timestamp phải là hiện tại
+- Command để push custom metric: ```aws cloudwatch put-metric-data --metric-name <name> --namespace <name> --unit <unit> --value <value> --dimensions <key=value> <key=value> ... --storage-resolution <value> --timestamp <value>```
+  - Storage resolution: là tần số 1 data point hiện thị trên dashboard, default là 60s. Nếu metric được push lên Cloudwatch với tần số nhỏ hơn 60s (VD 10s push 1 lần) và ta muốn xem dashboard với resolution là 10s thì cần set parameter này.
+  - Timestamp (optional): nếu không chỉ định timestamp thì sẽ lấy thời gian hiện tại.
 
-CW metrics có thể stream, gửi tới analytic, monitoring các 3rd party app như Splunk, Datadog, NewRelic theo kiểu near-real-time, có thể chọn để stream all metrics hoặc filter metrics mong muốn.
+### 3. Amazon Lookout for Metrics
+- Là AWS service dùng Machine Learning để tự động phát hiện metric bất thường, phân tích và chỉ ra root cause
+- Có thể dùng phân tích metric của nhiều dịch vụ trong AWS và cả 3rd party SaaS app (thông qua AppFlow).
+- Result có thể gửi về SNS, Lambda, Slack, Webhook hoặc visualize trên AWS Console.
 
-(Mặc định: EC2 gửi metric đến CW 5', 1 lần chỉ gửi được các metrics như CPUUtilization, DiskReadOps, NetworkIn, StatusCheckFailed. Nếu enable detailed EC2 monitoring: gửi metrics 1' 1 lần).
+## III. CloudWatch Alarm
+### 1. Các khái niệm
+- Cloudwatch alarm là công cụ dùng để cảnh báo dựa trên metric
+- Period: là khoảng thời gian mà CloudWatch sử dụng để tổng hợp hoặc đánh giá dữ liệu của 1 metric. VD period = 5, CloudWatch sẽ xem xét dữ liệu trong khoảng 5 phút để thực hiện tính toán các giá trị thống kê như Average/Maximum/Minimum/Sum.
+- Data point: là 1 giá trị cụ thể của 1 metric tại 1 thời điểm. VD CPU của 1 EC2 tại 10h là 25% là 1 data point. 1 data point có thể bao gồm nhiều thông tin thống kê như Average/Max/Min/Sum/Percentile/SampleCount. Trong 1 period số lượng data point không cố định mà phụ thuộc vào tần số thu thập dữ liệu của metric. Ví dụ với Standard monitoring trong 1 period 5 phút có 1 data point còn với Detailed monitoring trong 1 period 5 phút có 5 datapoints (tuy nhiên khi hiển thị hoặc đánh giá trong Cloudwatch alarm, các datapoint này thường được tổng hợp thành 1 giá trị thống kê duy nhất cho mỗi period. VD nếu period là 5 phút và có 5 datapoint, Cloudwatch có thể tính giá trị trung bình của 5 điểm đó để đại diện cho period)
+- Thiết lập CW alarm “M out of N” nghĩa là định nghĩa số lượng data points M cần vượt ngưỡng trong N period. VD “2 out of 3 datapoints” nghĩa là cần 2 trong 3 datapoints vượt ngưỡng trong khoảng thời gian đánh giá (1 period đại diện bởi 1 datapoint).
+- Có 2 loại alarm:
+  - Metric alarm - warning dựa trên 1 metric
+  - Composite alarm - warning dựa trên nhiều metric.
+- Các loại alarm state:
+  - OK: metric trong ngưỡng
+  - ALARM: metric quá ngưỡng / dưới ngưỡng
+  - INSUFFICIENT_DATA: chưa đủ data
+- VD alarm: EC2 gửi metric đến CloudWatch ➝ alarm nếu metric vượt ngưỡng ➝ trigger ASG scale thêm.
+- CloudWatch Alarm có các target:
+  - EC2 (stop, terminate, reboot hoặc recover)
+  - Trigger ASG
+  - Gửi notification đến SNS 
+  - Trigger lambda
+  - Systems Manager
+- Composite alarm: monitor state của nhiều alarm kết hợp lại. Các alarm member có thể dùng OR/AND để combine vào nhau ➝ giảm "alarm noise". VD composite alarm chỉ trigger khi đồng thời CPU và network vượt ngưỡng.
 
-Nếu cài UCA (Unified CloudWatch Agent) thì có thể collect thêm system-level metric (memory, disk usage, ...) và log. UCA còn có thể cài trên on-prem. UCA có thể quản lý logging tập trung bằng SSM Parameter Store.
+### 2. Recovery EC2 instance bằng CloudWatch Alarm
+- Bản thân EC2 có built-in status check (health check). Status check sẽ thực hiện check:
+  - Instance status: check OS
+  - System status: check underlying hardware
+  - EBS: check EBS health
+➝ Ta có thể define Cloudwatch alarm dựa trên status check và metric. Nếu alarm breached thì thực hiện recovery (khi failed metric = 1 ➝ alarm breached).
 
-Custom Metric
+Cách làm: EC2 ➝ Status check ➝ Actions ➝ Create status check alarm ➝ alarm threshold = status check failed)
 
-Ngoài các metric có sẵn, có thể dùng PutMetricData API để tạo custom metric (bản chất UCA cũng dùng API này).
-
-
-Custom metric có thể push dữ liệu thời gian ở quá khứ và hiện tại. Nếu push thời gian tương lai thì bắt buộc phải có timestamp.
-
-Command: aws cloudwatch put-metric-data --metric-name <name> --namespace <name> --unit <unit> --value <value> --dimensions <key=value> <key=value> ... --storage-resolution <value> --timestamp <value>
-
-Trong đó:
-
-Storage resolution: là tần số 1 data point hiện thị trên dashboard, default là 60s. Nếu metric được push lên CW với tần số 60s thì dashboard hiển thị resolution 60s, còn có thể set parameter này.
-
-Timestamp (optional): nếu không set thì sẽ lấy thời gian hiện tại.
-
-Amazon Lookout for Metrics
-
-Là AWS service dùng ML để tự động phát hiện metric bất thường, phân tích bộ chỉ số liên tục, có thể dùng phân tích metric của nhiều dịch vụ trong AWS và cả 3rd party SaaS app (thông qua app flow).
-
-Result có thể gửi về SNS, Lambda, Slack, Webhook hoặc visualize trên AWS Console.
-
-CloudWatch Alarm
-
-CloudWatch Alarm – Các khái niệm
-
-Period: là khoảng thời gian mà CloudWatch sử dụng để tổng hợp hoặc đánh giá dữ liệu của 1 metric. VD period = 5, CloudWatch sẽ xem xét dữ liệu trong khoảng 5’, để thực toán các giá trị thống kê như Average/Maximum/Minimum/Sum.
-
-Data point: là 1 giá trị cụ thể của 1 metric tại 1 thời điểm. VD CPU của 1 EC2 tại 10h là 25% là 1 data point. 1 data point có thể bao gồm nhiều thống kê như Average/Max/Min/Sum/Percentile/SampleCount. Trong 1 period sẽ tổng hợp data point.
-
-VD Standard monitoring gửi 1 period 5’ có 1 data point còn Detailed monitoring gửi 1 period 5’ có 5 datapoints (mỗi 1’).
-
-Trạng thái duy nhất cho mỗi period. VD period là 5’, có 5 datapoint, CW sẽ tính giá trị trung bình của 5 điểm đó để đại diện cho period.
-
-Thiết lập CW alarm “M out of N” nghĩa là định nghĩa số lượng data points cần vượt ngưỡng trong một N period. VD “2 out of 3 datapoints” nghĩa là cần 2 trong 3 datapoints vượt ngưỡng trong khoảng thời gian đánh giá (1 period đại diện bởi 1 datapoint).
-
-Dùng để cảnh báo dựa trên metric.
-
-Có 2 loại alarm: metric alarm - warning dựa trên 1 metric; composite alarm - warning dựa trên nhiều metric.
-
-Các loại alarm state:
-
-OK: metric trong ngưỡng
-
-ALARM: metric quá ngưỡng / dưới ngưỡng
-
-INSUFFICIENT_DATA: chưa đủ data
-
-VD alarm: EC2 gửi metric đến CloudWatch -> alarm nếu metric vượt ngưỡng -> trigger ASG scale thêm.
-
-
-CloudWatch Alarm có 3 target chính:
-+ EC2 (stop, terminate, reboot hoặc recover)
-+ Trigger ASG
-+ Gửi notification đến SNS (sau đó trigger Lambda,...)
-
-Composite alarm: monitor state của nhiều alarm kết hợp lại. Các alarm member có thể dùng OR/AND để combine vào nhau, giảm nhầm noise của composite alarm, chỉ trigger khi đồng thời CPU và network vượt ngưỡng.
-
-EC2 instance recovery bằng CloudWatch Alarm
-- Bản thân EC2 có built-in status check (health check) status check sẽ thực hiện check:
-+ Instance status: check OS
-+ System status: check underlying hardware
-+ EBS: check EBS’s health
-- Tạo thêm defined CW alarm dựa trên status check và metric, nếu alarm breached thì thực hiện recovery (thì failed metric = 1, alarm breached).
-
-Mỗi alarm sẽ có 7 states check và Actions: create status check, EC2 recovery, assign EIP, nếu có, metadata và placement group (thay đổi ASG khi scale-out thì private và EIP thay đổi).
-
-Có thể test alarm bằng CLI:
+- EC2 recovery: sẽ tạo ra 1 EC2 có cùng private IP và public IP (cùng ENI nếu có), metadata và placement group (khác với ASG khi scale-out thì private và EIP thay đổi)
+- Có thể test alarm bằng CLI:
+```
 aws cloudwatch set-alarm-state --alarm-name <name> --state-value ALARM --state-reason <test>
+```
 
-CloudWatch anomaly detection
+### 3. CloudWatch anomaly detection
 - Là dịch vụ của AWS, dùng Machine Learning để xác định normal metric pattern (shape của đồ thị), nếu metric vượt ngoài đồ thị → bất thường.
 - Anomaly detection khác với đặt threshold cho metric, threshold là 1 đường thẳng ngang, còn anomaly detection là tìm pattern mang tính chu kỳ.
 
