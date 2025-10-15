@@ -88,3 +88,11 @@ phân biệt task execution role và task role
 Khi container khởi tạo lên sẽ có 2 giai đoạn:
 - giai đoạn khởi động sẽ cần sử dụng task execution role (VD gọi ECR, viết log vào CW) -> task execution role là bắt buộc phải có, có thể dùng role do aws tạo sẵn tên là AmazonECSTaskExecutionRolePolicy
 - giai đoạn thực thi sau khi khởi động lên sẽ dùng task role (VD gọi vào dynamodb, s3,..)
+
+---
+
+Sự khác biệt giữa Farget và EC2 launch type
+
+Khi tạo EC2 launch type thì các task có thể nằm chung trong 1 EC2 instance, muốn truy cập phải thông qua IP của EC2 instance + port được cấp ngẫu nhiên
+
+Khi tạo Fargate thì mỗi task sẽ có 1 IP riêng (cả IP public và IP private), truy cập thông qua IP của task, và port là port của container chứ ko phải ngẫu nhiên. Câu hỏi: Nếu hết ip private thì có sinh ra thêm được task mới không? Trả lời là không. Fargate thì không thể xem log = lệnh docker logs được, chỉ có thể xem trên giao diện
