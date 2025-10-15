@@ -222,6 +222,11 @@ Resources:
 - Cú pháp: !Sub "chuỗi có ${variable}" . Trong đó ${variable} là biến sẽ được thay thế bằng giá trị tương ứng. Biến có thể là giá trị tham số, giá trị từ stack hoặc một tham số truyền vào.
 - Ví dụ !Sub "${AWS::StackName}-Subnet1" sẽ thay thế ${AWS::StackName} bằng tên stack hiện tại rồi nối thêm "-Subnet1".
 
+### 6. Hàm Join
+-  Dùng để nối các giá trị chuỗi thành một chuỗi duy nhất, với một ký tự phân tách (delimiter) giữa các giá trị. Nếu phần phân tách là chuỗi rỗng, các chuỗi sẽ được nối liền nhau không có ký tự ngăn cách.
+- Cú pháp: !Join [ "delimiter", [ "value1", "value2", "value3" ] ]
+- Ví dụ:  !Join [ "-", [ !Ref NamePrefix, !Ref Env, !Ref AWS::Region ] ]
+
 ### 6. Hàm GetAZs ""
 - Dùng để lấy về một mảng các Availability Zones của vùng (region) hiện tại, sắp xếp theo thứ tự chữ cái.
 
