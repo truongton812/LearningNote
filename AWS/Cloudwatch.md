@@ -80,76 +80,83 @@ aws cloudwatch set-alarm-state --alarm-name <name> --state-value ALARM --state-r
 - Là dịch vụ của AWS, dùng Machine Learning để xác định normal metric pattern (shape của đồ thị), nếu metric vượt ngoài đồ thị → bất thường.
 - Anomaly detection khác với đặt threshold cho metric, threshold là 1 đường thẳng ngang, còn anomaly detection là tìm pattern mang tính chu kỳ.
 
-Logs
+## IV. Cloudwatch Logs
+### 1. Cloudwatch logs
+- Là nơi lưu trữ log của system và app (cả cloud và on-prem).
+- Các loại log trong CloudWatch log:
+  - Application log:
+    - Là log được sinh ra từ application code, gồm custom log message, stack traces,... Log này thường được lưu dưới dạng file trên OS.
+    - Nếu app running trên EC2 → cài UCA để collect và stream log vào CloudWatch log.
+    - App run bằng Lambda, ECS, Fargate, Beanstalk được tích hợp để gửi log trực tiếp đến CloudWatch log.
+  - OS log:
+    - Là event logs, system logs mà OS generate ra (VD /var/log/messages, /var/log/auth.log).
+    - Dùng UCA để stream log files vào CloudWatch log.
+  - Access log:
+    - Là log client access vào service (VD LB, proxy, webserver).
+    - Thường mỗi service có 1 access log file riêng → dùng UCA để đẩy vào CloudWatch log.
+  - AWS managed log:
+    - ELB access log: log access vào LB → gửi đến S3.
+    - CloudTrail logs: logs các API call → gửi đến S3 và CloudWatch logs.
+    - VPC Flow logs: log traffic in/out VPC → gửi đến S3 và CloudWatch logs.
+    - R53 access logs: log query R53 → gửi đến CloudWatch logs.
+    - S3 access logs: log truy cập S3 → gửi đến S3 bucket khác.
+    - CloudFront access logs: log request đến CloudFront → gửi đến S3.
+  - Log default được encrypt, hoặc có thể encrypt bằng key của mình thông qua KMS, có thể define expiration (never expire hoặc từ 1 ngày → 10 năm).
+- Để dùng CloudWatch log cần tạo log group (thường là 1 AWS service hoặc 1 application có 1 log group), trong log group tạo các log stream: mỗi 1 stream tương ứng với log của instances/files/containers.
+- Source gửi log vào CloudWatch log:
+  - SDK, cloudwatch unified agent
+  - Elastic Beanstalk: collect log của app
+  - ECS: send container logs
+  - Lambda: send function logs
+  - VPC flow logs: send VPC logs
+  - API GW: send request logs gửi đến API GW
+  - CloudTrail: send log dựa vào filter
+  - R53: DNS query
+- Từ CloudWatch log có thể gửi log tới:
+  - S3 (batch export, max 12h): dùng CreateExportTask API
+  - Kinesis Data Stream/Firehose
+  - Lambda
+  - OpenSearch
+- Có thể áp filter vào log để đưa vào vào thành metric trong CloudWatch metric (dùng tab “Metric Filter”). VD: filter dòng “install failed” để mỗi lần “install failed” xuất hiện thì tăng metric; vượt ngưỡng thì alarm. Note: metric filter không retroactive, chỉ sinh từ thời điểm tạo filter.
 
-Để dùng CloudWatch log cần tạo log group (thường là AWS service hoặc app có 1 log group), trong log group tạo các log stream: mỗi 1 stream tương ứng với log của 1 instance/app/container.
+### 2. CloudWatch Live Tail
+- Là tính năng để xem live log (following).
 
-Source gửi log vào CloudWatch log:
+### 3. CloudWatch Log Insight
+- Dùng để query log trong CloudWatch log, result sẽ được visualized.
+- Có thể query multiple log groups across multiple accounts.
 
-SDK, cloudwatch unified agent
+### 4. CloudWatch Logs Subscriptions
+- Dùng để filter log từ CloudWatch log và forward đến các dest khác.
+- Lợi ích: Filter được log và đẩy log near-real-time (nếu không dùng logs subscription thì chỉ batch export vào S3 thông qua API CreateExportTask).
+```
 
-Elastic Beanstalk: collect log của app
+                                        | ---> Kinesis Data Firehose ---> S3/OpenSearch
+         logs                           |
+CW Log  -----> Logs Subscription Filter | ---> Kinesis Data Stream   ---> Kinesis Data Firehose/ Kinesis Data Analytics/ EC2/ Lambda
+                                        |
+                                        | ---> Lambda
+                                        |
+                                        | ---> Elasticsearch
+```
 
-ECS: send container logs
+- Có thể aggregate logs từ multi-regions và multi-accounts.
 
-Lambda: send function logs
+```
+Acc A: Cloudwatch ---> Subscription filter ---> |
+                                                | ---> Acc C: Subscription destination ------------------------> Kinesis Data Stream
+Acc B: Cloudwatch ---> Subscription filter ---> |      - Cần policy cho phép subscription filter trong acc              ^
+                                                         A và acc B send data vào destination này                       |
+                                                       - IAM trong acc C cho phép acc A/B assume role này               |
+                                                         và action là "Kinesis: put record." ----------------------------
+```
 
-VPC flow logs: send VPC logs
-
-API GW: send request logs gửi đến API GW
-
-CloudTrail: send log dựa vào filter
-
-R53: DNS query
-
-Từ CloudWatch log có thể gửi log tới:
-
-S3 (batch export max 12h): dùng CreateExportTask API
-
-Kinesis Data Stream/Firehose
-
-Lambda
-
-OpenSearch
-
-Có thể áp filter vào log để đưa vào thành metric trong CloudWatch metric (dùng tab “Metric Filter”). VD: filter dòng “install failed”, mỗi lần install lỗi xuất hiện thì tăng metric; vượt ngưỡng thì alarm.
-
-Note: metric filter là retroactive, chỉ sinh từ thời điểm filter.
-
-CloudWatch Live Tail: tính năng để xem live log (following).
-
-
-CloudWatch Log Insight
-
-Dùng để query log trong CloudWatch log, result sẽ được visualized.
-
-Có thể query multiple log groups across multiple accounts.
-
-CloudWatch Logs Subscriptions
-
-Dùng để filter log từ CloudWatch log và forward đến các dest khác. Filter được log và đẩy log near-real-time (nếu không dùng logs subscription thì chỉ batch export đi vào S3 qua API CreateExportTask).
-
-Dùng logs subscription filter cho: ElasticSearch, KDFirehose, KDSstream, KDFirehose/KDAnalytics, EC2, Lambda.
-
-[Diagram mô tả luồng: CW log -> logs subscription filter -> các đích như S3/OpenSearch, KDFirehose, KDSstream, Lambda]
-
-
-Có thể aggregate logs từ multi-regions và multi-accounts.
-
-Acc A: CW → Subscription filter → Subscription destination → KDSstream (acc C)
-Acc B: CW → Subscription filter → acc C (nơi nhận)
-
-Cần phải cấp quyền sub filter trong acc A/acc B send data vào destination này. IAM ở trong acc C cho phép acc A/B assume role này và action là Kinesis: put record.
-
-EventBridge (former CloudWatch Event)
-
-Là service giúp tuyến sự kiện (event routing) từ nhiều nguồn đến AWS service hoặc external API để có thể react với các thay đổi của AWS và non-AWS resource.
-
-EventBridge còn dùng để tạo cronjob (VD: schedule trigger…).
-
-Các khái niệm trong EventBridge:
-
-Event source: là nguồn sinh ra sự kiện khi các resources trên AWS có sự thay đổi.
+## V. EventBridge (former CloudWatch Event)
+- Là service giúp định tuyến sự kiện (event routing) từ nhiều nguồn đến các AWS services khác hoặc external API → từ đó react với các thay đổi của AWS và non-AWS resources.
+- EventBridge còn dùng để tạo cronjob (VD 1 tiếng trigger lambda 1 lần)
+- Các khái niệm trong EventBridge:
+  - Event: định dạng json, sinh ra khi các resources trên AWS thay đổi trạng thái.
+  - Event source: sinh ra từ nhiều nguồn
 
 Event Dest: Lambda, AWS Batch, ECS task, SQS, SNS, Kinesis, Step Function, CodePipeline, CodeBuild, SSM, EC2 action (start, restart,...).
 
