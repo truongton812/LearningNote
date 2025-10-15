@@ -8,6 +8,43 @@ Task Definition mô tả chi tiết về một hoặc nhiều container (tối �
 
 Nó là một tập tin cấu hình (dạng JSON) quy định container nào và tham số thế nào.
 
+Tạo task definition
+```
+{
+  "family": "webserver",
+  "containerDefinitions": [
+    {
+      "name": "web",
+      "image": "nginx",
+      "memory": 100,
+      "cpu": 99,
+      "essential": true
+    }
+  ],
+  "requiresCompatibilities": [
+    "FARGATE"
+  ],
+  "networkMode": "awsvpc",
+  "memory": "512",
+  "cpu": "256"
+}
+```
+
+Ý nghĩa các phần
+
+"family": Nhóm task definition; có thể sử dụng để versioning.
+
+"containerDefinitions": Định nghĩa thông số từng container, bao gồm tên, image, dung lượng RAM, CPU.
+
+"requiresCompatibilities": Chọn loại hạ tầng chạy container (ví dụ FARGATE, EC2).
+
+"networkMode": Chọn kiểu mạng (awsvpc dùng cho Fargate).
+
+"memory" và "cpu": Dung lượng tổng cho Task definition.​
+
+Bạn có thể custom thêm các trường như portMappings, environment, hoặc gắn volume theo nhu cầu
+
+
 2. Task (Tác vụ)
 Một Task là một phiên bản chạy thực tế của một Task Definition.
 
@@ -16,6 +53,7 @@ Khi bạn khởi chạy một Task Definition trên cluster ECS, nó tạo ra m�
 Task chạy các container theo định nghĩa trong Task Definition.
 
 Các Task có thể chạy độc lập, hoặc do Service quản lý.
+
 
 3. Service (Dịch vụ)
 Service dùng để quản lý và duy trì số lượng Task chạy liên tục theo mong muốn.
