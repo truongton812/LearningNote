@@ -69,6 +69,18 @@ Task: Phiên bản chạy thực tế.
 
 Service: Đơn vị quản lý nhiều Task liên tục.
 
+
+### Mối quan hệ
+
+Khi vào ECS cluster sẽ có 2 tab ở dưới là service và task
+
+Click vào để chọn tạo service hoặc task từ task definition
+
+Trong mục tạo service có thể define số lượng task cần chạy, các task đấy sẽ thuộc sự quản lý của service 
+
+Trong mục tạo task cũng có thể define số lượng task cần chạy, nhưng task run lên từ đấy không được ai quản lý cả
+
+
 ---
 
 phân biệt task execution role và task role
