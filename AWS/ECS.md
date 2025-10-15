@@ -104,3 +104,59 @@ Các loại network trong ECS
 - host mode: map giữa ip của host và eni của container??? không thể run nhiều replicas của 1 task do sẽ bị conflict port
 - bridge mode: map giữa ip của host và eni của container, sau đó đẩy đến network bridge??? Có thể run nhiều replicas của 1 task. Nhược điểm là dynamic port
 - awsvpc mode
+
+Amazon ECS hỗ trợ 4 chế độ network (network mode) khác nhau để kiểm soát cách container giao tiếp với nhau, với host, và mạng bên ngoài.​
+
+1. Bridge mode (Mặc định trên Linux)
+Dựa trên cơ chế Docker bridge network.
+
+Mỗi container trong cùng một host sẽ kết nối qua một mạng ảo nội bộ (docker0 bridge).
+
+Cho phép port mapping động (ví dụ: container chạy port 80 nhưng ánh xạ thành port ngẫu nhiên trên host).
+
+Ưu điểm: dễ cấu hình, cách biệt giữa các container.
+
+Nhược điểm: có overhead hiệu năng do xử lý NAT nội bộ.
+
+2. Host mode
+Container dùng trực tiếp network interface của host EC2.
+
+Container chia sẻ IP và network stack với EC2 instance chứa nó.
+
+Ưu điểm: hiệu năng cao hơn Bridge (do bỏ qua lớp NAT).
+
+Nhược điểm: không thể chạy nhiều container cùng port trên cùng một host, vì trùng cổng sẽ xung đột.
+
+3. awsvpc mode
+Mỗi Task có Elastic Network Interface (ENI) riêng trong VPC.
+
+Mỗi task có địa chỉ IP riêng như một EC2 instance độc lập và có thể gán Security Group riêng.​
+
+Đây là chế độ duy nhất được ECS Fargate hỗ trợ.
+
+Ưu điểm: cách ly mạnh, quản lý bảo mật và kết nối chi tiết hơn.
+
+Nhược điểm: chiếm tài nguyên nhiều hơn (mỗi task thêm 1 ENI).
+
+4. None mode
+Tắt hoàn toàn mạng bên ngoài container.
+
+Chỉ tồn tại loopback interface bên trong container.
+
+Không hỗ trợ port mapping.
+
+Dùng cho trường hợp đặc biệt (container không cần giao tiếp ngoài, hoặc tự định nghĩa driver mạng riêng).
+
+| Network mode | IP riêng cho task        | Cần EC2 Host    | Hỗ trợ Fargate | Hiệu năng         | Port mapping |
+|--------------|--------------------------|-----------------|----------------|-------------------|--------------|
+| bridge       | Không                    | Có              | Không          | Trung bình        | Có           |
+| host         | Không (chia sẻ host)     | Có              | Không          | Cao               | Không        |
+| awsvpc       | Có                       | Có hoặc Fargate  | Có             | Cao               | Có           |
+| none         | Không                    | Có              | Không          | Không giao tiếp   | Không        |
+
+
+Trong thực tế:
+
+Fargate chỉ cho phép awsvpc.
+
+Với EC2 launch type, bạn có thể chọn giữa bridge, host, hoặc awsvpc tùy yêu cầu hiệu năng, bảo mật và khả năng mở rộng.​
