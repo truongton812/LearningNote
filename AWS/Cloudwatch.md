@@ -144,11 +144,13 @@ CW Log  -----> Logs Subscription Filter | ---> Kinesis Data Stream   ---> Kinesi
 
 ```
 Acc A: Cloudwatch ---> Subscription filter ---> |
-                                                | ---> Acc C: Subscription destination ------------------------> Kinesis Data Stream
-Acc B: Cloudwatch ---> Subscription filter ---> |      - Cần policy cho phép subscription filter trong acc              ^
-                                                         A và acc B send data vào destination này                       |
-                                                       - IAM trong acc C cho phép acc A/B assume role này               |
-                                                         và action là "Kinesis: put record." ----------------------------
+                                                | ---> Acc C: Subscription destination ------------> Kinesis Data Stream
+Acc B: Cloudwatch ---> Subscription filter ---> |      - Cần policy cho phép subscription                   ^
+                                                         filter trong acc A và acc B                        |
+                                                         send data vào destination này                      | put record
+                                                       - IAM trong acc C cho phép acc A/B                   |
+                                                         assume role này và action là                       |
+                                                         "Kinesis: put record." ----------------------------|
 ```
 
 ## V. EventBridge (former CloudWatch Event)
