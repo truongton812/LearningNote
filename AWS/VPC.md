@@ -22,3 +22,566 @@ Internet GW là bound với VPC
 security group bound với vpc
 
 elb bound với vpc, có thể span trên nhiều az
+
+```
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: MIT-0
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Template for building a sample VPC with subnets and a prefix list shared to member accounts in an AWS Organization. 
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: VPC Configuration Details
+        Parameters: 
+            - vpcCIDR
+            - vpcAccountIds
+            - publicTierAccountIds
+            - privateTierAccountIds
+            - dbTierAccountIds
+      - Label:
+          default: Required Parameters
+        Parameters:
+            - s3Bucket
+            - orgArn
+            - env
+    ParameterLabels:
+      vpcCIDR:
+        default: IP Range for VPC
+      vpcAccountIds:
+        default: Accounts that will access the shared VPC
+      publicTierAccountIds:
+        default: Accounts with Public Subnet Access
+      privateTierAccountIds:
+        default: Accounts with Private Subnet Access
+      dbTierAccountIds:
+        default: Accounts with Database Subnet Access
+      s3Bucket:
+        default: S3 template bucket
+      orgArn:
+        default: Amazon Resource Number (ARN) for the AWS Organization
+      env:
+        default: SDLC Environment of this VPC
+
+Parameters:
+  s3Bucket:
+    Type: String
+    Description: S3 bucket holding template files
+  vpcAccountIds:
+    Type: String
+    Description: Comma delimited list of Account ID requiring shared VPC access
+  publicTierAccountIds:
+    Type: String
+    Description: Comma delimited list of Account ID requiring Public Subnet access
+  privateTierAccountIds:
+    Type: String
+    Description: Comma delimited list of Account ID requiring Private Subnet access
+  dbTierAccountIds:
+    Type: String
+    Description: Comma delimited list of Account ID requiring Database Subnet access
+  vpcCIDR:
+    Type: String
+    Description: IP Range in CIDR format (max /16)
+    AllowedPattern: '^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/([0-9]|[1-2][0-9]|3[0-2]))$'
+  orgArn:
+    Type: String
+    Description: AWS Organization ARN
+    AllowedPattern: '^arn:aws:organizations::\d{12}:organization\/o-[a-z0-9]{10,32}'
+  env:
+    Type: String
+    Description: SDLC Environment
+    AllowedValues:
+      - Dev
+      - Test
+      - Prod
+
+Resources:
+  # Provides a list of IP ranges that can be used in security groups and routing tables
+  # to provide access from on-premises networks
+  OnPremPrefixList:
+    Type: AWS::EC2::PrefixList
+    Properties:
+      PrefixListName: "on-prem-networks"
+      AddressFamily: "IPv4"
+      MaxEntries: 10
+      Entries:
+        - Cidr: "10.100.1.0/24" # This value can be moved to a parameter for reusability 
+          Description: "Charlotte Office"
+        - Cidr: "10.100.2.0/26"
+          Description: "Seattle Office"
+      Tags:
+        - Key: "Name"
+          Value: "Ops team networks"
+        - Key: Environment
+          Value: !Ref env
+  
+  # Construct your VPC components here.  Note we are using the intrisic function !CIDR here
+  # to subnet our VPC range.  You could also assign this value via a parameter to provide more 
+  # flexbility in subnet sizing.
+  VPC:
+    Type: 'AWS::EC2::VPC'
+    Properties:
+      CidrBlock: !Ref vpcCIDR
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      InstanceTenancy: default
+      Tags:
+        - Key: Name
+          Value: !Join 
+            - '-'
+            - - !Ref 'AWS::StackName'
+              - 'vpc'
+        - Key: Environment
+          Value: !Ref env
+  PublicSubnet1:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Select [ 0, !Cidr [ !Ref vpcCIDR, 6, 4 ]]
+      MapPublicIpOnLaunch: true
+      AvailabilityZone: !Select 
+        - 0
+        - !GetAZs 
+          Ref: 'AWS::Region'
+      Tags:
+        - Key: Name
+          Value: !Join 
+            - '-'
+            - - !Ref 'AWS::StackName'
+              - 'public-subnet1'
+        - Key: Environment
+          Value: !Ref env
+  PublicSubnet2:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Select [ 1, !Cidr [ !Ref vpcCIDR, 6, 4 ]]
+      MapPublicIpOnLaunch: true
+      AvailabilityZone: !Select 
+        - 1
+        - !GetAZs 
+          Ref: 'AWS::Region'
+      Tags:
+        - Key: Name
+          Value: !Join 
+            - '-'
+            - - !Ref 'AWS::StackName'
+              - 'public-subnet2'
+        - Key: Environment
+          Value: !Ref env
+  PrivateSubnet1:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Select [ 2, !Cidr [ !Ref vpcCIDR, 6, 4 ]]
+      MapPublicIpOnLaunch: false
+      AvailabilityZone: !Select 
+        - 0
+        - !GetAZs 
+          Ref: 'AWS::Region'
+      Tags:
+        - Key: Name
+          Value: !Join 
+            - '-'
+            - - !Ref 'AWS::StackName'
+              - 'private-subnet1'
+        - Key: Environment
+          Value: !Ref env
+  PrivateSubnet2:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Select [ 3, !Cidr [ !Ref vpcCIDR, 6, 4 ]]
+      MapPublicIpOnLaunch: false
+      AvailabilityZone: !Select 
+        - 1
+        - !GetAZs 
+          Ref: 'AWS::Region'
+      Tags:
+        - Key: Name
+          Value: !Join 
+            - '-'
+            - - !Ref 'AWS::StackName'
+              - 'private-subnet2'
+        - Key: Environment
+          Value: !Ref env
+  DbSubnet1:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Select [ 4, !Cidr [ !Ref vpcCIDR, 6, 4 ]]
+      MapPublicIpOnLaunch: false
+      AvailabilityZone: !Select 
+        - 0
+        - !GetAZs 
+          Ref: 'AWS::Region'
+      Tags:
+        - Key: Name
+          Value: !Join 
+            - '-'
+            - - !Ref 'AWS::StackName'
+              - 'db-subnet1'
+        - Key: Environment
+          Value: !Ref env
+  DbSubnet2:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Select [ 5, !Cidr [ !Ref vpcCIDR, 6, 4 ]]
+      MapPublicIpOnLaunch: false
+      AvailabilityZone: !Select 
+        - 1
+        - !GetAZs 
+          Ref: 'AWS::Region'
+      Tags:
+        - Key: Name
+          Value: !Join 
+            - '-'
+            - - !Ref 'AWS::StackName'
+              - 'db-subnet2'
+        - Key: Environment
+          Value: !Ref env
+  InternetGateway:
+    Type: 'AWS::EC2::InternetGateway'
+  InternetGatewayAttachment:
+    Type: 'AWS::EC2::VPCGatewayAttachment'
+    Properties: 
+      InternetGatewayId: !Ref InternetGateway
+      VpcId: !Ref VPC
+  PublicRouteTable:
+    Type: 'AWS::EC2::RouteTable'
+    Properties: 
+      Tags: 
+        - Key: Name
+          Value: PublicRouteTable
+      VpcId: !Ref VPC
+  PublicRoute:
+    Type: 'AWS::EC2::Route'
+    Properties: 
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+      RouteTableId: !Ref PublicRouteTable
+  PublicSubnet1RouteTableAssociation:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties: 
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnet1
+  PublicSubnet2RouteTableAssociation:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties: 
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnet2
+
+  # Share resources to target accounts
+  PublicSubnetsShare:
+    Type: "AWS::RAM::ResourceShare"
+    DependsOn:
+        - PublicSubnet1Id
+        - PublicSubnet2Id
+    Properties:
+      Name: "Public Subnet Shares"
+      ResourceArns:
+        - !Sub 'arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:subnet/${PublicSubnet1}'
+        - !Sub 'arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:subnet/${PublicSubnet2}'
+      Principals: !Split [ ",", !Ref publicTierAccountIds ]
+      Tags:
+        - Key: "Environment"
+          Value: !Ref env
+  PrivateSubnetsShare:
+    Type: "AWS::RAM::ResourceShare"
+    DependsOn:
+      - PrivateSubnet1Id
+      - PrivateSubnet2Id
+    Properties:
+      Name: "Private Subnet Shares"
+      ResourceArns:
+        - !Sub 'arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:subnet/${PrivateSubnet1}'
+        - !Sub 'arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:subnet/${PrivateSubnet2}'
+      Principals: !Split [ ",", !Ref privateTierAccountIds ]
+      Tags:
+        - Key: "Environment"
+          Value: !Ref env
+  DbSubnetsShare:
+    Type: "AWS::RAM::ResourceShare"
+    DependsOn:
+      - DbSubnet1Id
+      - DbSubnet2Id
+    Properties:
+      Name: "Database Subnet Shares"
+      ResourceArns:
+        - !Sub 'arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:subnet/${DbSubnet1}'
+        - !Sub 'arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:subnet/${DbSubnet2}'
+      Principals: !Split [ ",", !Ref dbTierAccountIds ]
+      Tags:
+        - Key: "Environment"
+          Value: !Ref env
+  OnPremPrefixListShare:
+    Type: "AWS::RAM::ResourceShare"
+    Properties:
+      Name: "OnPrem Prefix List"
+      ResourceArns:
+        - !GetAtt OnPremPrefixList.Arn
+      Principals: 
+        - !Ref orgArn
+      Tags:
+        - Key: "Environment"
+          Value: !Ref env
+
+  # Create SSM Parameters that can be used by member accounts to reference
+  # key attribute values
+  VpcId:
+    Type: AWS::CloudFormation::StackSet
+    Properties: 
+      AdministrationRoleARN: !Sub arn:aws:iam::${AWS::AccountId}:role/NetworkParameterAdminRole
+      Description: Publishes a parameter with the shared VPC ID
+      ExecutionRoleName: NetworkParameterExecutionRole
+      OperationPreferences: 
+          FailureToleranceCount: 1
+          MaxConcurrentCount: 2
+      Parameters: 
+        - ParameterKey: Key
+          ParameterValue: !Sub '/Network/${env}/Vpc'
+        - ParameterKey: Description
+          ParameterValue: !Sub '${env} VPC'
+        - ParameterKey: Value
+          ParameterValue: !Ref VPC
+        - ParameterKey: Type
+          ParameterValue: String
+        - ParameterKey: Env 
+          ParameterValue: !Ref env
+      PermissionModel: SELF_MANAGED
+      StackInstancesGroup: 
+        - DeploymentTargets:
+            Accounts: !Split [ "," , !Ref vpcAccountIds ]
+          Regions:
+            - !Ref 'AWS::Region'
+      StackSetName: !Sub '${env}-VpcIdParameter'
+      Tags: 
+        - Key: Environment
+          Value: !Ref env
+      TemplateURL: !Sub https://${s3Bucket}.s3.amazonaws.com/ssm-parameter-stackset.yaml
+  PublicSubnet1Id:
+    Type: AWS::CloudFormation::StackSet
+    Properties: 
+      AdministrationRoleARN: !Sub arn:aws:iam::${AWS::AccountId}:role/NetworkParameterAdminRole
+      Description: Publishes a parameter with PublicSubnet1's ID
+      ExecutionRoleName: NetworkParameterExecutionRole
+      OperationPreferences: 
+          FailureToleranceCount: 1
+          MaxConcurrentCount: 2
+      Parameters: 
+        - ParameterKey: Key
+          ParameterValue: !Sub '/Network/${env}/PublicSubnet1'
+        - ParameterKey: Description
+          ParameterValue: !Sub 'Public Subnet 1 ID in ${env} VPC'
+        - ParameterKey: Value
+          ParameterValue: !Ref PublicSubnet1
+        - ParameterKey: Type
+          ParameterValue: String
+        - ParameterKey: Env 
+          ParameterValue: !Ref env
+      PermissionModel: SELF_MANAGED
+      StackInstancesGroup: 
+        - DeploymentTargets:
+            Accounts: !Split [ "," , !Ref publicTierAccountIds ]
+          Regions:
+            - !Ref 'AWS::Region'
+      StackSetName: !Sub '${env}-PublicSubnet1IdParameter'
+      Tags: 
+        - Key: Environment
+          Value: !Ref env
+      TemplateURL: !Sub https://${s3Bucket}.s3.amazonaws.com/ssm-parameter-stackset.yaml
+  PublicSubnet2Id:
+    Type: AWS::CloudFormation::StackSet
+    DependsOn: VPC
+    Properties: 
+      AdministrationRoleARN: !Sub arn:aws:iam::${AWS::AccountId}:role/NetworkParameterAdminRole
+      Description: Publishes a parameter with PublicSubnet2's ID
+      ExecutionRoleName: NetworkParameterExecutionRole
+      OperationPreferences: 
+          FailureToleranceCount: 1
+          MaxConcurrentCount: 2
+      Parameters: 
+        - ParameterKey: Key
+          ParameterValue: !Sub '/Network/${env}/PublicSubnet2'
+        - ParameterKey: Description
+          ParameterValue: !Sub 'Public Subnet 2 ID in ${env} VPC'
+        - ParameterKey: Value
+          ParameterValue: !Ref PublicSubnet2
+        - ParameterKey: Type
+          ParameterValue: String
+        - ParameterKey: Env 
+          ParameterValue: !Ref env
+      PermissionModel: SELF_MANAGED
+      StackInstancesGroup: 
+        - DeploymentTargets:
+            Accounts: !Split [ "," , !Ref publicTierAccountIds ]
+          Regions:
+            - !Ref 'AWS::Region'
+      StackSetName: !Sub '${env}-PublicSubnet2IdParameter'
+      Tags: 
+        - Key: Environment
+          Value: !Ref env
+      TemplateURL: !Sub https://${s3Bucket}.s3.amazonaws.com/ssm-parameter-stackset.yaml
+  PrivateSubnet1Id:
+    Type: AWS::CloudFormation::StackSet
+    DependsOn: VPC
+    Properties: 
+      AdministrationRoleARN: !Sub arn:aws:iam::${AWS::AccountId}:role/NetworkParameterAdminRole
+      Description: Publishes a parameter with PrivateSubnet1's ID
+      ExecutionRoleName: NetworkParameterExecutionRole
+      OperationPreferences: 
+          FailureToleranceCount: 1
+          MaxConcurrentCount: 2
+      Parameters: 
+        - ParameterKey: Key
+          ParameterValue: !Sub '/Network/${env}/PrivateSubnet1'
+        - ParameterKey: Description
+          ParameterValue: !Sub 'Private Subnet 1 ID in ${env} VPC'
+        - ParameterKey: Value
+          ParameterValue: !Ref PrivateSubnet1
+        - ParameterKey: Type
+          ParameterValue: String
+        - ParameterKey: Env 
+          ParameterValue: !Ref env
+      PermissionModel: SELF_MANAGED
+      StackInstancesGroup: 
+        - DeploymentTargets:
+            Accounts: !Split [ "," , !Ref privateTierAccountIds ]
+          Regions:
+            - !Ref 'AWS::Region'
+      StackSetName: !Sub '${env}-PrivateSubnet1IdParameter'
+      Tags: 
+        - Key: Environment
+          Value: !Ref env
+      TemplateURL: !Sub https://${s3Bucket}.s3.amazonaws.com/ssm-parameter-stackset.yaml
+  PrivateSubnet2Id:
+    Type: AWS::CloudFormation::StackSet
+    DependsOn: VPC
+    Properties: 
+      AdministrationRoleARN: !Sub arn:aws:iam::${AWS::AccountId}:role/NetworkParameterAdminRole
+      Description: Publishes a parameter with PrivateSubnet2's ID
+      ExecutionRoleName: NetworkParameterExecutionRole
+      OperationPreferences: 
+          FailureToleranceCount: 1
+          MaxConcurrentCount: 2
+      Parameters: 
+        - ParameterKey: Key
+          ParameterValue: !Sub '/Network/${env}/PrivateSubnet2'
+        - ParameterKey: Description
+          ParameterValue: !Sub 'Private Subnet 2 ID in ${env} VPC'
+        - ParameterKey: Value
+          ParameterValue: !Ref PrivateSubnet2
+        - ParameterKey: Type
+          ParameterValue: String
+        - ParameterKey: Env 
+          ParameterValue: !Ref env
+      PermissionModel: SELF_MANAGED
+      StackInstancesGroup: 
+        - DeploymentTargets:
+            Accounts: !Split [ "," , !Ref privateTierAccountIds ]
+          Regions:
+            - !Ref 'AWS::Region'
+      StackSetName: !Sub '${env}-PrivateSubnet2IdParameter'
+      Tags: 
+        - Key: Environment
+          Value: !Ref env
+      TemplateURL: !Sub https://${s3Bucket}.s3.amazonaws.com/ssm-parameter-stackset.yaml
+  DbSubnet1Id:
+    Type: AWS::CloudFormation::StackSet
+    DependsOn: VPC
+    Properties: 
+      AdministrationRoleARN: !Sub arn:aws:iam::${AWS::AccountId}:role/NetworkParameterAdminRole
+      Description: Publishes a parameter with DbSubnet1's ID
+      ExecutionRoleName: NetworkParameterExecutionRole
+      OperationPreferences: 
+          FailureToleranceCount: 1
+          MaxConcurrentCount: 2
+      Parameters: 
+        - ParameterKey: Key
+          ParameterValue: !Sub '/Network/${env}/DbSubnet1'
+        - ParameterKey: Description
+          ParameterValue: !Sub 'DB Subnet 1 ID in ${env} VPC'
+        - ParameterKey: Value
+          ParameterValue: !Ref DbSubnet1
+        - ParameterKey: Type
+          ParameterValue: String
+        - ParameterKey: Env 
+          ParameterValue: !Ref env
+      PermissionModel: SELF_MANAGED
+      StackInstancesGroup: 
+        - DeploymentTargets:
+            Accounts: !Split [ "," , !Ref dbTierAccountIds ]
+          Regions:
+            - !Ref 'AWS::Region'
+      StackSetName: !Sub '${env}-DbSubnet1IdParameter'
+      Tags: 
+        - Key: Environment
+          Value: !Ref env
+      TemplateURL: !Sub https://${s3Bucket}.s3.amazonaws.com/ssm-parameter-stackset.yaml
+  DbSubnet2Id:
+    Type: AWS::CloudFormation::StackSet
+    DependsOn: VPC
+    Properties: 
+      AdministrationRoleARN: !Sub arn:aws:iam::${AWS::AccountId}:role/NetworkParameterAdminRole
+      Description: Publishes a parameter with DbSubnet2's ID
+      ExecutionRoleName: NetworkParameterExecutionRole
+      OperationPreferences: 
+          FailureToleranceCount: 1
+          MaxConcurrentCount: 2
+      Parameters: 
+        - ParameterKey: Key
+          ParameterValue: !Sub '/Network/${env}/DbSubnet2'
+        - ParameterKey: Description
+          ParameterValue: !Sub 'DB Subnet 2 ID in ${env} VPC'
+        - ParameterKey: Value
+          ParameterValue: !Ref DbSubnet2
+        - ParameterKey: Type
+          ParameterValue: String
+        - ParameterKey: Env 
+          ParameterValue: !Ref env
+      PermissionModel: SELF_MANAGED
+      StackInstancesGroup: 
+        - DeploymentTargets:
+            Accounts: !Split [ "," , !Ref dbTierAccountIds ]
+          Regions:
+            - !Ref 'AWS::Region'
+      StackSetName: !Sub '${env}-DbSubnet2IdParameter'
+      Tags: 
+        - Key: Environment
+          Value: !Ref env
+      TemplateURL: !Sub https://${s3Bucket}.s3.amazonaws.com/ssm-parameter-stackset.yaml
+  OnPremPrefixListId:
+    Type: AWS::CloudFormation::StackSet
+    DependsOn: VPC
+    Properties: 
+      AdministrationRoleARN: !Sub arn:aws:iam::${AWS::AccountId}:role/NetworkParameterAdminRole
+      Description: Publishes a parameter with on prem prefix list ID
+      ExecutionRoleName: NetworkParameterExecutionRole
+      OperationPreferences: 
+          FailureToleranceCount: 1
+          MaxConcurrentCount: 2
+      Parameters: 
+        - ParameterKey: Key
+          ParameterValue: !Sub '/Network/${env}/OnPrem-PrefixList'
+        - ParameterKey: Description
+          ParameterValue: 'Prefix List ID for on-premises networks'
+        - ParameterKey: Value
+          ParameterValue: !Ref OnPremPrefixList
+        - ParameterKey: Type
+          ParameterValue: String
+        - ParameterKey: Env 
+          ParameterValue: !Ref env
+      PermissionModel: SELF_MANAGED
+      StackInstancesGroup: 
+        - DeploymentTargets:
+            Accounts: !Split [ "," , !Ref vpcAccountIds ]
+          Regions:
+            - !Ref 'AWS::Region'
+      StackSetName: !Sub '${env}-OnPremPrefixListIdParameter'
+      Tags: 
+        - Key: Environment
+          Value: !Ref env
+      TemplateURL: !Sub https://${s3Bucket}.s3.amazonaws.com/ssm-parameter-stackset.yaml
+```
