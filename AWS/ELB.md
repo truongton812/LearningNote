@@ -1,3 +1,5 @@
+ELB bound với VPC
+
 Target group là gì
 
 Target Group trong AWS Load Balancer là một tập hợp các đích (mục tiêu) mà Load Balancer phân phối lưu lượng truy cập đến. Mục tiêu có thể là các EC2 instances, địa chỉ IP, Lambda function hoặc các Load Balancer khác.
