@@ -23,6 +23,30 @@ security group bound với vpc
 
 elb bound với vpc, có thể span trên nhiều az
 
+---
+
+<img width="763" height="355" alt="image" src="https://github.com/user-attachments/assets/ba2a22aa-a743-4c19-aa36-6eef22f9a96f" />
+
+
+Thiết kế VPC trên hình của bạn là hoàn toàn chuẩn và phù hợp theo các best practice của AWS hiện nay. Cụ thể, bạn đã chia mỗi Availability Zone (AZ1, AZ2, AZ3) thành ba loại subnet riêng biệt: public subnet, private subnet, và db subnet.
+
+Ưu điểm thiết kế này
+Đáp ứng chuẩn 3-tier (Web-Application-Database) cho mô hình hệ thống.
+
+Public subnet: Triển khai các thành phần phải ra/vào Internet như NAT Gateway, Load Balancer.
+
+Private subnet: Chạy ứng dụng backend, EC2, ECS hoặc EKS worker tránh phơi bày trực tiếp ra Internet.
+
+DB subnet: Tách biệt hoàn toàn, chỉ cho phép truy cập từ private subnet, rất an toàn khi dùng Amazon RDS/MongoDB/Redis, v.v.
+
+Độ sẵn sàng và Bảo mật
+Mỗi AZ đều có đủ cả 3 subnet giúp bạn xây dựng kiến trúc Multi-AZ/high availability.
+
+Đặt security group và NACL riêng cho từng loại subnet tăng tính bảo mật.
+
+RDS/Elasticache Multi-AZ chỉ hoạt động đúng nếu có subnet group trải đều các AZ như trên.
+
+---
 Template tạo VPC1
 ```
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
