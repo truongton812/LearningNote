@@ -46,6 +46,9 @@ Mỗi AZ đều có đủ cả 3 subnet giúp bạn xây dựng kiến trúc Mul
 
 RDS/Elasticache Multi-AZ chỉ hoạt động đúng nếu có subnet group trải đều các AZ như trên.
 
+
+Lưu ý: Các subnet khác AZ trong cùng VPC giao tiếp hoàn toàn bình thường như các subnet trong cùng AZ.
+
 ---
 Template tạo VPC1
 ```
