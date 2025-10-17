@@ -36,7 +36,7 @@ Tạo task definition
 
 "containerDefinitions": Định nghĩa thông số từng container, bao gồm tên, image, dung lượng RAM, CPU.
 
-"requiresCompatibilities": Chọn loại hạ tầng chạy container (ví dụ FARGATE, EC2).
+"requiresCompatibilities": Chọn loại hạ tầng chạy container (ví dụ FARGATE, EC2, có thể chọn cả 2). -> khi triển khai task thì sẽ chọn để triển khai lên EC2 hay fargate hay cả 2
 
 "networkMode": Chọn kiểu mạng (awsvpc dùng cho Fargate).
 
@@ -44,6 +44,7 @@ Tạo task definition
 
 Bạn có thể custom thêm các trường như portMappings, environment, hoặc gắn volume theo nhu cầu
 
+Trick: nếu tạo task definition bằng giao diện console mà chọn EC2/fargate mà sau đấy muốn update bằng giao diện console sẽ không được, nhưng nếu dùng "create new revision with json" để update thì sẽ được
 
 2. Task (Tác vụ)
 Một Task là một phiên bản chạy thực tế của một Task Definition.
@@ -107,6 +108,11 @@ Các loại network trong ECS
 
 Amazon ECS hỗ trợ 4 chế độ network (network mode) khác nhau để kiểm soát cách container giao tiếp với nhau, với host, và mạng bên ngoài.​
 
+Khi dùng fargate thì chỉ  dùng được awsvpc
+
+Khi dùng ec2 có thể dùng awsvpc và bridge
+
+
 1. Bridge mode (Mặc định trên Linux)
 Dựa trên cơ chế Docker bridge network.
 
@@ -160,3 +166,11 @@ Trong thực tế:
 Fargate chỉ cho phép awsvpc.
 
 Với EC2 launch type, bạn có thể chọn giữa bridge, host, hoặc awsvpc tùy yêu cầu hiệu năng, bảo mật và khả năng mở rộng.​
+
+---
+
+Khi nào nên dùng ec2 / fargate
+
+Fargate: tối đa là 16 vcpu và 120gb ram. EC2 có thể dùng theo nhu cầu
+
+EC2 có thể custom về GPU (fargate không có), EBS (nhu cầu IOPS cao)
