@@ -34,6 +34,11 @@ ENI này giữ vai trò như gateway nhận request từ client và chuyển ti�
 
 AWS cần quản lý ENI này riêng để có thể bảo trì, tự động thay thế khi cần, cũng như đảm bảo đủ IP để mở rộng (scale) load balancer.
 
+
+---
+
+Khi tạo ELB với internet-facing thì phải trỏ về public subnet (subnet có route đi ra internet gateway) thì ELB mới nhận được internet traffic
+
 ---
 
 Security Group (SG) cho Application Load Balancer (ALB) là một thành phần tường lửa ảo giúp kiểm soát lưu lượng mạng vào và ra của chính ALB.
