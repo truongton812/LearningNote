@@ -174,3 +174,16 @@ Khi nào nên dùng ec2 / fargate
 Fargate: tối đa là 16 vcpu và 120gb ram. EC2 có thể dùng theo nhu cầu
 
 EC2 có thể custom về GPU (fargate không có), EBS (nhu cầu IOPS cao)
+
+---
+
+ELB và ECS
+
+Ta có thể đặt task ở public subnet, lúc đấy task sẽ có public IP và user có thể truy xuất  task thông qua public IP. Ta có thể dùng ELB để đẩy traffic thay vì phải nhớ từng ip của task
+
+<img width="652" height="550" alt="image" src="https://github.com/user-attachments/assets/c5a70e40-1422-40f9-a06d-5bba0af66ef4" />
+
+
+Tuy nhiên đấy không phải best practice về bảo mật
+
+Best practice là đặt task ở private subnet và dùng 1 ELB để đẩy traffic đến task
