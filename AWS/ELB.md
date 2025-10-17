@@ -15,9 +15,8 @@ Lưu ý: option stickiness được enable/disable trong target group
 
 ---
 
-Option "Availability Zones and subnets" khi tạo Application Load Balancer trên AWS cho phép chọn khu vực khả dụng (AZ - Availability Zone) và các subnet tương ứng mà Load Balancer sẽ hoạt động trong đó và phân phối traffic tới các EC2 instance hoặc resources bên trong các subnet này
+Option "Availability Zones and subnets" khi tạo Application Load Balancer trên AWS cho phép chọn khu vực khả dụng (AZ - Availability Zone) và các subnet tương ứng mà node Load Balancer sẽ được đặt trong đó
 
-Chỉ những targets (EC2 instance, ECS,… ) nằm trong các subnet được chọn thì mới nhận traffic từ load balancer.
 
 mặc dù về mặt kiến trúc, một AZ có thể có nhiều subnet, thì trong quá trình tạo và cấu hình ALB, bạn chỉ được phép chọn một subnet cho mỗi AZ để ALB tạo ra các node load balancer trong đó
 
@@ -26,14 +25,13 @@ Khi tạo Application Load Balancer (ALB) trên AWS, AWS sẽ tạo một hoặc
 Elastic Network Interface (ENI) là một thành phần mạng logic trong VPC, tương tự như một card mạng ảo (virtual NIC). ENI là một interface mạng logic được gán vào một subnet cụ thể trong VPC.
 
 
-Khi bạn chọn một subnet trong một AZ để tạo ALB, AWS sẽ tạo một ENI trong subnet đó. ENI này có địa chỉ IP trong dải subnet và mang nhiệm vụ nhận và truyền tất cả lưu lượng mạng (traffic) đến/đi từ nod load balancer trong AZ đó.
+Khi bạn chọn một subnet trong một AZ để tạo ALB, AWS sẽ tạo một ENI trong subnet đó. ENI này có địa chỉ IP trong dải subnet và mang nhiệm vụ nhận và truyền tất cả lưu lượng mạng (traffic) đến/đi từ node load balancer trong AZ đó.
 
 Mỗi node load balancer tương ứng với một ENI riêng biệt trong subnet đã chọn, làm điểm xử lý mạng cho ALB trong vùng AZ đó.
 
 ENI này giữ vai trò như gateway nhận request từ client và chuyển tiếp request đến các target (ví dụ EC2 instance) trong target group.
 
-AWS cần quản lý ENI này riêng để có thể bảo trì, tự động thay thế khi cần, cũng như đảm bảo đủ IP để mở rộng (scale) load balancer.
-
+Lưu ý ELB sẽ chỉ forward traffic đến AZ nào được đặt node load balancer (và node load balancer phải đặt trong public subnet nếu ELB muốn nhận traffic từ internet)
 
 ---
 
