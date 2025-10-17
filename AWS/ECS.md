@@ -187,3 +187,8 @@ Ta có thể đặt task ở public subnet, lúc đấy task sẽ có public IP 
 Tuy nhiên đấy không phải best practice về bảo mật
 
 Best practice là đặt task ở private subnet và dùng 1 ELB để đẩy traffic đến task
+
+Khi tạo ELB cho ECS fargate thì phải tạo target group type là IP (do chỉ có container IP) thì sau này ở Service mới nhận
+
+Hoặc để đơn giản thì khi tạo load balancer cứ tạo bừa 1 target group, sau này trong lúc tạo service thì tạo lại target group mới
+
