@@ -39,6 +39,14 @@ AWS cần quản lý ENI này riêng để có thể bảo trì, tự động th
 
 Khi tạo ELB với internet-facing thì phải trỏ về public subnet (subnet có route đi ra internet gateway) thì ELB mới nhận được internet traffic
 
+tôi thấy trong phần "Availability Zones and subnets" khi tạo ALB có mô tả như sau: "Select at least two Availability Zones and a subnet for each zone. A load balancer node will be placed in each selected zone and will automatically scale in response to traffic. The load balancer routes traffic to targets in the selected Availability Zones only." 
+
+-> Khi tạo ALB dưới dạng internet-facing (nhận traffic từ internet), bạn bắt buộc phải chọn subnet có route đến Internet Gateway (tức public subnet) cho placement của ALB. Nếu chọn private subnet, AWS cảnh báo rằng load balancer sẽ không nhận được traffic từ internet do không có route đến IGW.
+
+Lưu ý: Cảnh báo này chỉ áp dụng cho node của ALB (ENI của ALB) – chứ không phải các target (EC2/Fargate) phía sau.
+
+Các target (instance, IP, Lambda, container,...) nằm trong private subnet vẫn nhận được traffic bình thường từ ALB, vì load balancer sẽ forward traffic nội bộ qua local VPC routing – không bắt buộc phải public subnet
+
 ---
 
 Security Group (SG) cho Application Load Balancer (ALB) là một thành phần tường lửa ảo giúp kiểm soát lưu lượng mạng vào và ra của chính ALB.
