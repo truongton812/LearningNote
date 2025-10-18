@@ -192,3 +192,24 @@ Khi tạo ELB cho ECS fargate thì phải tạo target group type là IP (do ch�
 
 Hoặc để đơn giản thì khi tạo load balancer cứ tạo bừa 1 target group, sau này trong lúc tạo service thì tạo lại target group mới
 
+---
+
+ECS Autoscaling
+
+Giúp scale task dựa trên working
+
+Khi dùng target tracking policy thì có 3 metric cơ bản là CPU, RAM và số request. Có thể tạo custom metric (tham khảo thêm)
+
+---
+
+ECS metric
+
+Nếu enable Container insight thì có thêm nhiều metric hơn (mất phí)
+
+---
+
+ECS log
+
+Để gửi log vào Cloudwatch log thì:
+- Nếu dùng fargate thì chỉ cấn gán ecstaskexecutionrole cho task
+- Nếu dùng EC2 thì phải cài cloudwatch agent và gán role cho EC2 (cần 2 quyền là ECSContainerServiceforEC2Role và SSMManagedInstanceCore)  để có quyền push log lên cloudwatch
