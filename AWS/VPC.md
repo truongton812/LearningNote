@@ -1,3 +1,33 @@
+# Virutual Private Cloud (VPC)
+## I. Định nghĩa và các khái niệm
+- Là dịch vụ cho phép bạn khởi chạy các tài nguyên AWS trong mạng ảo cô lập theo logic mà bạn xác định
+- VPC là regional service
+- Mỗi region luôn có 1 default VPC (172.34.0.0/16) & mỗi AZ luôn có 1 default public subnet (172.31.0.0/20).
+- Ngoài default VPC ta có thể tạo các custom VPC. Có thể tạo tối đa 5 custom VPC trong 1 region, mỗi VPC có thể span qua nhiều AZ. Khi tạo custom VPC cần cung cấp 1 IP range (CIDR). CIDR phải là dải IP private của lớp A, B, C. Kích thước CIDR block có thể từ /16 (65.536 IP) đến /28 (16 IP).
+- Lưu ý về CIDR:
+  - Không được overlap giữa các VPC nếu muốn dùng VPC peering.
+  - Không thể tăng/giảm size của CIDR sau khi tạo.
+- Subnet là mạng con chia từ VPC CIDR, 1 subnet chỉ gắn liền với 1 AZ, tuy nhiên 1 AZ có thể có nhiều subnet. Thông thường 1 AZ có 2 subnet (public subnet & private subnet).
+- Lưu ý: khi tạo subnet trong default VPC mà không explicit associate với route table nào thì mặc định sẽ là public subnet (do khi ta không gán với route table nào thì subnet đấy sẽ được implicit associate với default route table, mà default route table luôn trỏ 0.0.0.0 về internet gateway).
+- Routing table: là router của VPC, giúp control traffic của VPC. Default routing table sẽ gắn với các subnet ko explicitly associate với route table nào.
+- Internet Gateway: là tài nguyên thuộc VPC, dùng để kết nối ra internet. 1 VPC chỉ có thể attach với 1 internet gateway
+- NAT Gateway & NAT instance (deprecated)
+  - Là component giúp EC2 trong private subnet kết nối ra internet.
+  - Luôn phải nằm trong public subnet và có Elastic IP.
+  - Cần config route table cho private subnet trỏ 0.0.0.0 về NAT Gateway ⭢ private subnet có thể outbound ra internet (không inbound).
+  - NAT Gateway tính tiền theo giờ + bandwidth
+  - NAT Gateway bandwidth là 5GBps, scale up to 100 GBps
+  - NAT Gateway không cần control security group
+  - NAT Gateway bound với AZ, cần internet GW
+      ```
+      Private subnet ⭢ NAT Gateway ⭢ Internet Gateway
+      ```
+
+### Lưu ý: mở rộng VPC
+- Ban đầu khi tạo VPC trên AWS, cần phải chỉ định một CIDR block IPv4 duy nhất gọi là "primary CIDR block" cho VPC đó. CIDR này xác định phạm vi địa chỉ IP mà VPC có thể sử dụng. Tuy nhiên, sau khi VPC đã được tạo, ta có thể thêm tối đa 4 "secondary CIDR blocks" nữa, tức là tới 5 CIDR block (giới hạn này có thể tăng lên tối đa 50 theo yêu cầu) cho mỗi VPC. Điều này giúp mở rộng phạm vi địa chỉ IP cho VPC mà không cần tạo thêm VPC mới. Việc này hữu ích khi ta cần thêm nhiều subnet hoặc nhiều tài nguyên hơn. Điều kiện là CIDR block mới thêm phải không overlap với CIDR block hiện có trong VPC hoặc các CIDR đã gán trước đó.
+- Khi mở rộng VPC bằng cách thêm CIDR block mới (ví dụ như một secondary CIDR), các subnet tạo trong CIDR mới vẫn sẽ có thể giao tiếp với các subnet trong CIDR chính (primary CIDR), do các route trong bảng định tuyến (route table) mặc định của VPC đều có route "local" cho tất cả CIDR blocks thuộc VPC, nghĩa là các subnet trong các CIDR khác nhau vẫn có thể giao tiếp nội bộ qua route "local" này, trừ khi có chính sách hạn chế hoặc kiểm soát truy cập như security groups và network ACLs.
+---
+
 Mối liên hệ giữa Subnet và Availability Zone (AZ) trong AWS như sau:
 
 Một Availability Zone (AZ) là một vị trí vật lý riêng biệt trong một AWS Region. Mỗi AZ gồm một hoặc nhiều trung tâm dữ liệu (data center) độc lập, giúp tăng tính sẵn sàng và khả năng chịu lỗi cho hệ thống.
