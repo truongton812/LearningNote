@@ -113,45 +113,24 @@ security group bound với vpc
 |---|---|
 | VPC CIDR|vpc-id|
 		
-## VII. Site-to-multisite VPN
-- Các on-prem DC có thể kết nối với nhau qua AWS virtual gateway.
+## VII. VPN CloudHub
+- Dùng để kết nối các on-prem DC lại với nhau thông qua AWS đóng vai trò là hub
 - Mỗi on-prem DC có 1 unique ASN. ASN tương ứng với các routes được quảng bá vào mạng (dùng IP prefix).
 
-<img width="701" height="369" alt="image" src="https://github.com/user-attachments/assets/a1302897-b626-4f44-a9c4-0df41fe2036e" />
+<img width="1403" height="757" alt="image" src="https://github.com/user-attachments/assets/b830955e-7dcf-42a6-b81d-5a36a809e74b" />
 
 
-Customer GW <-> AWS VGW <-> Customer GW
-AWS Direct Connect (DX)
-Là 1 đường vật lý kết nối riêng từ on-prem đến hạ tầng AWS (AWS Direct Connect location - hạ tầng của AWS) thông qua cáp. Hạ tầng này giúp kết nối vào mạng private của AWS.
+## VIII. AWS Direct Connect (DX)
+- Là 1 đường vật lý kết nối riêng từ on-prem đến hạ tầng AWS
+- AWS Direct Connect location: là hạ tầng trung gian của AWS, giúp kết nối vào mạng private của AWS.
+- Chi phí transfer data sẽ thấp hơn ra mạng internet, tuy nhiên thời gian setup lâu.
+- Có thể access cả public resource (S3, cloudfront,...) và private resource (EC2,...) thông qua chỉ 1 đường vật lý bằng cách set private và public VIF. Private và public VIF thuộc 2 VLAN trên một đường trunk:
+  - Private VIF kết nối đến virtual Gateway (bound với VPC) để access private resource.
+  - Public VIF kết nối trực tiếp đến public resource qua mạng của AWS, không cần ra internet.
 
-Chỉ phí transfer data sẽ thấp hơn hạ tầng internet, tuy nhiên thời gian setup lâu.
+<img width="1418" height="671" alt="image" src="https://github.com/user-attachments/assets/c4ba5f18-7fa6-486b-8836-2182d489d728" />
 
-Có thể access cả public resource (S3, cloudfront,...) và private resource (EC2,...) thông qua chỉ 1 đường vật lý, tuy nhiên cách set private và public VIF là tách biệt. Một đường trunk:
 
-Private VIF kết nối đến virtual GW (bên VPC) để access private resource.
-
-Public VIF kết nối trực tiếp đến public resource qua mạng của AWS, không cần ra internet.
-
-text
-On-prem
- | (vlan1 physical)
- | (vlan2 connection trunk)
- |
- v
-Customer Partner Cage --> AWS Cage --> DX endpoint
-                              |        | 
-                           private VIF public VIF
-                                    DX Location
-
-(private VIF -> VPC GW, public VIF -> S3, Cloudfront, ...)
-Advanced concept
-Từ on-prem kết nối đến multiple VPCs cùng region
-
-text
-On-prem -> DX location -> DX 
-                      |-> private VIF -> VGW -> VPC
-                      |-> private VIF -> VGW -> VPC2 (region)
-Từ on-prem kết nối đến VPC ở account khác: dùng hosted VIF thay vì private VIF.
 ---
 Template tạo VPC1
 ```
