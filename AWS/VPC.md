@@ -56,44 +56,21 @@ Khi một EC2 không có Public IP, nó không thể trực tiếp đi Internet 
 - Việc phân chia subnet theo AZ giúp AWS và bạn kiểm soát mạng tốt hơn, phân tách tài nguyên theo vùng vật lý, dễ dàng tổ chức kiến trúc dịch vụ phân tán, đảm bảo khi AZ này gặp sự cố thì các subnet (và tài nguyên) ở AZ khác vẫn hoạt động bình thường.
 - Khi tạo tài nguyên EC2 trong AWS, bạn cần chỉ định Subnet chứ không phải chỉ định trực tiếp Availability Zone (AZ).
 
-### nacl là resource của vpc. nacl đc gán với subnet, 1 subnet chỉ đc gán 1 nacl
-
-## II. Mô hình thiết kế 1 VPC
-
-<img width="763" height="355" alt="image" src="https://github.com/user-attachments/assets/ba2a22aa-a743-4c19-aa36-6eef22f9a96f" />
-https://docs.aws.amazon.com/vpc/latest/userguide/vpc-example-private-subnets-nat.html
-<img width="611" height="481" alt="image" src="https://github.com/user-attachments/assets/2d708b4e-cf63-4cd7-ad92-6dd709da2e92" />
-
-Thiết kế VPC trên hình của bạn là hoàn toàn chuẩn và phù hợp theo các best practice của AWS hiện nay. Cụ thể, bạn đã chia mỗi Availability Zone (AZ1, AZ2, AZ3) thành ba loại subnet riêng biệt: public subnet, private subnet, và db subnet.
-
-Ưu điểm thiết kế này
-Đáp ứng chuẩn 3-tier (Web-Application-Database) cho mô hình hệ thống.
-
-Public subnet: Triển khai các thành phần phải ra/vào Internet như NAT Gateway, Load Balancer.
-
-Private subnet: Chạy ứng dụng backend, EC2, ECS hoặc EKS worker tránh phơi bày trực tiếp ra Internet.
-
-DB subnet: Tách biệt hoàn toàn, chỉ cho phép truy cập từ private subnet, rất an toàn khi dùng Amazon RDS/MongoDB/Redis, v.v.
-
-Độ sẵn sàng và Bảo mật
-Mỗi AZ đều có đủ cả 3 subnet giúp bạn xây dựng kiến trúc Multi-AZ/high availability.
-
-Đặt security group và NACL riêng cho từng loại subnet tăng tính bảo mật.
-
-RDS/Elasticache Multi-AZ chỉ hoạt động đúng nếu có subnet group trải đều các AZ như trên.
-
-
-Lưu ý: Các subnet khác AZ trong cùng VPC giao tiếp hoàn toàn bình thường như các subnet trong cùng AZ.
-
-
+### nacl và SG là resource của vpc. nacl đc gán với subnet, 1 subnet chỉ đc gán 1 nacl
 
 security group bound với vpc
 
-elb bound với vpc, có thể span trên nhiều az
+### elb bound với vpc, có thể span trên nhiều az
 
----
+## II. Mô hình thiết kế 1 VPC
 
+<img width="611" height="481" alt="image" src="https://github.com/user-attachments/assets/2d708b4e-cf63-4cd7-ad92-6dd709da2e92" />
 
+- Chia mỗi Availability Zone thành hai loại subnet riêng biệt: public subnet và private subnet (có thể có thêm database subnet). Mỗi AZ đều có đủ cả 2 subnet đảm bảo kiến trúc Multi-AZ/high availability.
+- Public subnet dùng để triển khai các thành phần phải ra/vào Internet như NAT Gateway, Load Balancer.
+- Private subnet dùng để chạy ứng dụng backend, EC2, ECS hoặc EKS worker tránh expose trực tiếp ra Internet.
+- Database subnet: tách biệt hoàn toàn, chỉ cho phép truy cập từ private subnet, rất an toàn khi dùng Amazon RDS/MongoDB/Redis, v.v.
+- Lưu ý: Các subnet khác AZ trong cùng VPC giao tiếp hoàn toàn bình thường như các subnet trong cùng AZ.
 
 
 ---
