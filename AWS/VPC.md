@@ -60,15 +60,18 @@ Khi một EC2 không có Public IP, nó không thể trực tiếp đi Internet 
 
 security group bound với vpc
 
+| Tiêu chí                  | Security Group                    | NACL (Network ACL)                        |
+|--------------------------|-----------------------------------|-------------------------------------------|
+| Vị trí áp dụng           | Áp lên EC2 (gán manual, từng instance) | Áp lên subnet (ảnh hưởng tất cả EC2 trong subnet) |
+| Hành vi                  | Stateful (tự động pass cả 2 chiều nếu pass 1 chiều) | Stateless (phải define inbound & outbound riêng biệt) |
+| Quy tắc mặc định         | Default deny all                  | Default allow all                         |
+| Điều kiện tham chiếu     | Có thể refer SG khác              | Chỉ được tham chiếu IP hoặc IP range      |
+| Quản lý traffic          | Evaluate all rules cùng lúc        | Evaluate theo thứ tự từ nhỏ đến lớn, match thì dừng luôn |
+| Ví dụ                    | SG7 allows SGA => EC2(1) connect được EC2(2) | Chỉ set rule IP/network mà không set theo SG |
+
 
 ### 7. VPC Endpoint
 
-
-
-
-
-
----
 
 Trong AWS có 2 loại endpoint:
 - Public endpint: Các dịch vụ AWS như S3, EC2, SSM... đều cung cấp địa chỉ public endpoint theo dạng service-name.region.amazonaws.com (ví dụ: ssm.us-east-1.amazonaws.com). Khi một EC2 instance hoặc dịch vụ nào đó trong VPC muốn truy cập các endpoint này, nó phải gửi lưu lượng ra ngoài internet để kết nối tới endpoint mong muốn. 
@@ -86,6 +89,17 @@ Trong AWS có 2 loại endpoint:
 | - Hỗ trợ hầu hết các service trong AWS      | - Chỉ làm điểm kết nối cho S3 và DynamoDB      |
 | - Để force packet tới public endpoint (VD: Cloudwatch log có public endpoint → ta không muốn log phải đi ra internet để đến Cloudwatch log) thì ta tạo interface endpoint). Bản chất khi tạo interface endpoint thì sẽ sinh ra EIP trong subnet (mỗi subnet một EIP), data sẽ đi qua ENI này để tới public endpoint bằng mạng AWS private subnet <img width="1290" height="1098" alt="image" src="https://github.com/user-attachments/assets/fd57372d-33bc-4836-ac1b-e448925e4d56" /> | - Khi tạo GW endpoint, bản chất là ta sẽ modify route table của VPC với destination là 1 list các IP của S3 do AWS quản lý (mình không cần quan tâm), còn target là gateway endpoint vừa tạo |
 | - Dùng SG để control traffic                | - Dùng VPC endpoint policy                     |
+
+
+
+#### Hands on: tạo GW EP cho S3
+
+Tạo GW EP cho S3
+
+Gắn GW EP đó với 1 route table. Lưu ý khi tạo GW EP, mặc định AWS sẽ modify route table của private subnet. Muốn modify route table của public subnet ta phải tự config trong Endpoint.
+
+#### Use case của interface endpint áp dụng cho service provider model
+<img width="789" height="577" alt="image" src="https://github.com/user-attachments/assets/036d2400-47c0-4cad-a9d9-3f70939f0487" />
 
 ## II. Mô hình thiết kế 1 VPC
 
