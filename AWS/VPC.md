@@ -65,7 +65,11 @@ security group bound với vpc
 | Vị trí áp dụng           | Áp lên EC2 (gán manual, từng instance) | Áp lên subnet (ảnh hưởng tất cả EC2 trong subnet) |
 | Hành vi                  | Stateful (tự động pass cả 2 chiều nếu pass 1 chiều) | Stateless (phải define inbound & outbound riêng biệt) |
 | Quy tắc mặc định         | Default deny all                  | Default allow all                         |
-| Điều kiện tham chiếu     | Có thể refer SG khác   VD:
+| Điều kiện tham chiếu     | Có thể refer SG khác    | Chỉ được tham chiếu IP hoặc IP range      |
+| Quản lý traffic          | Evaluate all rules cùng lúc        | Evaluate theo thứ tự từ nhỏ đến lớn, match thì dừng luôn |
+| Ví dụ                    | SG7 allows SGA => EC2(1) connect được EC2(2) | Chỉ refer được IP hoặc IP range |
+
+VD:
 
 EC2(1) --SGA--> EC2(2) --SGB--
 
@@ -73,10 +77,7 @@ SGB allows SGA thì EC2(1) connect được EC2(2)
 
 EC2(1) --SGA--> EC2(2) --SGA--
 
-SGA allows chính nó thì EC2(1) connect được EC2(2)           | Chỉ được tham chiếu IP hoặc IP range      |
-| Quản lý traffic          | Evaluate all rules cùng lúc        | Evaluate theo thứ tự từ nhỏ đến lớn, match thì dừng luôn |
-| Ví dụ                    | SG7 allows SGA => EC2(1) connect được EC2(2) | Chỉ refer được IP hoặc IP range |
-
+SGA allows chính nó thì EC2(1) connect được EC2(2)          
 
 ### 7. VPC Endpoint
 
