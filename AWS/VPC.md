@@ -65,7 +65,7 @@ elb bound với vpc, có thể span trên nhiều az
 ---
 
 
-
+nacl là resource của vpc. nacl đc gán với subnet, 1 subnet chỉ đc gán 1 nacl
 ---
 Template tạo VPC1
 ```
