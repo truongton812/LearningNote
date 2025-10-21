@@ -95,6 +95,7 @@ security group bound với vpc
 <img width="1257" height="784" alt="image" src="https://github.com/user-attachments/assets/c50b7d14-f0fd-45b0-9260-7ce107e44515" />
 
 - Route table
+  
 | Destination | Target |
 |---|---|
 | VPC CIDR (thực chất là subnet CIDR|VPN Endpoint|
@@ -107,11 +108,50 @@ security group bound với vpc
 <img width="1029" height="664" alt="image" src="https://github.com/user-attachments/assets/51ec43d0-d643-450a-9535-65e578314d8a" />
 
 - Route table
+  
 | Destination | Target |
 |---|---|
 | VPC CIDR|vpc-id|
 		
+## VII. Site-to-multisite VPN
+- Các on-prem DC có thể kết nối với nhau qua AWS virtual gateway.
+- Mỗi on-prem DC có 1 unique ASN. ASN tương ứng với các routes được quảng bá vào mạng (dùng IP prefix).
 
+<img width="701" height="369" alt="image" src="https://github.com/user-attachments/assets/a1302897-b626-4f44-a9c4-0df41fe2036e" />
+
+
+Customer GW <-> AWS VGW <-> Customer GW
+AWS Direct Connect (DX)
+Là 1 đường vật lý kết nối riêng từ on-prem đến hạ tầng AWS (AWS Direct Connect location - hạ tầng của AWS) thông qua cáp. Hạ tầng này giúp kết nối vào mạng private của AWS.
+
+Chỉ phí transfer data sẽ thấp hơn hạ tầng internet, tuy nhiên thời gian setup lâu.
+
+Có thể access cả public resource (S3, cloudfront,...) và private resource (EC2,...) thông qua chỉ 1 đường vật lý, tuy nhiên cách set private và public VIF là tách biệt. Một đường trunk:
+
+Private VIF kết nối đến virtual GW (bên VPC) để access private resource.
+
+Public VIF kết nối trực tiếp đến public resource qua mạng của AWS, không cần ra internet.
+
+text
+On-prem
+ | (vlan1 physical)
+ | (vlan2 connection trunk)
+ |
+ v
+Customer Partner Cage --> AWS Cage --> DX endpoint
+                              |        | 
+                           private VIF public VIF
+                                    DX Location
+
+(private VIF -> VPC GW, public VIF -> S3, Cloudfront, ...)
+Advanced concept
+Từ on-prem kết nối đến multiple VPCs cùng region
+
+text
+On-prem -> DX location -> DX 
+                      |-> private VIF -> VGW -> VPC
+                      |-> private VIF -> VGW -> VPC2 (region)
+Từ on-prem kết nối đến VPC ở account khác: dùng hosted VIF thay vì private VIF.
 ---
 Template tạo VPC1
 ```
