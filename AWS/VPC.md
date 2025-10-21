@@ -34,6 +34,7 @@
 - Mô hình thiết kế 1 VPC
 <img width="763" height="355" alt="image" src="https://github.com/user-attachments/assets/ba2a22aa-a743-4c19-aa36-6eef22f9a96f" />
 https://docs.aws.amazon.com/vpc/latest/userguide/vpc-example-private-subnets-nat.html
+<img width="611" height="481" alt="image" src="https://github.com/user-attachments/assets/2d708b4e-cf63-4cd7-ad92-6dd709da2e92" />
 
 Thiết kế VPC trên hình của bạn là hoàn toàn chuẩn và phù hợp theo các best practice của AWS hiện nay. Cụ thể, bạn đã chia mỗi Availability Zone (AZ1, AZ2, AZ3) thành ba loại subnet riêng biệt: public subnet, private subnet, và db subnet.
 
