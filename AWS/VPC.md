@@ -110,6 +110,25 @@ Gắn GW EP đó với 1 route table. Lưu ý khi tạo GW EP, mặc định AWS
 #### Use case của interface endpint áp dụng cho service provider model
 <img width="789" height="577" alt="image" src="https://github.com/user-attachments/assets/036d2400-47c0-4cad-a9d9-3f70939f0487" />
 
+### 8. VPC flow log
+
+- Giúp capture thông tin IP của traffic in/out VPC
+- Data được store vào S3 hoặc Cloudwatch log
+- Có thể monitor ở VPC/subnet/network interface level
+
+Hands on:
+- Tạo role cho phép Flowlog dùng Cloudwatch
+	- Trust policy: Effect: Allow; Arn: vpc-flow-logs.amazonaws.com; Action: sts:assumeRole
+	- Permission: Effect: Allow; Action: cloudwatch
+- Chọn VPC setting → flowlog → create flowlog
+	- Gán destination & group
+	- Gán IAM role & tạo flowlog
+
+
+Cách Connect các networks có IP range overlapping
+
+aws.amazon.com/blogs/networking-and-content-delivery/connecting-networks-with-overlapping-ip-ranges/
+
 ## II. Mô hình thiết kế 1 VPC
 
 <img width="611" height="481" alt="image" src="https://github.com/user-attachments/assets/2d708b4e-cf63-4cd7-ad92-6dd709da2e92" />
