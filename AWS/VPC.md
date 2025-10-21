@@ -72,6 +72,45 @@ security group bound với vpc
 - Database subnet: tách biệt hoàn toàn, chỉ cho phép truy cập từ private subnet, rất an toàn khi dùng Amazon RDS/MongoDB/Redis, v.v.
 - Lưu ý: Các subnet khác AZ trong cùng VPC giao tiếp hoàn toàn bình thường như các subnet trong cùng AZ.
 
+## III. VPC Peering
+- Giúp kết nối các VPC lại với nhau bằng mạng backbone của AWS mà không cần đi ra internet. Có thể peering giữa các VPC khác region hoặc khác account
+- VPC peering không có tính chất bắc cầu (transitive). A > B, B > C không có nghĩa A > C.
+- Điều kiện để peering: CIDR của 2 VPC peering với nhau không được overlap.
+- Cách tạo peering: tạo peering ở 1 VPC và gửi request sang VPC khác, sau đó bên kia chấp nhận -> peering được thiết lập.
+- Lưu ý: cần set routing table ở cả 2 VPC để packets chỉ đi trong nội vùng 2 VPC
+
+| Protocol | Destination | Target |
+|---|---|---|
+|   |Other VPC network|Peering ID|
+
+
+## IV. Transist gateway
+- Dùng để kết nối các VPC và on-prem network lại với nhau theo mô hình central hub. Nếu không dùng Transit Gateway thì mô hình sẽ rất phức tạp do VPC peering không có tính bắc cầu và nếu có dùng on-prem thì phải setup Direct Connect hoặc site-to-site VPN cho mỗi VPC.
+- Transit Gateway còn có thể attach với VPN/Direct Connect Gateway và Transit Gateway ở region hoặc account khác.
+- Khi attach với Direct Connect thì dùng transit VIF thay vì private VIF.
+
+## V. Client VPN
+- Giúp kết nối từ local home đến AWS qua 1 mạng riêng ảo
+  
+<img width="1257" height="784" alt="image" src="https://github.com/user-attachments/assets/c50b7d14-f0fd-45b0-9260-7ce107e44515" />
+
+- Route table
+| Destination | Target |
+|---|---|
+| VPC CIDR (thực chất là subnet CIDR|VPN Endpoint|
+
+## VI. Site-to-site VPN
+- Giúp kết nối từ on-prem DC đến AWS qua mạng riêng ảo, là dạng IPsec VPN.
+- VPN connection supports định tuyến tĩnh hoặc BGP peering.
+- Thường dùng làm backup cho Direct Connect (do DX rất đắt).
+
+<img width="1029" height="664" alt="image" src="https://github.com/user-attachments/assets/51ec43d0-d643-450a-9535-65e578314d8a" />
+
+- Route table
+| Destination | Target |
+|---|---|
+| VPC CIDR|vpc-id|
+		
 
 ---
 Template tạo VPC1
