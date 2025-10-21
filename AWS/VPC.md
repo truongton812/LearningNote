@@ -63,41 +63,29 @@ security group bound với vpc
 
 ### 7. VPC Endpoint
 
-Trong AWS:
 
-Một số service là private (VD EC2...)
 
-Một số service là public (S3, SNS, CodeDeploy...) → có public endpoint → EC2 đi via internet để kết nối tới endpoint này
 
-VPC endpoint là dịch vụ của AWS, cho phép tạo 1 điểm kết nối để truy cập dịch vụ AWS (VD EC2 → S3) mà không cần ra internet.
 
-VPC endpoint có 2 loại: Interface endpoint và GW endpoint
+
+---
+
+Trong AWS có 2 loại endpoint:
+- Public endpint: Các dịch vụ AWS như S3, EC2, SSM... đều cung cấp địa chỉ public endpoint theo dạng service-name.region.amazonaws.com (ví dụ: ssm.us-east-1.amazonaws.com). Khi một EC2 instance hoặc dịch vụ nào đó trong VPC muốn truy cập các endpoint này, nó phải gửi lưu lượng ra ngoài internet để kết nối tới endpoint mong muốn. 
+	- Nếu EC2 nằm trong subnet là private, traffic phải đi qua NAT Gateway để ra internet → Việc sử dụng NAT Gateway làm trung gian có thể làm tăng chi phí vận hành, vì NAT Gateway tính phí dựa trên lưu lượng truyền qua nó và thời gian sử dụng. 
+	- Nếu EC2 nằm ở public subnet và gắn public IP, traffic truy cập public endpoint sẽ đi trực tiếp ra internet thông qua Internet Gateway, không qua NAT Gateway nên không bị tính phí NAT Gateway. Tuy nhiên, bạn vẫn phải trả phí cho việc sử dụng public IP (AWS hiện tại tính phí public IPv4 address hằng tháng)
+- Private endpint:
+	- Nếu dùng VPC Endpoint (private endpoint), traffic sẽ được chuyển bằng mạng private của AWS mà không đi qua internet hoặc NAT Gateway, giúp tiết kiệm chi phí hơn 
+	- Private endpoint: cho phép giao tiếp trực tiếp giữa các resources trong VPC và các dịch vụ AWS mà không cần ra internet. Có 2 loại VPC endpoint:
+	- Interface endpoint: sử dụng AWS Private Link, bản chất là tạo 1 ENI trong subnet của VPC, có tốn phí.
+	- GW endpoint: không sử dụng Private Link, chỉ hỗ trợ S3 và DynamoDB, định tuyến thông qua route table = prefix list, miễn phí. Lưu ý S3 có cả Interface endpoint và GW endpoint
 
 | Interface endpoint                          | GW endpoint                                   |
 |---------------------------------------------|------------------------------------------------|
 | - Bound với subnet                          | - Bound với route table                        |
 | - Hỗ trợ hầu hết các service trong AWS      | - Chỉ làm điểm kết nối cho S3 và DynamoDB      |
-| - Để force packet tới public endpoint       | - Khi tạo GW endpoint, ta sẽ modify route table của VPC, dest là 1 list các IP của S3/dịch vụ AWS, còn target là GW EP vừa tạo |
-| (VD: Cloudwatch log có public endpoint → ta muốn log phải đưa internet để đến CW log, ta tạo interface endpoint) |  |
-| - Khi tạo interface endpoint thì sẽ sinh ra EIP trong subnet, data sẽ đi qua ENI này để tới public endpoint mà không ra AWS private subnet | |
-| EC2 → ENI → public EP (của API GW, CW, CloudFormation...) | VD: EC2 trong private subnet → S3              |
+| - Để force packet tới public endpoint (VD: Cloudwatch log có public endpoint → ta không muốn log phải đi ra internet để đến Cloudwatch log) thì ta tạo interface endpoint). Bản chất khi tạo interface endpoint thì sẽ sinh ra EIP trong subnet (mỗi subnet một EIP), data sẽ đi qua ENI này để tới public endpoint bằng mạng AWS private subnet | - Khi tạo GW endpoint, bản chất là ta sẽ modify route table của VPC với destination là 1 list các IP của S3 do AWS quản lý (mình không cần quan tâm), còn target là gateway endpoint vừa tạo |
 | - Dùng SG để control traffic                | - Dùng VPC endpoint policy                     |
-
-
----
-
-
-
-
-Trong AWS có 2 loại endpoint:
-
-Public endpoint: có dạng service-name.region.amazonaws.com (VD: ssm.us-east-1.amazonaws.com) → EC2 hoặc các resource trong AWS sẽ cần đi ra internet để kết nối endpoint này. Endpoint này sử dụng NAT GW/NAT instance, có tốn phí.
-
-Private endpoint: cho phép giao tiếp trực tiếp giữa resource trong VPC và các dịch vụ AWS mà không cần ra internet. Có 2 loại VPC endpoint:
-
-Interface endpoint: sử dụng AWS Private Link, bản chất là tạo 1 ENI trong subnet VPC, có tốn phí.
-
-GW endpoint: không sử dụng Private Link, chỉ hỗ trợ S3 và DynamoDB, định tuyến thông qua route table = prefix list, miễn phí.
 
 ## II. Mô hình thiết kế 1 VPC
 
