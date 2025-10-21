@@ -14,10 +14,10 @@
 
 
 
-### Routing table 
+### 2. Routing table 
 - là bảng định tuyến của VPC, bao gồm một tập hợp các rule (được gọi là route), được sử dụng để xác định đường đi, nơi đến của các gói tin từ mạng con hay gateway. Default routing table sẽ gắn với các subnet ko explicitly associate với route table nào.
 
-### Internet Gateway: 
+### 3. Internet Gateway: 
 - là tài nguyên thuộc VPC, dùng để kết nối ra internet. 1 VPC chỉ có thể attach với 1 internet gateway
 - Khi bạn tạo một EC2 instance có Public IP trong VPC không có Internet Gateway (IGW), bạn sẽ không thể kết nối từ Internet tới EC2 đó, dù instance có Public IP.
 
@@ -34,7 +34,7 @@ Nghĩa là EC2 đó dùng chính Public IP riêng của mình để giao tiếp 
 
 Khi một EC2 không có Public IP, nó không thể trực tiếp đi Internet qua IGW. Trường hợp này bạn cần một NAT Gateway
 
-### - NAT Gateway
+### 4. NAT Gateway
   - Là component giúp EC2 trong private subnet kết nối ra internet.
   - NAT Gateway phải được đặt trong public subnet và phải được gán một Elastic IP (EIP) để có thể giao tiếp ra internet. Khi bạn tạo NAT Gateway, bạn phải chọn một EIP để gán cho nó. NAT Gateway sử dụng EIP này để NAT các kết nối từ private subnet ra internet. Thông qua EIP, các instance trong private subnet được NAT lại IP public tĩnh của NAT Gateway khi truy cập internet. 
   - Lưu lượng từ NAT Gateway khi ra ngoài internet được định tuyến thông qua Internet Gateway. Nếu không có Internet Gateway, NAT Gateway không thể kết nối ra internet mặc dù đã có địa chỉ EIP. Cơ chế routing trong route table của private subnet sẽ chuyển lưu lượng internet ra NAT Gateway, và NAT Gateway tiếp tục chuyển qua Internet Gateway ra ngoài.
@@ -45,7 +45,7 @@ Khi một EC2 không có Public IP, nó không thể trực tiếp đi Internet 
 
 
 
-### Subnet và Availability Zone (AZ) trong AWS
+### 5. Subnet và Availability Zone (AZ) trong AWS
 - Một Availability Zone (AZ) là một vị trí vật lý riêng biệt trong một AWS Region. Mỗi AZ gồm một hoặc nhiều trung tâm dữ liệu (data center) độc lập, giúp tăng tính sẵn sàng và khả năng chịu lỗi cho hệ thống.
 - 
 - Subnet là mạng con chia từ VPC CIDR, 1 subnet chỉ gắn liền với 1 AZ, tuy nhiên 1 AZ có thể có nhiều subnet. Thông thường 1 AZ có 2 subnet (public subnet & private subnet).
@@ -56,11 +56,48 @@ Khi một EC2 không có Public IP, nó không thể trực tiếp đi Internet 
 - Việc phân chia subnet theo AZ giúp AWS và bạn kiểm soát mạng tốt hơn, phân tách tài nguyên theo vùng vật lý, dễ dàng tổ chức kiến trúc dịch vụ phân tán, đảm bảo khi AZ này gặp sự cố thì các subnet (và tài nguyên) ở AZ khác vẫn hoạt động bình thường.
 - Khi tạo tài nguyên EC2 trong AWS, bạn cần chỉ định Subnet chứ không phải chỉ định trực tiếp Availability Zone (AZ).
 
-### nacl và SG là resource của vpc. nacl đc gán với subnet, 1 subnet chỉ đc gán 1 nacl
+### 6. nacl và SG là resource của vpc. nacl đc gán với subnet, 1 subnet chỉ đc gán 1 nacl
 
 security group bound với vpc
 
-### elb bound với vpc, có thể span trên nhiều az
+
+### 7. VPC Endpoint
+
+Trong AWS:
+
+Một số service là private (VD EC2...)
+
+Một số service là public (S3, SNS, CodeDeploy...) → có public endpoint → EC2 đi via internet để kết nối tới endpoint này
+
+VPC endpoint là dịch vụ của AWS, cho phép tạo 1 điểm kết nối để truy cập dịch vụ AWS (VD EC2 → S3) mà không cần ra internet.
+
+VPC endpoint có 2 loại: Interface endpoint và GW endpoint
+
+| Interface endpoint                          | GW endpoint                                   |
+|---------------------------------------------|------------------------------------------------|
+| - Bound với subnet                          | - Bound với route table                        |
+| - Hỗ trợ hầu hết các service trong AWS      | - Chỉ làm điểm kết nối cho S3 và DynamoDB      |
+| - Để force packet tới public endpoint       | - Khi tạo GW endpoint, ta sẽ modify route table của VPC, dest là 1 list các IP của S3/dịch vụ AWS, còn target là GW EP vừa tạo |
+| (VD: Cloudwatch log có public endpoint → ta muốn log phải đưa internet để đến CW log, ta tạo interface endpoint) |  |
+| - Khi tạo interface endpoint thì sẽ sinh ra EIP trong subnet, data sẽ đi qua ENI này để tới public endpoint mà không ra AWS private subnet | |
+| EC2 → ENI → public EP (của API GW, CW, CloudFormation...) | VD: EC2 trong private subnet → S3              |
+| - Dùng SG để control traffic                | - Dùng VPC endpoint policy                     |
+
+
+---
+
+
+
+
+Trong AWS có 2 loại endpoint:
+
+Public endpoint: có dạng service-name.region.amazonaws.com (VD: ssm.us-east-1.amazonaws.com) → EC2 hoặc các resource trong AWS sẽ cần đi ra internet để kết nối endpoint này. Endpoint này sử dụng NAT GW/NAT instance, có tốn phí.
+
+Private endpoint: cho phép giao tiếp trực tiếp giữa resource trong VPC và các dịch vụ AWS mà không cần ra internet. Có 2 loại VPC endpoint:
+
+Interface endpoint: sử dụng AWS Private Link, bản chất là tạo 1 ENI trong subnet VPC, có tốn phí.
+
+GW endpoint: không sử dụng Private Link, chỉ hỗ trợ S3 và DynamoDB, định tuyến thông qua route table = prefix list, miễn phí.
 
 ## II. Mô hình thiết kế 1 VPC
 
