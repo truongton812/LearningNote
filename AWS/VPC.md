@@ -18,7 +18,22 @@
 - là bảng định tuyến của VPC, bao gồm một tập hợp các rule (được gọi là route), được sử dụng để xác định đường đi, nơi đến của các gói tin từ mạng con hay gateway. Default routing table sẽ gắn với các subnet ko explicitly associate với route table nào.
 
 ### Internet Gateway: 
-là tài nguyên thuộc VPC, dùng để kết nối ra internet. 1 VPC chỉ có thể attach với 1 internet gateway
+- là tài nguyên thuộc VPC, dùng để kết nối ra internet. 1 VPC chỉ có thể attach với 1 internet gateway
+- Khi bạn tạo một EC2 instance có Public IP trong VPC không có Internet Gateway (IGW), bạn sẽ không thể kết nối từ Internet tới EC2 đó, dù instance có Public IP.
+
+Public IP của EC2 chỉ có hiệu lực khi VPC được kết nối với Internet Gateway. Internet Gateway chính là cổng trung gian giữa mạng nội bộ VPC (các IP Private) và Internet công cộng, thực hiện Network Address Translation (NAT) hai chiều giữa các địa chỉ nội bộ và địa chỉ công cộng.​
+
+Lưu ý:  không phải tất cả EC2 trong VPC đều “bị NAT” chung qua Internet Gateway. Chức năng của Internet Gateway (IGW) không giống NAT Gateway. IGW chỉ đóng vai trò cổng định tuyến 2 chiều kết nối VPC với Internet, và chỉ thực hiện NAT 1:1 cho từng EC2 có Public IP riêng.​
+
+Cách hoạt động thực sự:
+
+
+Khi một EC2 có Public IP, Internet Gateway sẽ thực hiện 1:1 NAT giữa Private IP của EC2 và Public IP đó.
+
+Nghĩa là EC2 đó dùng chính Public IP riêng của mình để giao tiếp với Internet chứ không “chia sẻ NAT” qua IGW với EC2 khác.​
+
+Khi một EC2 không có Public IP, nó không thể trực tiếp đi Internet qua IGW. Trường hợp này bạn cần một NAT Gateway
+
 ### - NAT Gateway
   - Là component giúp EC2 trong private subnet kết nối ra internet.
   - NAT Gateway phải được đặt trong public subnet và phải được gán một Elastic IP (EIP) để có thể giao tiếp ra internet. Khi bạn tạo NAT Gateway, bạn phải chọn một EIP để gán cho nó. NAT Gateway sử dụng EIP này để NAT các kết nối từ private subnet ra internet. Thông qua EIP, các instance trong private subnet được NAT lại IP public tĩnh của NAT Gateway khi truy cập internet. 
