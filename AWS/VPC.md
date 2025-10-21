@@ -84,7 +84,8 @@ Trong AWS có 2 loại endpoint:
 |---------------------------------------------|------------------------------------------------|
 | - Bound với subnet                          | - Bound với route table                        |
 | - Hỗ trợ hầu hết các service trong AWS      | - Chỉ làm điểm kết nối cho S3 và DynamoDB      |
-| - Để force packet tới public endpoint (VD: Cloudwatch log có public endpoint → ta không muốn log phải đi ra internet để đến Cloudwatch log) thì ta tạo interface endpoint). Bản chất khi tạo interface endpoint thì sẽ sinh ra EIP trong subnet (mỗi subnet một EIP), data sẽ đi qua ENI này để tới public endpoint bằng mạng AWS private subnet | - Khi tạo GW endpoint, bản chất là ta sẽ modify route table của VPC với destination là 1 list các IP của S3 do AWS quản lý (mình không cần quan tâm), còn target là gateway endpoint vừa tạo |
+| - Để force packet tới public endpoint (VD: Cloudwatch log có public endpoint → ta không muốn log phải đi ra internet để đến Cloudwatch log) thì ta tạo interface endpoint). Bản chất khi tạo interface endpoint thì sẽ sinh ra EIP trong subnet (mỗi subnet một EIP), data sẽ đi qua ENI này để tới public endpoint bằng mạng AWS private subnet <img width="1290" height="1098" alt="image" src="https://github.com/user-attachments/assets/fd57372d-33bc-4836-ac1b-e448925e4d56" />
+| - Khi tạo GW endpoint, bản chất là ta sẽ modify route table của VPC với destination là 1 list các IP của S3 do AWS quản lý (mình không cần quan tâm), còn target là gateway endpoint vừa tạo |
 | - Dùng SG để control traffic                | - Dùng VPC endpoint policy                     |
 
 ## II. Mô hình thiết kế 1 VPC
