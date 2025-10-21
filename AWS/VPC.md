@@ -1,5 +1,6 @@
 # Virutual Private Cloud (VPC)
 ## I. Định nghĩa và các khái niệm
+### 1. VPC
 - Là dịch vụ cho phép bạn khởi chạy các tài nguyên AWS trong mạng ảo cô lập theo logic mà bạn xác định
 - VPC là regional service
 - Mỗi region luôn có 1 default VPC (172.34.0.0/16) & mỗi AZ luôn có 1 default public subnet (172.31.0.0/20).
@@ -7,11 +8,18 @@
 - Lưu ý về CIDR:
   - Không được overlap giữa các VPC nếu muốn dùng VPC peering.
   - Không thể tăng/giảm size của CIDR sau khi tạo.
-- Subnet là mạng con chia từ VPC CIDR, 1 subnet chỉ gắn liền với 1 AZ, tuy nhiên 1 AZ có thể có nhiều subnet. Thông thường 1 AZ có 2 subnet (public subnet & private subnet).
-- Lưu ý: khi tạo subnet trong default VPC mà không explicit associate với route table nào thì mặc định sẽ là public subnet (do khi ta không gán với route table nào thì subnet đấy sẽ được implicit associate với default route table, mà default route table luôn trỏ 0.0.0.0 về internet gateway).
-- Routing table: là bảng định tuyến của VPC, bao gồm một tập hợp các rule (được gọi là route), được sử dụng để xác định đường đi, nơi đến của các gói tin từ mạng con hay gateway. Default routing table sẽ gắn với các subnet ko explicitly associate với route table nào.
-- Internet Gateway: là tài nguyên thuộc VPC, dùng để kết nối ra internet. 1 VPC chỉ có thể attach với 1 internet gateway
-- NAT Gateway
+- Mở rộng VPC
+  - Ban đầu khi tạo VPC trên AWS, cần phải chỉ định một CIDR block IPv4 duy nhất gọi là "primary CIDR block" cho VPC đó. CIDR này xác định phạm vi địa chỉ IP mà VPC có thể sử dụng. Tuy nhiên, sau khi VPC đã được tạo, ta có thể thêm tối đa 4 "secondary CIDR blocks" nữa, tức là tới 5 CIDR block (giới hạn này có thể tăng lên tối đa 50 theo yêu cầu) cho mỗi VPC. Điều này giúp mở rộng phạm vi địa chỉ IP cho VPC mà không cần tạo thêm VPC mới. Việc này hữu ích khi ta cần thêm nhiều subnet hoặc nhiều tài nguyên hơn. Điều kiện là CIDR block mới thêm phải không overlap với CIDR block hiện có trong VPC hoặc các CIDR đã gán trước đó.
+  - Khi mở rộng VPC bằng cách thêm CIDR block mới (ví dụ như một secondary CIDR), các subnet tạo trong CIDR mới vẫn sẽ có thể giao tiếp với các subnet trong CIDR chính (primary CIDR), do các route trong bảng định tuyến (route table) mặc định của VPC đều có route "local" cho tất cả CIDR blocks thuộc VPC, nghĩa là các subnet trong các CIDR khác nhau vẫn có thể giao tiếp nội bộ qua route "local" này, trừ khi có chính sách hạn chế hoặc kiểm soát truy cập như security groups và network ACLs.
+
+
+
+### Routing table 
+- là bảng định tuyến của VPC, bao gồm một tập hợp các rule (được gọi là route), được sử dụng để xác định đường đi, nơi đến của các gói tin từ mạng con hay gateway. Default routing table sẽ gắn với các subnet ko explicitly associate với route table nào.
+
+### Internet Gateway: 
+là tài nguyên thuộc VPC, dùng để kết nối ra internet. 1 VPC chỉ có thể attach với 1 internet gateway
+### - NAT Gateway
   - Là component giúp EC2 trong private subnet kết nối ra internet.
   - NAT Gateway phải được đặt trong public subnet và phải được gán một Elastic IP (EIP) để có thể giao tiếp ra internet. Khi bạn tạo NAT Gateway, bạn phải chọn một EIP để gán cho nó. NAT Gateway sử dụng EIP này để NAT các kết nối từ private subnet ra internet. Thông qua EIP, các instance trong private subnet được NAT lại IP public tĩnh của NAT Gateway khi truy cập internet. 
   - Lưu lượng từ NAT Gateway khi ra ngoài internet được định tuyến thông qua Internet Gateway. Nếu không có Internet Gateway, NAT Gateway không thể kết nối ra internet mặc dù đã có địa chỉ EIP. Cơ chế routing trong route table của private subnet sẽ chuyển lưu lượng internet ra NAT Gateway, và NAT Gateway tiếp tục chuyển qua Internet Gateway ra ngoài.
@@ -20,18 +28,23 @@
   - NAT Gateway tính tiền theo giờ + bandwidth
   - NAT Gateway bandwidth là 5GBps, scale up to 100 GBps
 
-## II. Mở rộng VPC
-- Ban đầu khi tạo VPC trên AWS, cần phải chỉ định một CIDR block IPv4 duy nhất gọi là "primary CIDR block" cho VPC đó. CIDR này xác định phạm vi địa chỉ IP mà VPC có thể sử dụng. Tuy nhiên, sau khi VPC đã được tạo, ta có thể thêm tối đa 4 "secondary CIDR blocks" nữa, tức là tới 5 CIDR block (giới hạn này có thể tăng lên tối đa 50 theo yêu cầu) cho mỗi VPC. Điều này giúp mở rộng phạm vi địa chỉ IP cho VPC mà không cần tạo thêm VPC mới. Việc này hữu ích khi ta cần thêm nhiều subnet hoặc nhiều tài nguyên hơn. Điều kiện là CIDR block mới thêm phải không overlap với CIDR block hiện có trong VPC hoặc các CIDR đã gán trước đó.
-- Khi mở rộng VPC bằng cách thêm CIDR block mới (ví dụ như một secondary CIDR), các subnet tạo trong CIDR mới vẫn sẽ có thể giao tiếp với các subnet trong CIDR chính (primary CIDR), do các route trong bảng định tuyến (route table) mặc định của VPC đều có route "local" cho tất cả CIDR blocks thuộc VPC, nghĩa là các subnet trong các CIDR khác nhau vẫn có thể giao tiếp nội bộ qua route "local" này, trừ khi có chính sách hạn chế hoặc kiểm soát truy cập như security groups và network ACLs.
 
-## III. Mối liên hệ giữa Subnet và Availability Zone (AZ) trong AWS
+
+### Subnet và Availability Zone (AZ) trong AWS
 - Một Availability Zone (AZ) là một vị trí vật lý riêng biệt trong một AWS Region. Mỗi AZ gồm một hoặc nhiều trung tâm dữ liệu (data center) độc lập, giúp tăng tính sẵn sàng và khả năng chịu lỗi cho hệ thống.
+- 
+- Subnet là mạng con chia từ VPC CIDR, 1 subnet chỉ gắn liền với 1 AZ, tuy nhiên 1 AZ có thể có nhiều subnet. Thông thường 1 AZ có 2 subnet (public subnet & private subnet).
+- Lưu ý: khi tạo subnet trong default VPC mà không explicit associate với route table nào thì mặc định sẽ là public subnet (do khi ta không gán với route table nào thì subnet đấy sẽ được implicit associate với default route table, mà default route table luôn trỏ 0.0.0.0 về internet gateway).
 - Một Subnet là một mạng con (subnetwork) được tạo trong một VPC và nằm hoàn toàn trong một Availability Zone duy nhất. Nghĩa là, mỗi subnet chỉ gói gọn trong một AZ, không thể kéo dài qua nhiều AZ.
 - Khi tạo subnet trong AWS, bạn cần chỉ định CIDR block cho subnet đó và chọn một AZ cụ thể để subnet thuộc về.
 - Mỗi VPC có thể có nhiều subnet, mỗi subnet nằm trong một AZ khác nhau nhằm phân bố tài nguyên, hệ thống của bạn có thể được triển khai trên nhiều AZ khác nhau để tăng độ dự phòng và khả năng chịu lỗi.
 - Việc phân chia subnet theo AZ giúp AWS và bạn kiểm soát mạng tốt hơn, phân tách tài nguyên theo vùng vật lý, dễ dàng tổ chức kiến trúc dịch vụ phân tán, đảm bảo khi AZ này gặp sự cố thì các subnet (và tài nguyên) ở AZ khác vẫn hoạt động bình thường.
 - Khi tạo tài nguyên EC2 trong AWS, bạn cần chỉ định Subnet chứ không phải chỉ định trực tiếp Availability Zone (AZ).
-- Mô hình thiết kế 1 VPC
+
+### nacl là resource của vpc. nacl đc gán với subnet, 1 subnet chỉ đc gán 1 nacl
+
+## II. Mô hình thiết kế 1 VPC
+
 <img width="763" height="355" alt="image" src="https://github.com/user-attachments/assets/ba2a22aa-a743-4c19-aa36-6eef22f9a96f" />
 https://docs.aws.amazon.com/vpc/latest/userguide/vpc-example-private-subnets-nat.html
 <img width="611" height="481" alt="image" src="https://github.com/user-attachments/assets/2d708b4e-cf63-4cd7-ad92-6dd709da2e92" />
@@ -66,7 +79,8 @@ elb bound với vpc, có thể span trên nhiều az
 ---
 
 
-nacl là resource của vpc. nacl đc gán với subnet, 1 subnet chỉ đc gán 1 nacl
+
+
 ---
 Template tạo VPC1
 ```
