@@ -26,7 +26,8 @@ CloudFormation
 Terraform hoạt động qua 3 phases:
 - init: initilize project và identify provider. Khi chạy lệnh init thì terraform sẽ download và cài đặt plugin cho provider trong file .tf. Plugin sẽ được download về trong file .terraform/plugin (nằm trong cùng thư mục chứa file .tf)
 - plan: draft a plan to get to the target state
-- apply: make change to the real environment / hoặc bring environment to the desired state in case the environment is shifted from desired state
+- apply: make change to the real environment / hoặc bring environment to the desired state in case the environment is shifted from desired state. Dùng option  -auto-approve để bỏ qua xác nhận
+
 - destroy: dùng để xóa resources
 
 
