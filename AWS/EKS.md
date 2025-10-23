@@ -1,3 +1,16 @@
+Trong EKS, control plane (gồm API server) và các worker node giao tiếp với nhau chủ yếu qua cổng TCP 443, cổng chuẩn dùng cho Kubernetes API server để giao tiếp an toàn bằng HTTPS.
+
+Các cổng quan trọng cho giao tiếp control plane và worker nodes:
+
+Cổng TCP 443 (Kubernetes API server): worker node và các pod kết nối đến API server để gửi các yêu cầu Kubernetes như tạo pod, cập nhật trạng thái, ...
+
+Cổng TCP 10250 (Kubelet API): control plane kết nối đến kubelet trên các node để lấy logs, thực hiện lệnh từ kubectl attach hay port-forward, ...
+
+Cổng TCP 10256 (kube-proxy): để kube-proxy trên node giao tiếp với các thành phần mạng.
+
+Các cổng NodePort (30000-32767 mặc định): nếu dùng dịch vụ NodePort để expose ngoài.
+
+
 CloudFormation tạo cụm EKS
 
 ```
