@@ -13,6 +13,22 @@ Vai trò của Target Group:
 
 Lưu ý: option stickiness được enable/disable trong target group
 
+Trong quá trình tạo target group trên AWS, hai trường protocol và port có những ý nghĩa quan trọng trong việc xác định cách load balancer phân phối lưu lượng đến các mục tiêu (targets).
+
+Protocol
+Protocol xác định giao thức mà target group sẽ sử dụng để giao tiếp với các mục tiêu (ví dụ: EC2 instances hoặc ECS tasks).
+
+Các lựa chọn phổ biến là HTTP, HTTPS, TCP, hoặc TLS.
+
+Ví dụ, nếu chọn HTTP, thì load balancer sẽ gửi các yêu cầu từ phía khách hàng qua giao thức HTTP đến các mục tiêu trong target group.
+
+Port
+Port chỉ định cổng mà các mục tiêu trong target group sẽ lắng nghe để nhận lưu lượng.
+
+Port có thể là một số cố định (ví dụ: 80 hoặc 443), hoặc hoàn toàn phù hợp với cấu hình của ứng dụng mục tiêu.
+
+Ví dụ, nếu đặt Port là 80, thì các EC2 instances hoặc ECS tasks trong target group phải nghe trên cổng này để nhận các yêu cầu từ load balancer.
+
 ---
 
 Option "Availability Zones and subnets" khi tạo Application Load Balancer trên AWS cho phép chọn khu vực khả dụng (AZ - Availability Zone) và các subnet tương ứng mà node Load Balancer sẽ được đặt trong đó
