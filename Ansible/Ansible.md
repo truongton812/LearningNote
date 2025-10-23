@@ -403,3 +403,25 @@ Lưu ý khi dùng Handler:
 Thư mục defaults trong Ansible role có tác dụng định nghĩa các giá trị mặc định (default values) cho các biến (variables) được sử dụng trong role đó. Khi role được sử dụng, các biến được khai báo trong defaults/main.yml sẽ có giá trị mặc định, và những biến này có thể bị ghi đè bởi các biến được khai báo ở các cấp độ cao hơn như vars, inventory, hoặc thông qua dòng lệnh khi chạy playbook
 
 Biến trong defaults luôn có mức ưu tiên thấp nhất, nghĩa là sẽ bị ghi đè nếu biến cùng tên xuất hiện ở chỗ khác (ví dụ: trong vars, extra_vars hoặc inventory)
+
+---
+
+Để trong Ansible có một task chỉ chạy sau khi một task khác đã chạy xong và có kết quả là thành công (đã hoàn thành), bạn có thể sử dụng cơ chế điều kiện với biến đăng ký (register) và câu lệnh điều kiện (when).
+
+Cách làm cụ thể như sau:
+
+Task thứ nhất bạn dùng register để lưu kết quả của task đó.
+
+Task thứ hai bạn dùng when để kiểm tra kết quả task thứ nhất và chỉ thực hiện khi task thứ nhất thành công.
+
+Ví dụ
+```
+- name: Task 1 - chạy lệnh nào đó
+  shell: some_command
+  register: task1_result
+  ignore_errors: yes    # tùy chọn nếu bạn muốn task 1 có thể thất bại mà không dừng playbook
+
+- name: Task 2 - chỉ chạy khi task 1 thành công
+  shell: some_other_command
+  when: task1_result is defined and task1_result.rc == 0
+```
