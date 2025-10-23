@@ -398,3 +398,8 @@ Lưu ý khi dùng Handler:
 - Khi sử dụng loop với notify, nếu bất kỳ phần tử nào trong vòng lặp thay đổi, toàn bộ handler liên quan được thực thi.
 - Nếu handler định nghĩa trong role, chúng vẫn có phạm vi toàn cầu trong playbook và có thể gây trùng tên, vì vậy nên đặt tên handler duy nhất.
 
+---
+
+Thư mục defaults trong Ansible role có tác dụng định nghĩa các giá trị mặc định (default values) cho các biến (variables) được sử dụng trong role đó. Khi role được sử dụng, các biến được khai báo trong defaults/main.yml sẽ có giá trị mặc định, và những biến này có thể bị ghi đè bởi các biến được khai báo ở các cấp độ cao hơn như vars, inventory, hoặc thông qua dòng lệnh khi chạy playbook
+
+Biến trong defaults luôn có mức ưu tiên thấp nhất, nghĩa là sẽ bị ghi đè nếu biến cùng tên xuất hiện ở chỗ khác (ví dụ: trong vars, extra_vars hoặc inventory)
