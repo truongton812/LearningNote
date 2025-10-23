@@ -336,6 +336,58 @@ Datasource giúp terraform quản lý các resource nằm ngoài control của t
 | **Creates, Updates, Destroys** Infrastructure | Only **Reads** Infrastructure   |
 | Also called **Managed Resources**    | Also called **Data Resources**   |
 
+
+data sources giúp lấy thông tin các tài nguyên hiện có như VPC, subnet, security group trong tài khoản AWS . Đây là cách phổ biến để tham khảo các tài nguyên đã tồn tại và dùng trong cấu hình.
+
+Ví dụ
+
+- Lấy default VPC trong vùng hiện tại:
+```
+data "aws_vpc" "default" {
+  default = true
+}
+```
+
+- Lấy danh sách subnet trong VPC đó:
+```
+data "aws_subnets" "default_subnets" {
+  filter {
+    name   = "vpc-id"
+    values = [data.aws_vpc.default.id]
+  }
+}
+```
+
+- Lấy security group mặc định trong VPC:
+```
+data "aws_security_group" "default_sg" {
+  vpc_id = data.aws_vpc.default.id
+  name   = "default"
+}
+```
+
+- Ví dụ lấy tất cả subnet trong một VPC nhất định:
+
+```
+data "aws_subnets" "selected" {
+  filter {
+    name   = "vpc-id"
+    values = ["vpc-12345678"]  # Thay bằng VPC ID của bạn
+  }
+}
+```
+
+- Sử dụng danh sách subnet trong các resource
+```
+resource "aws_autoscaling_group" "example" {
+  name                      = "example-asg"
+  launch_configuration      = aws_launch_configuration.example.name
+  vpc_zone_identifier       = data.aws_subnets.selected.ids
+  min_size                  = 1
+  max_size                  = 3
+  desired_capacity          = 2
+}
+```
 ### Meta arguments
 
 Defination:
