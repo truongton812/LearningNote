@@ -661,3 +661,73 @@ Resources:
   - stack instance drifted
   - stackset drifted
 - Integrates với “Self Service Portal” VD Service Now
+
+## XIX. Change set
+
+Để tạo change set trong AWS CloudFormation nhằm xem trước các thay đổi trước khi áp dụng, có thể thực hiện bằng AWS CLI hoặc trên AWS Console
+
+Tạo change set bằng AWS CLI
+```
+aws cloudformation create-change-set \
+  --stack-name MyStack \
+  --change-set-name MyChangeSet \
+  --template-body file://template.yaml \
+  --parameters ParameterKey=InstanceType,ParameterValue=t3.micro \
+  --capabilities CAPABILITY_IAM
+```
+
+Xem change set trên giao diện console
+
+Mở CloudFormation Console
+Truy cập AWS Management Console → CloudFormation.
+
+Ở trang Home, bấm Create stack → With new resources (standard).
+
+Bước 2. Chọn template
+Ở mục Specify template, chọn cách tải template:
+
+Template is ready → Upload a template file nếu bạn có file .yaml hoặc .json cục bộ.
+
+Hoặc chọn Amazon S3 URL nếu template nằm trong S3.
+
+
+Bước 3. Nhập thông tin stack
+Ở trang Specify stack details, điền:
+
+Stack name: tên cho stack (ví dụ my-test-stack).
+
+Các Parameters nếu template có khai báo.
+
+
+Bước 4. Tùy chọn (optional)
+Ở trang Configure stack options, bạn có thể:
+
+Gắn Tags.
+
+Bật Rollback configuration.
+
+Bật Stack policy (nếu cần).
+
+
+Bước 5. Thay vì bấm “Submit”, chọn “Create change set”
+Tại trang Review, bạn sẽ thấy tùy chọn Create change set ở cuối trang.
+
+Bấm vào Create change set thay vì Create stack.
+
+AWS CloudFormation sẽ tạo một change set với loại CREATE — tức là cho stack chưa tồn tại.
+
+Bước 6. Xem change set
+Sau vài chục giây, trạng thái change set chuyển sang CREATE_COMPLETE.
+
+Chọn tab Change sets của stack đang trong trạng thái REVIEW_IN_PROGRESS.
+
+Bấm View change set để xem chi tiết:
+
+Hiển thị Add cho các tài nguyên sẽ được tạo.
+
+Bạn có thể mở rộng từng tài nguyên để xem cấu hình.
+
+Bước 7. Thực thi (nếu muốn)
+Sau khi kiểm tra và xác nhận đúng, bấm Execute change set để CloudFormation thực sự bắt đầu tạo stack.
+
+Nếu bạn không muốn triển khai, chỉ cần Delete change set — CloudFormation sẽ không tạo gì cả.
