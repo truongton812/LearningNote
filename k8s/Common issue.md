@@ -195,3 +195,13 @@ Nếu các pod driver đang running bình thường thì nghĩa là kubelet trê
 Lỗi context deadline exceeded (timeout) là hệ quả, cho thấy yêu cầu mount không nhận được phản hồi.
 
 Khoanh vùng sự cố: Khi driver chạy nhưng không thể mount, nghi ngờ lớn nhất chuyển sang các yếu tố bên ngoài mà driver phụ thuộc vào: kết nối mạng và tình trạng của NFS server.
+
+
+### Cách debug nâng cao khi không có shell
+Tạo một ephemeral container có đầy đủ shell (alpine, busybox, ubuntu, vv.) vào cùng pod để debug bằng cách:
+
+```
+kubectl debug -it <pod> --image=busybox
+```
+
+Ephemeral container sẽ chạy cạnh container chính và có thể dùng shell đầy đủ.
