@@ -621,3 +621,7 @@ Nên cấu hình namespace rõ ràng trong app hoặc bật auto-create namespac
 Hỗ trợ tốt cho đa môi trường, có thể tạo nhiều ứng dụng ứng với nhiều environemnt khác nhau từ cùng một Helm chart.
 
 Đồng bộ trạng thái và rollback trực tiếp từ ArgoCD UI hoặc CLI rất tiện lợi
+
+---
+
+ArgoCD có khả năng remediate (tự động khôi phục) lại hạ tầng nếu trạng thái hiện tại trên Kubernetes không khớp với khai báo trên Git. ArgoCD liên tục so sánh trạng thái của hệ thống thực tế với trạng thái mong muốn được mô tả trong Git repository. Khi phát hiện sự khác biệt (out-of-sync), nếu được cấu hình auto-sync, ArgoCD sẽ tự động đồng bộ lại hệ thống bằng cách triển khai các thay đổi từ Git để đưa hạ tầng về trạng thái đúng như khai báo trên Git. Đây là một trong những nguyên lý cốt lõi của GitOps giúp bảo đảm tính nhất quán và tự động trong quản lý hạ tầng Kubernetes.​
