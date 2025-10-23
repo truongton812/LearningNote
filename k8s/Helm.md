@@ -41,6 +41,8 @@ dependencies:
 ```
 c. Values.yaml: chứa các biến cấu hình mặc định, cho phép tùy biến khi cài đặt ứng dụng
 
+https://helm.sh/docs/chart_template_guide/subcharts_and_globals/
+
 Giá trị trong file Values.yaml có precedence như sau: 
 
 - Giá trị mặc định trong values.yaml của subchart (chart con) có thể bị ghi đè bởi values.yaml của parent chart (chart cha).
