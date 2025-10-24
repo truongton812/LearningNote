@@ -188,9 +188,9 @@ Tuy nhiên đấy không phải best practice về bảo mật
 
 Best practice là đặt task ở private subnet và dùng 1 ELB để đẩy traffic đến task
 
-Khi tạo ELB cho ECS fargate thì phải tạo target group type là IP (do chỉ có container IP) thì sau này ở Service mới nhận
+Khi tạo ELB cho ECS fargate thì phải tạo target group type là IP (do chỉ có container IP) thì sau này ở Service mới nhận. Tuy nhiên ta không thể biết trước được IP của task để tạo target group cho phù hợp
 
-Hoặc để đơn giản thì khi tạo load balancer cứ tạo bừa 1 target group, sau này trong lúc tạo service thì tạo lại target group mới
+Vậy nên khi tạo load balancer thì ta tạo 1 target group empty để làm target group mặc định, sau đó khi tạo service thì ta tạo target group mới ứng với đường dẫn / -> ALB sẽ đẩy traffic đến target group này khi truy cập đến root, còn nếu không match với rule nào thì sẽ đẩy về target group mặc định
 
 ---
 
