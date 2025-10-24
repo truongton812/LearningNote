@@ -219,7 +219,7 @@ Vậy nên khi tạo load balancer thì ta tạo 1 target group empty để làm
 4. Traffic đến ALB:
    - Match rule `/` → forward đến target group `/`
    - Không match rule nào → về target group mặc định (empty hoặc trang báo lỗi)
-```
+
 
 ---
 
