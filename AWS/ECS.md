@@ -225,3 +225,14 @@ Khi tạo ECS Service, bạn được chọn 1 hoặc nhiều capacity provider 
 Thường dùng để chia workload giữa nhiều nhóm EC2 (khác cấu hình, khác pricing model, v.v.) hoặc giữa Fargate và Fargate Spot.​
 
 Quan trọng: Mỗi capacity provider strategy thuộc một service chỉ dùng được cùng loại provider — hoặc toàn bộ là các EC2 Auto Scaling Group, hoặc toàn bộ là các Fargate (Fargate/Fargate Spot). Không thể pha trộn EC2 và Fargate cùng lúc cho strategy của một
+
+---
+
+Tình trạng ECS Service dùng capacity provider là ASG bị "pending" thường xuất phát từ một số nguyên nhân phổ biến dưới đây:
+
+
+Chưa có Container Instance EC2 sẵn sàng/đăng ký vào cluster: Nếu ASG chưa provision EC2 hoặc EC2 khởi tạo nhưng chưa đăng ký thành công với ECS cluster (ví dụ ECS Agent chưa chạy, launch template sai, instance dùng AMI không tối ưu cho ECS), service sẽ mãi ở trạng thái pending vì không có tài nguyên để khởi chạy task.​
+
+ECS Agent trên EC2 bị lỗi hoặc không khởi chạy: Instance EC2 phải chạy ECS Agent với đủ quyền (ecsInstanceRole) mới đăng ký vào ECS cluster và nhận task. Nếu ECS Agent bị lỗi hoặc chưa khởi động, EC2 sẽ không hiện là container instance và ECS service không thể chạy task.​
+
+EC2 Instance thiếu quyền hoặc cấu hình networking lỗi: Instance cần có IAM role ecsInstanceRole. Nếu instance đặt ở private subnet thì phải đảm bảo có NAT Gateway, network access ra Internet/đến ECS API endpoint, và Security Group/NACL cho phép outbound traffic.
