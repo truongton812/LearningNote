@@ -137,7 +137,7 @@ aws.amazon.com/blogs/networking-and-content-delivery/connecting-networks-with-ov
 - Public subnet dùng để triển khai các thành phần phải ra/vào Internet như NAT Gateway, Load Balancer.
 - Private subnet dùng để chạy ứng dụng backend, EC2, ECS hoặc EKS worker tránh expose trực tiếp ra Internet.
 - Database subnet: tách biệt hoàn toàn, chỉ cho phép truy cập từ private subnet, rất an toàn khi dùng Amazon RDS/MongoDB/Redis, v.v.
-- Lưu ý: Các subnet khác AZ trong cùng VPC giao tiếp hoàn toàn bình thường như các subnet trong cùng AZ.
+- Lưu ý: Các subnet khác AZ trong cùng VPC giao tiếp hoàn toàn bình thường như các subnet trong cùng AZ. Do đó ta có thể tạo 1 NAT gateway đặt trong 1 subnet cho toàn bộ VPC vẫn hoạt động được. Private subnet ở các AZ khác sẽ có thể truy cập internet qua NAT gateway tạo ở một AZ duy nhất bằng cách route traffic qua NAT gateway đó.
 
 ## III. VPC Peering
 - Giúp kết nối các VPC lại với nhau bằng mạng backbone của AWS mà không cần đi ra internet. Có thể peering giữa các VPC khác region hoặc khác account
