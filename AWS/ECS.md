@@ -192,6 +192,35 @@ Khi tạo ELB cho ECS fargate thì phải tạo target group type là IP (do ch�
 
 Vậy nên khi tạo load balancer thì ta tạo 1 target group empty để làm target group mặc định, sau đó khi tạo service thì ta tạo target group mới ứng với đường dẫn / -> ALB sẽ đẩy traffic đến target group này khi truy cập đến root, còn nếu không match với rule nào thì sẽ đẩy về target group mặc định
 
+
+# ECS Fargate và Application Load Balancer (ALB)
+
+## 1. Target group kiểu IP cho Fargate
+- Với **ECS Fargate**, mỗi task chạy trong môi trường tách biệt (không có ENI cố định như EC2 instance chung).  
+- Do đó **ECS chỉ có thể đăng ký container IP** vào target group. Vì thế target group **bắt buộc** phải chọn type = **IP**, không thể dùng type = instance.
+
+## 2. Vấn đề về IP động
+- IP của task **do AWS cấp động mỗi lần task khởi tạo**, nên khi bạn tạo target group thì **không thể biết trước IP để add thủ công**.  
+- ECS service sẽ tự động gắn (register) hoặc gỡ (deregister) IP của các task vào target group tương ứng khi task start/stop.
+
+## 3. Giải pháp dùng target group mặc định
+- Khi bạn tạo **Application Load Balancer (ALB)**, bạn cần cung cấp **ít nhất một target group mặc định**, để ALB có nơi nhận traffic khi không có rule nào match.  
+- Ban đầu bạn có thể tạo **target group trống** (empty target group) chỉ để đáp ứng yêu cầu cấu hình ALB.
+
+## 4. Tạo service với target group riêng
+- Khi bạn tạo ECS service (bằng console, CLI hoặc CloudFormation), bạn quy định service sử dụng target group riêng cho route của mình (ví dụ `/`).  
+- Khi đó ECS tự động **tạo và quản lý việc đăng ký IP task vào target group** đó.  
+- ALB sẽ có rule kiểu “if path = `/` thì forward đến target group của service”, còn nếu không match rule nào thì **traffic sẽ về target group mặc định** (empty target group kia).
+
+## 5. Tóm gọn luồng hoạt động
+1. Tạo ALB + target group mặc định (empty).  
+2. Tạo listener rules để route `/` đến target group ứng với ECS service.  
+3. Tạo ECS service -> ECS sẽ tự gắn task IPs vào target group `/`.  
+4. Traffic đến ALB:
+   - Match rule `/` → forward đến target group `/`
+   - Không match rule nào → về target group mặc định (empty hoặc trang báo lỗi)
+```
+
 ---
 
 ECS Autoscaling
