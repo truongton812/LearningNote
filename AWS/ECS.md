@@ -213,3 +213,15 @@ ECS log
 Để gửi log vào Cloudwatch log thì:
 - Nếu dùng fargate thì chỉ cấn gán ecstaskexecutionrole cho task
 - Nếu dùng EC2 thì phải cài cloudwatch agent và gán role cho EC2 (cần 2 quyền là ECSContainerServiceforEC2Role và SSMManagedInstanceCore)  để có quyền push log lên cloudwatch
+
+---
+
+Capacity providers quản lý compute infrastructure cho cluster ECS — ví dụ EC2 Auto Scaling Group hoặc Fargate.​
+
+Một ECS cluster có thể gán nhiều capacity provider gồm cả EC2 và Fargate.​
+
+Khi tạo ECS Service, bạn được chọn 1 hoặc nhiều capacity provider trong phần strategy, đặt weight và base cho từng loại.​
+
+Thường dùng để chia workload giữa nhiều nhóm EC2 (khác cấu hình, khác pricing model, v.v.) hoặc giữa Fargate và Fargate Spot.​
+
+Quan trọng: Mỗi capacity provider strategy thuộc một service chỉ dùng được cùng loại provider — hoặc toàn bộ là các EC2 Auto Scaling Group, hoặc toàn bộ là các Fargate (Fargate/Fargate Spot). Không thể pha trộn EC2 và Fargate cùng lúc cho strategy của một
