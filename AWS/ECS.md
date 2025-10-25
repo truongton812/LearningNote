@@ -308,3 +308,5 @@ ECS có hỗ trợ deployment strategy là rolling update (default) , blue/green
 Khi dùng blue/green thì ta cần tạo 2 target group cho ALB, 1 TG là để cho version blue, 1 TG là cho version green
 
 Sau khi tạo xong service với deployment strategy là blue/green thì underlying sẽ tạo ra 1 application trong codedeploy (cần check lại) với deployment group trỏ về ecs service
+
+Lưu ý deployment group chỉ giúp codedeploy biết nơi cần phải deploy ứng dụng, còn deploy ứng dụng nào thì cần phải khai báo trong file appspec.yaml
