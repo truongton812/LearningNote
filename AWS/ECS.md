@@ -300,3 +300,11 @@ Chưa có Container Instance EC2 sẵn sàng/đăng ký vào cluster: Nếu ASG 
 ECS Agent trên EC2 bị lỗi hoặc không khởi chạy: Instance EC2 phải chạy ECS Agent với đủ quyền (ecsInstanceRole) mới đăng ký vào ECS cluster và nhận task. Nếu ECS Agent bị lỗi hoặc chưa khởi động, EC2 sẽ không hiện là container instance và ECS service không thể chạy task.​
 
 EC2 Instance thiếu quyền hoặc cấu hình networking lỗi: Instance cần có IAM role ecsInstanceRole. Nếu instance đặt ở private subnet thì phải đảm bảo có NAT Gateway, network access ra Internet/đến ECS API endpoint, và Security Group/NACL cho phép outbound traffic.
+
+---
+
+ECS có hỗ trợ deployment strategy là rolling update (default) , blue/green , canary và linear (lưu ý chỉ hoạt động ở service level)
+
+Khi dùng blue/green thì ta cần tạo 2 target group cho ALB, 1 TG là để cho version blue, 1 TG là cho version green
+
+Sau khi tạo xong service với deployment strategy là blue/green thì underlying sẽ tạo ra 1 application trong codedeploy (cần check lại) với deployment group trỏ về ecs service
