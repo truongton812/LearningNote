@@ -312,3 +312,5 @@ Sau khi tạo xong service với deployment strategy là blue/green thì underly
 Lưu ý deployment group chỉ giúp codedeploy biết nơi cần phải deploy ứng dụng, còn deploy ứng dụng nào thì cần phải khai báo trong file appspec.yaml -> sau khi khai báo file appspec.yaml thì codedeploy sẽ run luôn và version sẽ được thay đổi
 
 Khi thực hiện blue/green deployment thì ALB sẽ shift traffic sang target group green, tuy nhiên vẫn giữ các task của blue version để ta có thể rollback. Mặc định blue/green cho ta thời gian chờ là 1 tiếng để có thể rollback về blue version.
+
+Bên cạnh rollback thủ công, ta còn có thể kết hợp cloudwatch alarm để rollback (VD số lượng code 4xx 5xx cao thì rollback)
