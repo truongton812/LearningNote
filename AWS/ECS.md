@@ -255,6 +255,41 @@ Thường dùng để chia workload giữa nhiều nhóm EC2 (khác cấu hình,
 
 Quan trọng: Mỗi capacity provider strategy thuộc một service chỉ dùng được cùng loại provider — hoặc toàn bộ là các EC2 Auto Scaling Group, hoặc toàn bộ là các Fargate (Fargate/Fargate Spot). Không thể pha trộn EC2 và Fargate cùng lúc cho strategy của một
 
+
+Trong Amazon ECS, khi tạo một dịch vụ (service), bạn sẽ thấy trường "Compute option" có hai lựa chọn chính:
+
+1. Capacity Provider Strategy
+
+Đây là cách quản lý tài nguyên compute của bạn dựa trên các capacity provider
+
+Thay vì chọn loại launch riêng lẻ, bạn cấu hình nhiều capacity provider và chiến lược phân bổ tài nguyên cho phù hợp với mục tiêu về hiệu suất, chi phí hoặc ngân sách.
+
+Ví dụ, bạn có thể tạo một strategy kết hợp FARGATE và FARGATE_SPOT (có thể lựa chọn tỷ lệ triển khai) để cân bằng chi phí trong service chạy serverless
+
+Lưu ý: Bạn được phép mix nhiều capacity provider của cùng nhóm Fargate (FARGATE & FARGATE_SPOT).
+
+Hoặc mix nhiều capacity provider của nhóm ASG (ví dụ các ASG khác nhau).
+
+Nhưng không thể mix giữa Fargate với ASG trong cùng strategy service.
+
+2. Launch Type 
+   
+Là lựa chọn đơn giản hơn để xác định cách ECS sẽ triển khai container, chỉ có thể chọn 1 trong 3 loại launch type:
+
+EC2: Các task chạy trên các instance EC2 mà bạn quản lý, phù hợp khi muốn kiểm soát trực tiếp phần cứng hoặc tối ưu chi phí.
+
+Fargate: Chạy container serverless, ECS sẽ tự quản lý hạ tầng compute, phù hợp cho các ứng dụng không muốn quản lý server hoặc muốn mở rộng linh hoạt.
+
+External: Dùng cho các môi trường tùy chỉnh, không thuộc EC2 hoặc Fargate, phù hợp khi cần mở rộng sang hạ tầng bên ngoài.
+
+Giải thích của AWS:
+
+Compute options determine how your tasks are distributed across your cluster infrastructure.
+
+When you use a capacity provider, Amazon ECS distributes your tasks across one or more capacity provider. Capacity providers manage the scaling of infrastructure for tasks in your clusters.
+
+When you use a launch type, Amazon ECS launches your tasks on Fargate, Amazon ECS Managed Instances, or on the Amazon EC2 instances registered to your clusters.
+
 ---
 
 Tình trạng ECS Service dùng capacity provider là ASG bị "pending" thường xuất phát từ một số nguyên nhân phổ biến dưới đây:
