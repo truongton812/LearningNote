@@ -5,22 +5,33 @@
 - Root user là tài khoản gốc khi bạn tạo AWS account, chỉ có một duy nhất, dùng email và password đăng ký. Tất cả quyền quản trị cao nhất đều thuộc về root user này. Thông tin định danh (name) của root user chính là tên/email dùng khi tạo tài khoản, không có cấu trúc gì đặc biệt ngoài giá trị bạn nhập ban đầu.​
 - IAM user là các user mà bạn tạo thêm để quản lý truy cập AWS. Mỗi IAM user có tên riêng (<name>), đi kèm theo account_id (ID tài khoản AWS) để phân biệt giữa các account. Đôi khi, bạn có thể cấu hình một "alias" để thay cho account_id, giúp đăng nhập dễ nhớ hơn thay vì dùng số ID dài.​ Định danh đầy đủ của IAM user thường có dạng <name>@<account_id>, hoặc <name>@<alias> nếu đặt alias cho account.
 - Principal là đối tượng đại diện cho entity thực hiện hành động trên AWS, có thể là IAM user, federated user, IAM role, application. Group không được tính là principal, vì group chỉ dùng để gắn policy một cách tập trung nhưng không thể trực tiếp thực hiện hành động
-- Các loại policy:
-  - Managed policy: policy tạo sẵn bởi AWS
-  - Custom policy: policy tự tạo
-  - Inline policy: policy dành riêng cho 1 user (không hiển thị trong policy tab)
 
-- Các loại based policy:
-  - Identity-based policy
-    - Là loại policy gắn trực tiếp cho identities như user, group, role. Policy này quy định user, group hoặc role đó được quyền làm gì trên các resource AWS.
-    - Policy này không có trường "Principal", vì chính entity được gắn policy là principal rồi (vì đã biết policy gắn cho ai).​
-    - Ví dụ: Gán policy cho user "A" để user này có quyền truy cập S3.
-  - Resource-based policy
-    - Là loại policy gắn trực tiếp cho resource (ví dụ: S3 bucket, SQS queue, KMS key...). Policy này quy định ai (principal nào) được quyền làm gì trên resource đó.
-    - Policy này có trường "Principal" để chỉ rõ user, role, account nào được phép truy cập đến tài nguyên này.​
-    - Ví dụ: Gán policy cho một S3 bucket để cho phép user khác account truy cập.
-    - Lưu ý với resource-based policy cho S3, cần define policy ở cả bucket level và object level vì action cho object có thể cần quyền riêng biệt (ví dụ PUT, GET trên object).
-  - Ví dụ minh họa:
+#### - Các loại policy:
+
+Identity-based policies – jLà loại policy gắn trực tiếp cho identities như user, group, role. Policy này quy định user, group hoặc role đó được quyền làm gì trên các resource AWS. Policy này không có trường "Principal", vì chính entity được gắn policy là principal rồi (vì đã biết policy gắn cho ai).​ Có định dạng JSON và được quản lý theo 3 nhóm:
+  - Managed policies là các chính sách độc lập bạn có thể sử dụng cho nhiều Identity. Được chia thành 2 loại
+    - AWS managed policies: các chính sách do aws tạo và quản lý.
+    - Customer managed policies: các chính sách do người dùng tạo và quản lý
+  - Inline policies các chính sách do người dùng tạo và chị được gắn với một Identity duy nhất và sẽ bị xoá khi identity bị xoá.
+- Ví dụ: Gán policy cho user "A" để user này có quyền truy cập S3. 
+
+
+Resource-based policy: json policy permission là một inline policy được gắn với 1 resource, một resource-based policies quy định các principal được áp dụng chính sách và sử dụng condition để kiểm soát truy cập. Nó cho phép các principal ngoài account sử dụng các tài nguyên trong account. Đặc điểm:
+
+Khi resource-based policy chỉ định 1 principal là một principal của một account khác, principal vẫn cần được cấp phép sử dụng các resource bởi Identity-based policy của account sở hữa principal (tham khảo ví dụ)
+
+IAM có 1 loại resource-based policy là trust role policy được gắn cho IAM role cho phép role chỉ định Trusted entities và thực hiện cross-account access.
+
+IAM roles và resource-based policy vẫn có sự khác biệt trong cơ chế ủy quyền cross-account access
+
+- Là loại policy gắn trực tiếp cho resource (ví dụ: S3 bucket, SQS queue, KMS key...). Policy này quy định ai (principal nào) được quyền làm gì trên resource đó.
+- Policy này có trường "Principal" để chỉ rõ user, role, account nào được phép truy cập đến tài nguyên này.​
+- Ví dụ: Gán policy cho một S3 bucket để cho phép user khác account truy cập.
+- Lưu ý với resource-based policy cho S3, cần define policy ở cả bucket level và object level vì action cho object có thể cần quyền riêng biệt (ví dụ PUT, GET trên object).
+
+  
+  
+  Ví dụ minh họa:
     - Khi user muốn truy cập S3, có thể cấp quyền qua:
       - Identity-based policy: Gắn cho user policy "S3FullAccess" thì user sẽ truy cập được tất cả bucket/object cho phép trong policy đó.
       - Resource-based policy: Gắn trực tiếp policy vào S3 bucket để cấp/giới hạn quyền cho một hoặc nhiều principal từ các account khác hoặc role/application bất kỳ
@@ -83,7 +94,7 @@ AWS Policy Evaluation: Nếu có nhiều policy cùng loại (chỉ toàn Allow,
 
 - Assume role: cho phép 1 principal assume quyền của 1 user / account khác, giúp người dùng không phải quản lý nhiều user cho các role khác nhau, giúp các service gọi đến các AWS service khác on your behalf.
 
-- Permission boundary: giới hạn quyền của 1 user (overwrite attached permission). Note: không giúp Granted quyền
+- Permission boundary: giới hạn quyền của 1 user (overwrite attached permission). Note: không giúp Granted quyền, resource-based policy không bị giới hạn bởi permission boundary
 
 - Federation: cho phép dùng các user ở 1 hệ thống khác AWS (on-prem, azure,...) login vào AWS. Hỗ trợ 2 giao thức SAML 2.0 và web identity (google, facebook,...)
 
@@ -121,3 +132,38 @@ action: iam:passrole,
 Resource: arn:aws:iam:123456:role/Myrole
 ```
 -> sau đó đem cái này gán cho principle
+
+---
+
+## Tổng quan phân quyền trên AWS
+
+Phân quyền là việc tạo ra 1 tập hợp các chính sách quyết định principal (chủ thể) được phép thực thi hành động trên 1 resource hay không
+
+Principal là đối tượng đại diện cho entity thực hiện hành động trên AWS, có thể là account, IAM user, federated user, IAM role, application. Group không được tính là principal, vì group chỉ dùng để gắn policy một cách tập trung nhưng không thể trực tiếp thực hiện hành động
+
+
+Một policy được định nghĩa theo cấu trúc json và bao gồm các thuộc tính cơ bản:
+
+<img width="657" height="402" alt="image" src="https://github.com/user-attachments/assets/fd8939f3-5f3d-4ac5-a4e4-63d737fe3976" />
+
+Statement: Mỗi một policy đều có ít nhất một statement, statement dùng để chỉ định action nào được thực thi và tài nguyên nào được truy cập. Statement gồm các thành phần
+- Sid: Là một chuỗi uniq dùng để nhận dạng statement
+- Effect: Chỉ định các actions được liệt kê là Alllow/Deny
+- Action: Liệt kê các hành động bạn muốn thực thi (ec2:CreateImage, ec2:CreateNetworkAcl...)
+- Principal: Là tài khoản/người dùng/role được cho phép hoặc bị từ chối truy cập vào tài nguyên AWS (chỉ có khi dùng Resource-base policy)
+- Resource: Chính là tài nguyên AWS mà bạn muốn áp dụng những actions bên trên
+- Condition: Chỉ định các điều kiện bắt buộc phải tuân theo khi áp dụng policy này dựa trên các condition key được định nghĩa theo từng resouce, action (service-specific condition key ) và dựa trên các contex key (global condition key ).
+
+Điểm khác biệt giữa IAM role và IAM user
+- IAM User đại diện cho một thực thể cố định (ví dụ: nhân viên hoặc ứng dụng), có thông tin xác thực dài hạn như username, mật khẩu hoặc access key để truy cập AWS. Mỗi user là duy nhất và khi log in vào console hay sử dụng CLI, user sẽ sử dụng credential gắn với chính mình. Quyền hạn của IAM User được kiểm soát qua IAM Policy gắn trực tiếp hoặc qua Group.​
+
+- IAM Role không thuộc về bất kỳ ai cố định, không có username, mật khẩu hoặc access key dài hạn. Role được “assume” khi cần – tức là có thể được gán quyền cho user, service hoặc tài nguyên AWS khác, thường dùng cho việc ủy quyền truy cập tạm thời, hoặc trao đổi quyền truy cập giữa các service/tài khoản. Role gắn với policy và chỉ cấp credential tạm thời khi được assume. Chính sách trust policy sẽ quyết định ai/what được phép assume role.
+
+Khi một entity (user, service hoặc tài khoản khác) thực hiện “assume role”, AWS STS sẽ xác thực entity đó và cấp một bộ credential tạm thời bao gồm Access Key ID, Secret Access Key, cùng với Session Token có thời hạn ngắn (thường từ vài phút đến tối đa 12h). Những credential này cho phép entity thao tác với AWS resources như các credential dài hạn của IAM User, nhưng sẽ tự động hết hạn sau thời gian quy định và phải được xin cấp lại nếu muốn tiếp tục truy cập.
+
+| Tiêu chí           | IAM User                                  | IAM Role                                              |
+|--------------------|-------------------------------------------|-------------------------------------------------------|
+| Xác thực           | Dài hạn (username/password/access key)    | Credential tạm thời, chỉ phát sinh khi assume         |
+| Sở hữu             | Đại diện cho 1 người hoặc app cụ thể      | Không thuộc về ai cụ thể, ai được trust thì dùng      |
+| Cách sử dụng       | Truy cập trực tiếp bằng credential        | Được assume bởi user/service/tài khoản khác           |
+| Trường hợp sử dụng | Quản trị viên, app truy cập lâu dài       | Ủy quyền tạm thời, giữa accounts, federated access    |
