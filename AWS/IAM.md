@@ -131,6 +131,10 @@ AWS Policy Evaluation: Nếu có nhiều policy cùng loại (chỉ toàn Allow,
 - Assume role: cho phép 1 principal assume quyền của 1 user / account khác, giúp người dùng không phải quản lý nhiều user cho các role khác nhau, giúp các service gọi đến các AWS service khác on your behalf.
 
 - Permission boundary: giới hạn quyền của 1 user (overwrite attached permission). Note: không giúp Granted quyền, resource-based policy không bị giới hạn bởi permission boundary
+  - Permission boundary của AWS IAM có thể sử dụng cả "Effect": "Allow" và "Effect": "Deny" trong các policy statement, nhưng về mặt thực tiễn và best practice, permission boundary chủ yếu dùng "Allow". Tuy nhiên, bạn hoàn toàn có thể sử dụng "Deny" trong permission boundary — nó sẽ làm giới hạn tối đa quyền mà entity có thể nhận vì deny luôn có ưu tiên cao nhất trong logic đánh giá IAM policy của AWS
+  - Theo tài liệu AWS và kinh nghiệm triển khai, permission boundary nên dùng "Allow" để định nghĩa phạm vi tối đa mà entity được phép, còn các deny nên đặt ở IAM policy hoặc service control policy cho dễ kiểm soát, duy trì và audit.
+  - Permission boundary giúp hạn chế việc escalate privileges (VD về leo thang quyền: 1 IAM user chỉ cần có quyền IAMFullAccess có thể tạo 1 IAM user có quyền AdmnistratorAccess để sử dụng tất cả các resources trong AWS account)
+
 
 - Federation: cho phép dùng các user ở 1 hệ thống khác AWS (on-prem, azure,...) login vào AWS. Hỗ trợ 2 giao thức SAML 2.0 và web identity (google, facebook,...)
 
@@ -203,3 +207,69 @@ Khi một entity (user, service hoặc tài khoản khác) thực hiện “assu
 | Sở hữu             | Đại diện cho 1 người hoặc app cụ thể      | Không thuộc về ai cụ thể, ai được trust thì dùng      |
 | Cách sử dụng       | Truy cập trực tiếp bằng credential        | Được assume bởi user/service/tài khoản khác           |
 | Trường hợp sử dụng | Quản trị viên, app truy cập lâu dài       | Ủy quyền tạm thời, giữa accounts, federated access    |
+
+## Giải thích IAM condition
+
+IAM policy condition trong AWS là phần cho phép bạn chỉ định các điều kiện bổ sung để kiểm soát quyền truy cập, giúp chi tiết hóa và giới hạn quyền cho phép một cách linh hoạt hơn.
+
+Condition nằm trong khối Statement của policy JSON, là tùy chọn.
+
+Cấu trúc cơ bản của condition
+
+```
+ "Condition": {
+    "{condition-operator}": {
+        "{condition-key}": "{condition-value}"
+        }
+      }
+```
+Trong đó
+- condition-operator: toán tử điều kiện (như StringEquals, NumericLessThanEquals...)
+- condition-key: khóa ngữ cảnh (để so sánh)
+- condition-value: giá trị để so sánh với khóa ngữ cảnh
+
+
+Các loại condition phổ biến
+
+a. aws:SourceIp : Giới hạn truy cập chỉ từ một dải IP cụ thể:
+
+```
+"Condition": {
+  "IpAddress": { "aws:SourceIp": "192.0.2.0/24" }
+}
+```
+-> Chỉ cho phép truy cập từ mạng nội bộ hoặc VPN của công ty.​
+
+b. aws:SecureTransport : Yêu cầu truy cập phải qua HTTPS (bảo mật):
+
+```
+"Condition": {
+  "Bool": { "aws:SecureTransport": "true" }
+}
+```
+-> Dùng để bắt buộc truy cập thông qua kênh bảo mật, ngăn HTTP không mã hóa.​
+
+c. aws:MultiFactorAuthPresent : Chỉ cho phép khi người dùng đã xác thực đa yếu tố (MFA):
+
+```
+"Condition": {
+  "Bool": { "aws:MultiFactorAuthPresent": "true" }
+}
+```
+-> Tăng cường bảo mật khi thực hiện các thao tác nhạy cảm.​
+
+d. aws:RequestedRegion : Chỉ cho phép thao tác ở một số region cụ thể:
+
+```
+"Condition": {
+  "StringEquals": { "aws:RequestedRegion": ["ap-southeast-1", "us-west-2"] }
+}
+```
+
+d. aws:PrincipalTag : Giới quyền truy cập dựa trên tag
+
+```
+"Condition": {
+  "StringEquals": { "aws:PrincipalTag/job-category": "iamuser-admin" }
+}
+```
