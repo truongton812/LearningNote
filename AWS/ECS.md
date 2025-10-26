@@ -1,6 +1,17 @@
 Amazon Elastic Container Service (ECS) là dịch vụ quản lý container của AWS giúp chạy và quản lý các ứng dụng container.
 <img width="800" height="348" alt="image" src="https://github.com/user-attachments/assets/e84fb4d7-9296-404a-aa7c-a41531b1f09f" />
 
+
+1. ECS cluster: là 1 logical group chứa service hoặc task, cần phải tạo khi muốn sử dụng ECS
+- Trong cluster có các task (tương đương 1 hoặc nhiều container). Tạo task bằng task definition
+- service: dùng để duy trì số lượng desired task (giống ASG)
+- ECS container instance: được tạo ra khi dùng EC2 launch type (chạy container trên EC2)
+- ECS Anywhere: dùng onprem để run ECS container
+- EC2 launch type: cần provision và manage các EC2 instances. Registry là ECR, docker-hub, self-hosted. Integrate với EFS, FSx, EBS. Charge tiền theo EC2
+- Fargate launch type: serverless. Registry là ECR, docker-hub. Integrate với mỗi EFS. Charge tiền theo task
+- Khi dùng ECS thì recommend nên share storage = EFS (do tối ưu hơn các loại storage khác), task có thể share storage across AZ. Trong kiến trúc Fargate + EFS = serverless
+- ECS container agent: là software AWS deploy lên mỗi EC2 trong ECS cluster -> cho phép EC2 join cluster. Nếu không có ecs agent thì EC2 đấy không đăng ký được vào cluster
+
 1. Task Definition (Định nghĩa tác vụ)
 Đây là bản thiết kế (blueprint) của ứng dụng container bạn muốn chạy.
 
@@ -314,3 +325,28 @@ Lưu ý deployment group chỉ giúp codedeploy biết nơi cần phải deploy 
 Khi thực hiện blue/green deployment thì ALB sẽ shift traffic sang target group green, tuy nhiên vẫn giữ các task của blue version để ta có thể rollback. Mặc định blue/green cho ta thời gian chờ là 1 tiếng để có thể rollback về blue version.
 
 Bên cạnh rollback thủ công, ta còn có thể kết hợp cloudwatch alarm để rollback (VD số lượng code 4xx 5xx cao thì rollback)
+
+---
+
+ECS architecture
+
+- Cách invoke ECS:
+
+Để invoke ECS có thể dùng EventBridge (trigger hoặc định kỳ):
+
+```
+          upload image/video        Send event        Invoke
+client    --------------------> S3  ------------> EB ---------> ECS task ---------> DynamoDB
+                                                                    |
+                                                                    ---------------> S3
+```
+Note: để hoàn toàn serverless thì dùng fargate type
+      có thể thay = lambda nhưng lambda chỉ max 15'
+
+- Hoặc dùng SQS để invoke ECS
+
+message ---------> SQS queue -----(poll)-----> ECS service auto scaling (task1, task2,... taskn) để đảm bảo task luôn chạy
+
+- Để gửi notification thì dùng EB
+
+  ECS tasks exited --- (event) ----> EB --------(trigger)--> SNS ----email------> Admin
