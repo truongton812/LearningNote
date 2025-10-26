@@ -61,6 +61,23 @@ Ngoài ra còn có các policy
 
 Kết luận: Nếu chia tách theo mục đính sử dụng ta sẽ có: Identity-based policy, Session policy, Resource-based policy là các chính sách cấp quyền. Với Permission boundaries, Organization SCPs là các chính sách hạn chế quyền truy cập.
 
+#### Policy evaluation logic
+<img width="1281" height="561" alt="image" src="https://github.com/user-attachments/assets/15e22706-317e-4cdd-94dc-fa559b8ac6f2" />
+
+Được aws chia thành 6 bước đánh giá dựa trên phân loại policy:
+
+Deny evaluation bất cứ Deny statement nào trong policy từ bất cư policy type được tổng hợp và đánh giá đầu tiên. Nếu Deny statement được áp dụng, request sẽ bị từ chối
+
+Oraganizations policy Nếu principal thuộc một account được áp dụng Organization policy từ SCP, request phải tuân thủ policy từ Oraganization policy, nếu không sẽ bị từ chối . Ngay cả khi request đến từ aws account root user vẫn sẽ phải được cấp quyền từ Oraganization policy.
+
+Resource-based policy Nếu policy từ Resource-based policy chấp thuận request, request sẽ được chấp thuận ngay lập tức.
+
+IAM permission boundaries nếu principal được áp dụng permission boundaries và request không được cấp phép bởi các policy trong IAM permission boundaries, request sẽ bị từ chối.
+
+session policy nếu principal là một temporary credentials nó phải tuân thủ session policy nếu không sẽ bị từ chối truy cập.
+
+Identity-based policy nếu principal không được áp dụng resource-based policy thì nó bắt buộc phải được cấp quyền bởi Identity-based policy để được thự
+
 ## IAM role
 - IAM role có 2 loại:
   - Service role: user define
