@@ -41,6 +41,25 @@ IAM roles và resource-based policy vẫn có sự khác biệt trong cơ chế 
   - Inline policy: add trực tiếp vào user
   - Add qua group
   - Note: Nếu 1 user được gán quyền = inline và qua group thì sẽ có cả 2 quyền
+ 
+
+
+Ngoài ra còn có các policy
+
+- Permissions boundaries – json policy permission là một managed policy được sử dụng cho role và user nhằm hạn chế giới hạn phân quyền tối đa các chủ thể có thể thực hiện.Đặc điểm:
+
+
+- Organizations SCPs – json policy permission Sử dụng AWS Organizations service control policy (SCP) để định nghĩa phân quyền tối đa cho các account members của một organization hoặc organization unit (ou). Tương tự Permissions boundaries không cấp quyền cho chủ thể. Đặc điểm:
+  - Không ảnh hưởng tới các principal ngoài account trong resource-based policy
+  - Không hạn chế quyền của user và role trong management account
+  - SCP áp dụng cho tất cả user, role bao gồm các root user thuộc các account được thêm vào aws Organizations hoặc ou
+  - SCP không áp dụng cho các service-linked role
+
+- Access control lists (ACLs) được sử dụng để cho phép thực hiện cross-account access, acl chỉ định các principals của các account khác để kiểm soát truy cập. ACL không sử dụng đinh dạng JSON policy, acl không thể sử dụng với các principals trong cùng account.
+
+- Session policies – json policy permission được sử dụng cho các temporary cendentials hoặc feradated user nhằm cấp quyền truy cập cho các định danh tạm thời dựa trên Identity-based policy được áp dụng. Có thể hiểu nếu một temporary cendentials không được cấp quyền bởi một session policy sẽ bị từ chối hành động hoặc nếu request được chấp thuận bởi session policy nhưng không được cấp quyền bởi Identity-based policy sẽ bị từ chối.
+
+Kết luận: Nếu chia tách theo mục đính sử dụng ta sẽ có: Identity-based policy, Session policy, Resource-based policy là các chính sách cấp quyền. Với Permission boundaries, Organization SCPs là các chính sách hạn chế quyền truy cập.
 
 ## IAM role
 - IAM role có 2 loại:
