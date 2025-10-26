@@ -236,9 +236,22 @@ Vậy nên khi tạo load balancer thì ta tạo 1 target group empty để làm
 
 ECS Autoscaling
 
-Giúp scale task dựa trên working
+- Giúp scale task dựa trên working
 
-Khi dùng target tracking policy thì có 3 metric cơ bản là CPU, RAM và số request. Có thể tạo custom metric (tham khảo thêm)
+- Khi dùng target tracking policy thì có 3 metric cơ bản là CPU, RAM và số request. Có thể tạo custom metric (tham khảo thêm)
+- Có thể scale dựa trên:
+  - ECS service trung bình CPU hoặc RAM (lưu ý service = tổng các task)
+  - ALB request count per target (metric này lấy từ ALB)
+-> khi đến ngưỡng CW trigger ECS service autoscaling -> new tasks được thêm vào
+- Có thể scale theo các strategy (giống ASG)
+  - target tracking (dựa vào CW metric)
+  - step scaling (dựa vào CW alarm)
+  - scheduled scaling
+ 
+Lưu ý nếu dùng EC2 launch type cần có strategy để scale số lượng EC2 cho phù hợp
+- dùng asg scale dựa trên lượng CPU dùng (không hay)
+- scale thủ công (không hay)
+- dùng tính năng capacity provider của ASG: metric "capacity provider reservation" sẽ report resource dùng bởi EC2 trong cluster -> CW trigger ASG -> spin thêm EC2
 
 ---
 
@@ -248,11 +261,41 @@ Nếu enable Container insight thì có thêm nhiều metric hơn (mất phí)
 
 ---
 
-ECS log
+## ECS log
+- ECS task có thể gửi log trực tiếp vào CW (cần enable aws logs log driver bằng cách config "log configuration" parameter trong task definition)
+```
+{
+  "family": "my-ecs-task",
+  "containerDefinitions": [
+    {
+      "name": "my-app",
+      "image": "nginx:latest",
+      "essential": true,
+      "memory": 512,
+      "cpu": 256,
+      "portMappings": [
+        {
+          "containerPort": 80,
+          "hostPort": 80
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/my-app-logs",
+          "awslogs-region": "ap-southeast-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      }
+    }
+  ]
+}
+```
 
-Để gửi log vào Cloudwatch log thì:
-- Nếu dùng fargate thì chỉ cấn gán ecstaskexecutionrole cho task
-- Nếu dùng EC2 thì phải cài cloudwatch agent và gán role cho EC2 (cần 2 quyền là ECSContainerServiceforEC2Role và SSMManagedInstanceCore)  để có quyền push log lên cloudwatch
+
+- Nếu dùng fargate thì chỉ cấn gán ecstaskexecutionrole cho task. Support các logs driver khác như aws logs, splunk, awsfirelens
+- Nếu dùng EC2 thì phải cài cloudwatch agent và gán role cho EC2 (cần 2 quyền là ECSContainerServiceforEC2Role và SSMManagedInstanceCore)  để có quyền push log lên cloudwatch. Nên đẩy log ra CW log để tránh đầy disk của EC2. Có thể kết hợp CW Unified Agent và ECS container agent. Cần sửa file config trong container /etc/ecs/ecs.config -> tìm đếm dòng ECS_AVAILABLE_LOGGING_DRIVERS
+- Nếu không gửi log trực tiếp về CW thì ta có thể dùng sidecar container. Ý tưởng là có 1 container collect log ở stdout và file ở filesystem sau đó send vào storage (VD CW)
 
 ---
 
@@ -350,3 +393,13 @@ message ---------> SQS queue -----(poll)-----> ECS service auto scaling (task1, 
 - Để gửi notification thì dùng EB
 
   ECS tasks exited --- (event) ----> EB --------(trigger)--> SNS ----email------> Admin
+
+
+---
+
+### ECS - IAM role
+
+- EC2 instance profile: chỉ dùng cho EC2 launch type, áp lên EC2 (thực ra là ECS agent), cho phép gọi API đến ECS Service / ECR (lấy image) / Cloudwatch log (gửi log container) / SSM parameter store (để lấy var)
+- ECS task role: áp lên task , cho phép task làm gì (VD đọc S3/ DynamoDB,...). Mỗi task có 1 role, define trong task definition
+
+### ECS Ser
