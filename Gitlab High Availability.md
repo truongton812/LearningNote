@@ -120,3 +120,6 @@ Các thao tác với repo được xử lý qua Praefect → Gitaly Cluster (bac
 Artifacts và tệp định kèm được ghi lên Object Storage.
 
 Các background jobs chạy qua Sidekiq + Redis queues, đồng thời các chỉ số được thu thập bởi Prometheus.
+
+Tham kháo thêm
+https://devops.vn/posts/trien-khai-gitlab-high-availability-production-bang-ansible/
