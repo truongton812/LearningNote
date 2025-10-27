@@ -1,6 +1,6 @@
 Các thành phần để tạo cụm gitlab HA
 
-1. Cluster Coordination & State Management
+## 1. Cluster Coordination & State Management
 
 Consul (DCS) Distributed Configuration Store: Lưu trữ cấu hình, quản lý leader election cho Patroni, và cung cấp service discovery cho các dịch vụ khác.
 
@@ -12,9 +12,9 @@ Consul (DCS) Distributed Configuration Store: Lưu trữ cấu hình, quản lý
 
 Có thể thay Consul bằng etcd trong hệ thống GitLab HA, đặc biệt là khi dùng Patroni để quản lý PostgreSQL cluster. Patroni hỗ trợ nhiều loại Distributed Configuration Store (DCS), bao gồm Consul, etcd, ZooKeeper và Kubernetes, tuy nhiên etcd không có sẵn các tính năng service discovery và health check mạnh như Consul
 
-2. Database & Connection Layer
+## 2. Database & Connection Layer
 
-PostgreSQL sẽ lưu trữ các loại dữ liệu sau:​
+#### PostgreSQL sẽ lưu trữ các loại dữ liệu sau:​
 
 - Thông tin người dùng, nhóm, permission và từng quyền truy cập repository.​
 
@@ -24,7 +24,7 @@ PostgreSQL sẽ lưu trữ các loại dữ liệu sau:​
 
 - Cấu hình dự án, webhook, service integration, setting liên quan đến các chức năng mở rộng của GitLab.
 
-Patroni + PostgreSQL (DB HA) Cụm PostgreSQL có automatic failover và synchronous replication. -> Patroni phát hiện leader hỏng (bằng cách định kỳ truy vấn và cập nhật vào DCS (ví dụ như Consul) để phát hiện leader hỏng và thực hiện leader election), nó tự động chọn replica mới làm leader, đảm bảo DB HA mà không cần can thiệp thủ công.
+#### Patroni + PostgreSQL (DB HA) để đảm bảo cụm PostgreSQL có automatic failover -> Patroni phát hiện leader hỏng (bằng cách định kỳ truy vấn và cập nhật vào DCS (ví dụ như Consul) để phát hiện leader hỏng và thực hiện leader election), nó tự động chọn replica mới làm leader, đảm bảo DB HA mà không cần can thiệp thủ công.
 
 Cơ chế hoạt động của patroni:
 - Mỗi node Patroni chạy một agent và tất cả các node đều kết nối tới DCS (Có thể là Consul, etcd, ZooKeeper…).
@@ -32,12 +32,12 @@ Cơ chế hoạt động của patroni:
 - Các node standby cũng liên tục theo dõi khóa leader trên DCS thông qua polling (định kỳ truy vấn hoặc sử dụng watch nếu được hỗ trợ).
 - Nếu leader không cập nhật khóa trong thời gian TTL, các standby sẽ phát hiện khóa đã hết hạn và bắt đầu một vòng leader election mới để chọn node mới làm primary
 
-PgBouncer Connection pooler, tạo endpoint ổn định cho ứng dụng và Praefect. 
+#### PgBouncer Connection pooler, tạo endpoint ổn định cho ứng dụng và Praefect. 
 - Toàn bộ ứng dụng GitLab (Rails, Praefect) không kết nối trực tiếp tới PostgreSQL, mà thông qua PgBouncer.
 - PgBouncer quản lý connection pool, giảm tải kết nối và đảm bảo ứng dụng luôn kết nối đến leader hiện tại mà không phải restart.
 - Trong quá trình failover, PgBouncer chỉ cần cập nhật thông tin backend, không làm ngắt luồng của người dùng.
 
-3. Caching & Queueing Layer
+## 3. Caching & Queueing Layer
 
 Redis + Sentinel (Cache/Queues HA) Cung cấp cache và hàng đợi HA cho GitLab Rails và Sidekiq.
 
@@ -52,6 +52,11 @@ GitLab Rails / Workhorse / Puma / Sidekiq chạy trên cả 3 node xử lý web 
 6. Access & Load Balancing Layer
    
 HAProxy + Keepalived (VIP) Load balancer cho HTTP(S), SSH, và (tuỳ chọn) gRPC Praefect. Cung cấp virtual IP, health check, và failover tự động.
+
+Phân biệt HAProxy / Keepalived và PGbouncer
+|HAProxy|KeepAlived|PGbouncer|
+|---|---|---|
+|HAProxy là load balancer đa năng cho application layer, chia tải và chuyển tiếp các giao thức TCP/HTTP chứ không tối ưu cho pool database connection.​|Keepalived chỉ cấp VIP và failover lối vào, không trực tiếp điều phối hoặc chuyển tiếp traffic.|PgBouncer chỉ dành cho kết nối PostgreSQL, quản lý pool kết nối dựa trên session/query, giải quyết vấn đề tài nguyên cho database, không load balance traffic web/app.​|
 
 7. Object Storage Layer
    
