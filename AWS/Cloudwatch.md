@@ -186,3 +186,28 @@ Acc B: Cloudwatch ---> Subscription filter ---> |      - Cần policy cho phép 
 - Để theo dõi sự kiện cross-account thì:
   - Trong account nguồn: tạo EventBridge rule để theo dõi event cần và chọn target là event bus ở account đích. Lưu ý cần đảm bảo IAM role của EventBridge trong account nguồn có quyền events:PutEvents.
   - Trong account đích: tạo EventBridge rule để nhận và xử lý sự kiện từ account nguồn.
+
+---
+
+Log group và log stream là hai khái niệm nền tảng trong AWS CloudWatch Logs, mỗi cái đóng vai trò và phạm vi quản lý khác nhau đối với dữ liệu log.
+
+Log Group là gì?
+Log group là một "ngăn chứa" (container) cho nhiều log stream.
+
+Các log stream trong cùng một log group sẽ chia sẻ chung các thiết lập như thời gian lưu trữ (retention), quyền truy cập (access control), và các rule cho filter hoặc alarm.​
+
+Thông thường, một log group đại diện cho một ứng dụng, một dịch vụ hoặc một thành phần logic riêng biệt trong hệ thống AWS (ví dụ: /aws/lambda/app1, /aws/ec2/webserver).​
+
+Log Stream là gì?
+Log stream là một chuỗi (sequence) các sự kiện log xuất phát từ cùng một nguồn (source).​
+
+Mỗi nguồn cung cấp (ví dụ: mỗi instance EC2, mỗi container, mỗi Lambda execution environment...) thường sẽ tạo một log stream riêng biệt.
+
+Bên trong log stream, mỗi sự kiện log được lưu kèm timestamp, message và các thuộc tính metadata liên quan
+
+| Đặc điểm                  | Log Group                                         | Log Stream                                 |
+|--------------------------|--------------------------------------------------|--------------------------------------------|
+| Phạm vi quản lý           | Chứa nhiều log stream liên quan                   | Quản lý log events từ 1 nguồn cụ thể       |
+| Cấu hình chung            | Có (retention, policies, metric filters, v.v.)    | Không (tuân theo log group chứa nó)        |
+| Quan hệ                   | 1 log group : nhiều log stream                    | 1 log stream : thuộc 1 log group           |
+| Ví dụ tên                 | `/aws/lambda/my-function`                         | `2025/10/29/[$LATEST]abcd1234...`          |
