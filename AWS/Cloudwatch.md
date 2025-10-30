@@ -211,3 +211,8 @@ Bên trong log stream, mỗi sự kiện log được lưu kèm timestamp, messa
 | Cấu hình chung            | Có (retention, policies, metric filters, v.v.)    | Không (tuân theo log group chứa nó)        |
 | Quan hệ                   | 1 log group : nhiều log stream                    | 1 log stream : thuộc 1 log group           |
 | Ví dụ tên                 | `/aws/lambda/my-function`                         | `2025/10/29/[$LATEST]abcd1234...`          |
+
+
+Log group là "thư mục" lớn để gom nhóm các luồng log liên quan nhau và áp dụng chung các cài đặt.
+
+Log stream là "tập con" chứa các log events từ một nguồn cụ thể, ví dụ từng container, từng phiên Lambda, hoặc từng máy EC2
