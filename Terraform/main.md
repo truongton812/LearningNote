@@ -660,6 +660,9 @@ data "aws_eks_cluster" "eks" {
 data "aws_eks_cluster_auth" "eks" {
   name = aws_eks_cluster.eks.name #hoặc có thể dùng trực tiếp tên của cluster trên AWS
 }
+
+#Dùng data source sẽ giúp helm provider chờ cho đến khi cluster được tạo xong (trong TH tạo cluster cũng bằng terraform)
+
 provider "helm" {
   kubernetes {
     host                   = data.aws_eks_cluster.eks.endpoint
