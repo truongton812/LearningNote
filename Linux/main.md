@@ -1,11 +1,11 @@
 ### Các lệnh linux thông dụng
 
-##### xem thông tin 1 directory mà không show file bên trong, dùng:
+##### 1. xem thông tin 1 directory mà không show file bên trong, dùng:
 
 ```bash
 ls -ld <tên_directory>
 ```
-##### ```sudo -i -u postgres```
+##### 2. ```sudo -i -u postgres```
 
 -i (viết tắt của "interactive login shell"): Đây là một option trong sudo dùng để mô phỏng phiên đăng nhập tương tác của user được chuyển sang (ở đây là user postgres). Nó sẽ thực thi môi trường shell như khi user đó đăng nhập trực tiếp, bao gồm thiết lập biến môi trường như HOME, tải các file cấu hình shell của user đó, v.v. Điều này giúp tạo ra môi trường làm việc giống phiên đăng nhập chính thức của user postgres.
 
@@ -13,7 +13,7 @@ ls -ld <tên_directory>
 
 Kết hợp lại, sudo -i -u postgres nghĩa là "chạy một phiên shell tương tác như user postgres", cho phép thực thi các lệnh tiếp theo trong môi trường của user postgres với đầy đủ quyền và biến môi trường của user đó mà không cần đăng nhập trực tiếp bằng tài khoản postgres. Khi dùng sudo -i -u postgres, sẽ mở một phiên shell giống hệt như user postgres đăng nhập trực tiếp, tức là tái tạo biến môi trường, thư mục home, và tải các file cấu hình shell của user postgres. Điều này quan trọng khi thực thi các lệnh cần môi trường đầy đủ của user postgres, ví dụ các lệnh PostgreSQL mà user đó thường dùng. Nếu không có -i, có thể một số lệnh bị lỗi hoặc không đúng do môi trường thiếu biến hoặc cấu hình
 
-##### Command -v
+##### 3. Command -v
 
 Lệnh `command -v` trong shell dùng để kiểm tra xem một lệnh hoặc chương trình có tồn tại và có thể thực thi được trên hệ thống hay không.  
 
@@ -22,6 +22,29 @@ Nếu lệnh hoặc chương trình không tồn tại, command -v không trả 
 Ví dụ, command -v ls sẽ trả về đường dẫn như /bin/ls nếu ls có trên hệ thống.
 
 
+##### 4. Lọc các tiến trình sử dụng nhiều bộ nhớ
+
+ps aux | awk '{if ($5 != 0 ) print $2,$4,$6,$11}' | sort -k2nr | head -n10
+
+##### 5. Lấy ra những câu lệnh thường xuyên được sử dụng nhất (với Bash Shell)
+
+cat ~/.bash_history | tr "\|\;" "\n" | sed -e "s/^ //g" | cut -d " " -f 1 | sort | uniq -c | sort -nr | head -n 15
+
+##### 6. xóa các dòng trống trong file
+
+sed -i '/^$/d'
+
+##### 7. Đổi tên toàn bộ file trong thư mục để chuyển các space thành underscore
+
+`for i in *; do mv "$i" ${i// /_};done`
+
+##### 8. Cú pháp tắt nhanh một web server đang hoạt động
+
+pgrep -f tcp://[IP]:[PORT] | xargs kill -9
+
+##### 9. Lấy tên của dự án dựa vào github repository
+
+git remote get-url <github_repo_name> | grep -o "\/[a-zA-Z0-9_\-]\+\.git" | sed -E "s/^\/|\.git$//g"
 
 ### Thêm ổ vào server
 
