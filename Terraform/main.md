@@ -629,7 +629,7 @@ https://devops.vn/posts/su-dung-terraform-modules-tai-su-dung-ma-quan-ly-ha-tang
 
 Sử dụng provider là Helm
 
-Example: ví dụ cấu hình Terraform sử dụng provider Helm để cài đặt ứng dụng Grafana lên Kubernetes cluster thông qua Helm chart
+Example: ví dụ cấu hình Terraform sử dụng provider Helm để cài đặt ứng dụng Grafana lên Kubernetes cluster local thông qua Helm chart
 
 ```
 provider "helm" {
@@ -647,6 +647,24 @@ resource "helm_release" "grafana" {
   set { #Gán giá trị cho biến của chart (ở đây cấu hình service thành loại NodePort)
     name  = "service.type" 
     value = "NodePort"
+  }
+}
+```
+
+Example: ví dụ cấu hình Terraform sử dụng provider Helm để cài đặt ứng dụng Grafana lên Kubernetes cluster trên AWS thông qua Helm chart
+
+```
+data "aws_eks_cluster" "eks" {
+  name = aws_eks_cluster.eks.name #hoặc có thể dùng trực tiếp tên của cluster trên AWS
+}
+data "aws_eks_cluster_auth" "eks" {
+  name = aws_eks_cluster.eks.name #hoặc có thể dùng trực tiếp tên của cluster trên AWS
+}
+provider "helm" {
+  kubernetes {
+    host                   = data.aws_eks_cluster.eks.endpoint
+    cluster_ca_certificate = base64decode(data.aws_eks_cluster.eks.certificate_authority[0].data)
+    token                  = data.aws_eks_cluster_auth.eks.token
   }
 }
 ```
