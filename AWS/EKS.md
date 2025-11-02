@@ -338,3 +338,9 @@ Outputs:
     Description: ARN of the worker nodes role
     Value: !GetAtt WorkerNodesRole.Arn
 ```
+
+---
+
+Cách để pod tương tác với tài nguyên trên AWS
+- Open ID connect provider
+- Pod identity (mới và đơn giản hơn)
