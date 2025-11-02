@@ -624,3 +624,29 @@ Ví dụ, khi tạo một máy ảo EC2, provisioner remote-exec có thể dùng
 
 https://devops.vn/posts/su-dung-terraform-modules-tai-su-dung-ma-quan-ly-ha-tang/
 
+
+### Dùng terraform để deploy helm chart
+
+Sử dụng provider là Helm
+
+Example: ví dụ cấu hình Terraform sử dụng provider Helm để cài đặt ứng dụng Grafana lên Kubernetes cluster thông qua Helm chart
+
+```
+provider "helm" {
+  kubernetes {
+    config_path = "~/.kube/config"
+  }
+}
+
+resource "helm_release" "grafana" {
+  name       = "grafana"
+  repository = "https://grafana.github.io/helm-charts"
+  chart      = "grafana"
+  version    = "7.0.6"
+
+  set {
+    name  = "service.type"
+    value = "NodePort"
+  }
+}
+```
