@@ -644,8 +644,8 @@ resource "helm_release" "grafana" {
   chart      = "grafana"
   version    = "7.0.6"
 
-  set {
-    name  = "service.type"
+  set { #Gán giá trị cho biến của chart (ở đây cấu hình service thành loại NodePort)
+    name  = "service.type" 
     value = "NodePort"
   }
 }
