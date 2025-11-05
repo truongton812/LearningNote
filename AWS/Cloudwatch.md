@@ -82,7 +82,7 @@ aws cloudwatch set-alarm-state --alarm-name <name> --state-value ALARM --state-r
 
 ## IV. Cloudwatch Logs
 ### 1. Cloudwatch logs
-- Là nơi lưu trữ log của system và app (cả cloud và on-prem).
+- Là nơi lưu trữ log của system và app (cả app trên cloud hoặc app từ on-prem/3rd party đều có thể đẩy log vào Cloudwatch logs bằng cách dùng AWS SDK).
 - Các loại log trong CloudWatch log:
   - Application log:
     - Là log được sinh ra từ application code, gồm custom log message, stack traces,... Log này thường được lưu dưới dạng file trên OS.
