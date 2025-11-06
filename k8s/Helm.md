@@ -139,7 +139,7 @@ helm install my-nginx bitnami/nginx
 
 `$helm show/inspect value <chart.tgz>` : xem thông tin file value.yaml của file chart.tgz, hữu ích khi không cần giải nén hoặc install file lên thành release
 
-
+`$helm pull <repo>/<chart>`: download 1 chart về máy local để custom
 #### Làm việc vớid dependency
 `$helm dependency list` : xem các dependencies khai báo trong file chart.yaml (lưu ý cần đứng trong root directory của chart để chạy lệnh này)
 
