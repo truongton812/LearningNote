@@ -4,10 +4,13 @@
 
 Application là đại diện cho một ứng dụng cụ thể mà bạn muốn triển khai lên Kubernetes.
 Application chứa các thông tin:
-- Nguồn (source): Git repo, Helm chart, Kustomize, v.v. Khi trỏ path của một Application trong ArgoCD tới một folder (thư mục) trong Git repository, ArgoCD sẽ thực hiện các bước sau:
+- Nguồn (source): Git repo chứa manifest YAML thuần, Helm chart hoặc thư mục Kustomize. Khi trỏ path của một Application trong ArgoCD tới một folder (thư mục) trong Git repository, ArgoCD sẽ thực hiện các bước sau:
   - Quét và tải tất cả các manifest file (các file định nghĩa tài nguyên Kubernetes dạng .yaml, .yml, .json) trong thư mục đó về.
   - Kiểm tra sự thay đổi: ArgoCD sẽ liên tục theo dõi thư mục này trong repository. Nếu phát hiện thay đổi (ví dụ: cập nhật, thêm, xóa file manifest), ArgoCD sẽ đánh dấu trạng thái của Application là OutOfSync (không đồng bộ) và sẵn sàng cập nhật lại cluster khi bạn đồng bộ (sync) thủ công hoặc ở chế độ tự động.
-  - Render manifest: Nếu thư mục chứa các file manifest "thuần" (plain manifests), ArgoCD sẽ parse, validate rồi sử dụng API Kubernetes để áp dụng (apply) các manifest này lên cluster (ở namespace và cluster bạn cấu hình trong Application). Khi trong folder chỉ định có file kustomization.yaml, ArgoCD sẽ hiểu đây là một ứng dụng sử dụng Kustomize, chạy lệnh kustomize build trên thư mục đó (sử dụng phiên bản Kustomize tích hợp sẵn) và apply các manifest tạo ra lên cụm Kubernetes thông qua API.
+  - Render manifest:
+    - Nếu thư mục chứa các file manifest "thuần" (plain manifests), ArgoCD sẽ parse, validate rồi sử dụng API Kubernetes để áp dụng (apply) các manifest này lên cluster (ở namespace và cluster bạn cấu hình trong Application).
+    - Nếu trong folder chỉ định có file kustomization.yaml, ArgoCD sẽ hiểu đây là một ứng dụng sử dụng Kustomize, chạy lệnh kustomize build trên thư mục đó (sử dụng phiên bản Kustomize tích hợp sẵn) và apply các manifest tạo ra lên cụm Kubernetes thông qua API.
+    - Nếu chỉ định tới Helm chart, ArgoCD sẽ triển khai chart lên cụm k8s
 - Đích (destination): Cụm Kubernetes và namespace sẽ triển khai.
 - Project mà Application này thuộc về.
 
