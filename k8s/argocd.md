@@ -628,3 +628,25 @@ Hỗ trợ tốt cho đa môi trường, có thể tạo nhiều ứng dụng �
 ---
 
 ArgoCD có khả năng remediate (tự động khôi phục) lại hạ tầng nếu trạng thái hiện tại trên Kubernetes không khớp với khai báo trên Git. ArgoCD liên tục so sánh trạng thái của hệ thống thực tế với trạng thái mong muốn được mô tả trong Git repository. Khi phát hiện sự khác biệt (out-of-sync), nếu được cấu hình auto-sync, ArgoCD sẽ tự động đồng bộ lại hệ thống bằng cách triển khai các thay đổi từ Git để đưa hạ tầng về trạng thái đúng như khai báo trên Git. Đây là một trong những nguyên lý cốt lõi của GitOps giúp bảo đảm tính nhất quán và tự động trong quản lý hạ tầng Kubernetes.​
+
+---
+
+Argo CD Image Updater hoạt động theo luồng như sau:
+
+- Quét các ứng dụng Argo CD: Image Updater định kỳ quét các ứng dụng được Argo CD quản lý để tìm ứng dụng có annotation chứa thông tin về image cần theo dõi và chiến lược cập nhật (ví dụ alias, regex tag).
+
+- Giám sát các kho chứa image (registry): Image Updater kiểm tra kho container (Docker Hub, ECR, ...) để phát hiện các phiên bản tag mới cho image đã khai báo.
+
+- So sánh version image: Dựa trên chiến lược (ví dụ semver), Image Updater xác định tag mới hơn phiên bản hiện tại đang dùng trong manifest.
+
+- Cập nhật manifest trong Git repo (luồng GitOps chuẩn):
+
+  - Image Updater KHÔNG trực tiếp sửa ứng dụng hoặc manifest trong Kubernetes.
+
+  - Nó tự động commit một thay đổi lên repository Git của bạn, cập nhật tag image mới trong file manifest (Deployment, Helm values, Kustomize patches, ...).
+
+  - Việc commit này kích hoạt Argo CD nhận biết có thay đổi mới trong Git repo.
+
+- Argo CD phát hiện thay đổi manifest trong Git: Argo CD so sánh trạng thái cluster hiện tại và manifest trong Git, thấy khác biệt nên trạng thái ứng dụng chuyển thành OutOfSync.
+
+- Argo CD tự động áp dụng thay đổi (sync): Nếu bật chính sách tự động sync, Argo CD sẽ tự động deploy manifest mới với tag image được cập nhật lên cluster.
