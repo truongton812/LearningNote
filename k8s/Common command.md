@@ -35,3 +35,6 @@ In ra nodePort ra terminal
 
 #### kubectl get events -n argocd --sort-by='.lastTimestamp'
 xem log
+
+4. kubectl -n argocd rollout restart deployment argocd-image-updater
+Restart pod
