@@ -25,3 +25,6 @@ Patch Manager tập trung vào việc tự động hóa quy trình vá lỗi (pa
 - Cho phép thực hiện các tác vụ quản lý như xem file, quản lý user, registry, v.v..​
 
 - Không tập trung vào vá lỗi mà chủ yếu là quản lý và giám sát fleet
+
+
+Lưu ý: Patch Manager và Fleet Manager dùng cùng một tập managed node mà bạn đã đăng ký trong AWS Systems Manager (Managed node là các máy chủ, instance EC2, thiết bị edge hoặc máy chủ tại chỗ được cấu hình để tương tác với AWS Systems Manager bằng cách cài đặt SSM Agent và thiết lập quyền truy cập phù hợp)
