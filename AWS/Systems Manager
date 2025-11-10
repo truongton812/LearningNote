@@ -1,0 +1,27 @@
+Patch Manager và Fleet Manager trong AWS Systems Manager là hai công cụ phục vụ các mục đích khác nhau, mặc dù cả hai đều hỗ trợ quản lý các tài nguyên (nodes) như EC2 instances hoặc máy chủ on-premises.
+
+1. Patch Manager
+
+Patch Manager tập trung vào việc tự động hóa quy trình vá lỗi (patching) cho các node được quản lý, bao gồm cả cập nhật bảo mật và các loại cập nhật khác cho hệ điều hành hoặc ứng dụng. Các tính năng chính:​
+
+- Tự động quét và cài đặt bản vá cho các node theo lịch trình hoặc theo yêu cầu.​
+
+- Hỗ trợ nhiều hệ điều hành như Linux, Windows, macOS.​
+
+- Cho phép tạo và quản lý các patch baseline (quy tắc xác định bản vá nào được cài đặt).​
+
+- Cung cấp báo cáo về tình trạng tuân thủ bản vá (patch compliance).​
+
+- Có thể tích hợp với Maintenance Windows để lên lịch vá lỗi.​
+
+2. Fleet Manager
+
+- Fleet Manager là một giao diện quản lý tập trung, giúp người dùng theo dõi và thực hiện các tác vụ quản trị từ xa trên toàn bộ fleet (tập hợp các node). Các tính năng chính:​
+
+- Cung cấp giao diện thống nhất để xem trạng thái sức khỏe, hiệu suất của các node.​
+
+- Hỗ trợ kết nối từ xa (ví dụ: RDP cho Windows, SSH cho Linux) để quản lý và xử lý sự cố.​
+
+- Cho phép thực hiện các tác vụ quản lý như xem file, quản lý user, registry, v.v..​
+
+- Không tập trung vào vá lỗi mà chủ yếu là quản lý và giám sát fleet
