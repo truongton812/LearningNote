@@ -66,3 +66,42 @@ Là dịch vụ cung cấp SSO vào nhiều tài khoản AWS trong Organization.
 - User đăng nhập vào Identity Center Portal sẽ thấy danh sách các AWS account mà user được cấp quyền truy cập cùng với các role tương ứng. Khi user chọn 1 account và role, hệ thống sẽ cho user assume vào role đấy trong account bằng temporary credential.
 
 <img width="1575" height="581" alt="image" src="https://github.com/user-attachments/assets/deeb0882-3c7d-41da-ba8f-ad608dfa8b85" />
+
+---
+
+Question 11 An ecommerce company has chosen AWS to host its new platform. The company's DevOps team has started building an AWS Control Tower landing zone. The DevOps team has set the identity store within AWS IAM Identity Center (AWS Single Sign-On) to external identity provider (IdP) and has configured SAML 2.0. The DevOps team wants a robust permission model that applies the principle of least privilege. The model must allow the team to build and manage only the team's own resources. Which combination of steps will meet these requirements?
+-> Công ty sử dụng AWS IAM Identity Center (trước đây gọi là AWS SSO) để thiết lập đăng nhập một lần (SSO) với một nhà cung cấp danh tính bên ngoài (IdP), có hỗ trợ SAML 2.0. Giờ công ty muốn thiết lập least privilege 
+
+Đáp án:
+
+B. Tạo permission sets và sử dụng aws:PrincipalTag để giới hạn quyền ✅
+
+Trong AWS IAM Identity Center, quyền truy cập được quản lý thông qua permission sets, không phải IAM policies trực tiếp.
+
+Một permission set là một tập hợp các quyền giống như IAM policy, nhưng được quản lý bởi IAM Identity Center.
+
+
+aws:PrincipalTag giúp giới hạn quyền theo nhóm hoặc cá nhân, chỉ cho phép họ truy cập vào tài nguyên có tag phù hợp.
+
+
+Ví dụ:
+
+Nếu một người dùng có tag team=devopsA, họ chỉ có thể truy cập các tài nguyên có tag team=devopsA.
+
+C. Tạo nhóm trong IdP, gán người dùng vào nhóm và liên kết nhóm đó với permission sets trong IAM Identity Center ✅
+
+AWS IAM Identity Center hỗ trợ group-based access control, nghĩa là bạn có thể tạo nhóm trong IdP (ví dụ: Okta, Microsoft Entra ID, Google Workspace, v.v.).
+
+
+Sau đó, bạn có thể gán nhóm đó vào AWS accounts và permission sets, đảm bảo rằng chỉ người dùng thuộc nhóm mới có quyền truy cập tài nguyên tương ứng.
+
+
+F. Bật attributes-based access control (ABAC) trong IAM Identity Center và ánh xạ thuộc tính từ IdP ✅
+
+ABAC (Attribute-Based Access Control) trong IAM Identity Center cho phép sử dụng thuộc tính người dùng từ IdP để kiểm soát quyền truy cập.
+
+
+Khi kết nối IdP với IAM Identity Center, bạn có thể ánh xạ các thuộc tính từ IdP (ví dụ: department, role, team) thành các key-value pairs trong IAM Identity Center.
+
+
+Điều này giúp tự động hóa phân quyền mà không cần phải quản lý từng người dùng một cách thủ công.
