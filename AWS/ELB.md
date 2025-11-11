@@ -199,6 +199,6 @@ Việc liên kết này cũng cho phép ASG sử dụng các health check của 
 
 Cách làm: 
 
-- Trong cấu hình của ASG, phần Load balancing chọn Attach to an existing load balancer.
+- Trong cấu hình của Intergration của ASG, phần Load balancing chọn Attach to an existing load balancer.
 
 - Với Application Load Balancer (ALB), Network Load Balancer (NLB) hoặc Gateway Load Balancer, chọn Choose from your load balancer target groups, sau đó chọn target group hiện có.
