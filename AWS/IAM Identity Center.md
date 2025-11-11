@@ -61,7 +61,8 @@ Là dịch vụ cung cấp SSO vào nhiều tài khoản AWS trong Organization.
 
 - Gán permission set vào account. Cách làm: chọn vào account, gán permission set và user vào → Identity Center sẽ tạo IAM role trong account đấy với quyền bằng permission set chỉ định. Lưu ý permission set chỉ giới hạn quyền của user tạo trong Identity Center, không ảnh hưởng đến user/role trong AWS account
 
-<img width="1892" height="684" alt="image" src="https://github.com/user-attachments/assets/0d45881d-43d5-4036-8202-9bb16f0bfb8a" />
+<img width="1862" height="714" alt="image" src="https://github.com/user-attachments/assets/6e1bd00b-e8cb-40a3-bb0b-e14414108607" />
 
 - User đăng nhập vào Identity Center Portal sẽ thấy danh sách các AWS account mà user được cấp quyền truy cập cùng với các role tương ứng. Khi user chọn 1 account và role, hệ thống sẽ cho user assume vào role đấy trong account bằng temporary credential.
 
+<img width="1575" height="581" alt="image" src="https://github.com/user-attachments/assets/deeb0882-3c7d-41da-ba8f-ad608dfa8b85" />
