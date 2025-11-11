@@ -12,6 +12,8 @@ Identity: Chính là tài khoản bạn dùng để đăng nhập vào portal n�
 
 
 <img width="776" height="420" alt="image" src="https://github.com/user-attachments/assets/9eb5c5e0-6a89-4f77-a921-1e63049e9064" />
+<img width="1892" height="684" alt="image" src="https://github.com/user-attachments/assets/0d45881d-43d5-4036-8202-9bb16f0bfb8a" />
+
 
 Trong hình này, trường "Username / group name" chính là danh sách các user hoặc group (nhóm người dùng) trong IAM Identity Center đã được gán quyền truy cập vào một AWS Account thông qua các permission set cụ thể
 
