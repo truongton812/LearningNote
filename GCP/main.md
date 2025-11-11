@@ -1,3 +1,21 @@
+Project trong Google Cloud Platform (GCP) là một đơn vị tổ chức cơ bản để quản lý và sử dụng các tài nguyên của Google Cloud. Mỗi project là không gian riêng biệt chứa tất cả tài nguyên như máy ảo, cơ sở dữ liệu, bucket lưu trữ, ứng dụng... và được dùng để quản lý quyền truy cập, thanh toán, cũng như theo dõi chi phí riêng biệt cho từng hệ thống hoặc môi trường (phát triển, thử nghiệm, sản xuất). Project cũng giúp bạn quản lý API, bật tắt dịch vụ, thêm hoặc xoá cộng tác viên, và kiểm soát quyền truy cập qua cơ chế IAM (Identity and Access Management). Mỗi project có tên và ID duy nhất được dùng để nhận dạng và phân biệt trong toàn bộ Google Cloud.
+
+Phân chia nhiều project trong Google Cloud Platform (GCP) được thực hiện để:
+
+- Tách biệt tài nguyên theo nhóm, môi trường hoặc mục đích sử dụng riêng biệt (ví dụ phát triển, thử nghiệm, sản xuất) giúp tổ chức quản lý dễ dàng và tránh nhầm lẫn.
+
+- Quản lý quyền truy cập chính xác, cho phép cấp quyền khác nhau cho từng project, bảo vệ bảo mật và kiểm soát truy cập riêng biệt.
+
+- Theo dõi chi phí chi tiết và phân bổ ngân sách rõ ràng cho từng nhóm hoặc hệ thống mà không bị lẫn lộn chi phí giữa các tài nguyên.
+
+- Hạn chế rủi ro và gián đoạn: nếu một project gặp sự cố thì không ảnh hưởng đến các project khác vì các tài nguyên và dịch vụ được cô lập.
+
+- Dễ dàng quản lý, tự động hóa và mở rộng khi mỗi project được độc lập vận hành, phù hợp cho tổ chức lớn hoặc môi trường đa đội nhóm.
+
+Các thành phần ở 2 project khác nhau trong Google Cloud Platform (GCP) hoàn toàn có thể giao tiếp với nhau, tuy nhiên cần được cấu hình và cấp phép đúng cách.
+
+---
+
 IP public gọi là external ip addresses
 
 Muốn dùng static ip address thì cần "Reserver static address"
@@ -8,4 +26,5 @@ Static IP có thể switch cho VM instance khác trong cùng project và region
 
 Trong GCP
 - Startup script = User data
-- 
+- instance template: dùng để định nghĩa template để tạo nhanh 1 compute engine instance (giống launch template của aws). Khi tạo instance template ko thể sửa, chỉ có thể clone ra rồi tạo version mới. Instance template có thể sử dụng across region và across gion
+- Custom image = AMI: là image đã cài sẵn các patches và softwares. Custom image có thể được tạo từ 1 instance/ persistent disk/ snapshot/ image khác/ file trong Cloud Storage. Custom image có thể share với project khác/region khác. GCP cung cấp tính năng deprecate old image -> không ai có thể dùng được nữa, và ta có thể chỉ định image để thay thế image cũ đó. Để sử dụng custom image thì trong phần tạo instance ở mục boot disk ta change thành custom image và chọn image của mình
