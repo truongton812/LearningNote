@@ -50,3 +50,19 @@ Dấu -> None không phải là comment mà là một cú pháp gọi là "type 
 Nếu có hoặc không có -> None thì hàm vẫn chạy bình thường, nên về mặt chức năng nó không bắt buộc nhưng giúp code rõ ràng và dễ bảo trì hơn.
 
 Tóm lại, đây không phải comment vô nghĩa mà là lời chú thích kiểu trả về hàm, hữu ích cho việc đọc hiểu và kiểm
+
+---
+
+Trong AWS Lambda, hàm xử lý (handler) của bạn có thể trả về một giá trị (return) để gửi phản hồi lại cho dịch vụ hoặc client gọi Lambda đó. Việc cần return trong hàm Lambda có các lý do chính sau:
+
+- Khi Lambda được gọi theo kiểu đồng bộ (synchronous invocation), giá trị trả về từ hàm Lambda sẽ được chuyển lại cho client hoặc dịch vụ gọi Lambda trong định dạng JSON. Nếu không có return, giá trị trả về sẽ là null.
+
+- Việc trả về dữ liệu giúp client biết kết quả của lần gọi Lambda, ví dụ như trạng thái thực thi, dữ liệu đã xử lý, hoặc thông báo lỗi.
+
+- Nếu Lambda được dùng làm backend cho API Gateway hay các dịch vụ khác, giá trị trả về thường là cấu trúc JSON chứa mã trạng thái HTTP, header, và body để giao tiếp với client.
+
+- Trả về giá trị cũng giúp việc test, debug dễ dàng hơn vì ta có thể kiểm tra phản hồi được trả.
+
+Ngược lại, nếu Lambda được gọi bất đồng bộ (asynchronous invocation), giá trị trả về thường bị bỏ qua, nên return có thể không cần thiết, nhưng trong nhiều trường hợp bạn vẫn nên trả về kết quả chuẩn để mở rộng tính năng về sau hoặc khi chuyển sang gọi đồng bộ.
+
+Tóm lại, return trong Lambda là để cung cấp phản hồi cụ thể cho dịch vụ hoặc client gọi hàm, cải thiện khả năng tương tác và quản lý kết quả thực thi hàm
