@@ -7,3 +7,6 @@ Lambda Execution Context Reuse
 - AWS Lambda giữ lại execution environment (bộ nhớ, biến global) sau khi function chạy xong để tái sử dụng cho các lần invoke tiếp theo (warm start).
 - Code bên ngoài handler (ví dụ: khởi tạo DB connection) chỉ chạy một lần khi execution environment được khởi tạo.
 - Code bên trong handler chạy mỗi lần invoke, dẫn đến việc kết nối DB được tạo mới liên tục → tăng latency và tốn tài nguyên.
+
+
+https://docs.google.com/document/d/103CadDRznUzqfriz7jC2cOY4Lfx6EzEQi-Xyw_n8tJw/edit?tab=t.0
