@@ -126,3 +126,34 @@ http+unix://%2Fvar%2Frun%2Fdocker.sock là cách mã hóa path Unix socket trong
 Bạn có thể tham khảo tài liệu Docker Engine API để biết thêm chi tiết các endpoint:
 
 https://docs.docker.com/engine/api/v1.41/
+
+---
+
+Docker-in-Docker (DinD) nghĩa là trong một container Docker bạn chạy một Docker daemon riêng biệt để có thể tạo, quản lý các container khác bên trong nó. Cụ thể, thay vì dùng Docker daemon trên máy chủ chủ (host), DinD tạo một môi trường Docker độc lập bên trong container và khởi tạo các container con bên trong. Các container con này là con cháu của container cha, nằm trong phạm vi của daemon Docker được khởi động trong container cha, không can thiệp đến Docker host bên ngoài.
+
+Hướng dẫn cơ bản để sử dụng Docker-in-Docker (DinD):
+
+- có thể sử dụng image chính thức docker:dind từ Docker Hub. Lệnh sau sẽ khởi động một container chạy Docker daemon bên trong:
+```
+docker run --privileged --name dind-test -d docker:dind # --privileged cho phép container có quyền cao để chạy Docker daemon.
+```
+- Để sử dụng Docker bên trong container đó, bạn có thể vào bash của container:
+
+```
+docker exec -it dind-test sh
+```
+
+Bên trong, bạn có thể chạy các lệnh Docker như bình thường:
+
+```
+docker ps
+docker run hello-world
+```
+
+Docker-in-Docker (DinD) liên quan mật thiết đến CI/CD pipeline vì nó cung cấp môi trường Docker hoàn toàn cách ly để chạy các bước build, test, và deploy container trong pipeline mà không ảnh hưởng đến Docker host chính.
+
+Trong CI/CD pipeline, khi bạn chạy pipeline (ví dụ GitLab CI, Jenkins, hoặc CircleCI), các job cần build hoặc chạy container. Thay vì cài Docker daemon trực tiếp trên runner hoặc agent, DinD cho phép chạy một Docker daemon riêng bên trong container. Job pipeline sẽ sử dụng DinD như một môi trường Docker độc lập để build image, chạy container test, rồi push image lên registry.
+
+Điều này tránh xung đột quyền truy cập hoặc ảnh hưởng trạng thái Docker host bên ngoài.
+
+DinD giúp pipeline tách biệt, dễ quản lý và tái sử dụng, đặc biệt khi nhiều job chạy song song hoặc trên cùng runner.
