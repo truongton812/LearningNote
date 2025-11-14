@@ -152,8 +152,13 @@ docker run hello-world
 
 Docker-in-Docker (DinD) liên quan mật thiết đến CI/CD pipeline vì nó cung cấp môi trường Docker hoàn toàn cách ly để chạy các bước build, test, và deploy container trong pipeline mà không ảnh hưởng đến Docker host chính.
 
-Trong CI/CD pipeline, khi bạn chạy pipeline (ví dụ GitLab CI, Jenkins, hoặc CircleCI), các job cần build hoặc chạy container. Thay vì cài Docker daemon trực tiếp trên runner hoặc agent, DinD cho phép chạy một Docker daemon riêng bên trong container. Job pipeline sẽ sử dụng DinD như một môi trường Docker độc lập để build image, chạy container test, rồi push image lên registry.
+Trong CI/CD pipeline, khi bạn chạy pipeline (ví dụ GitLab CI, Jenkins, hoặc CircleCI), các job cần build hoặc chạy container.  DinD cho phép chạy một Docker daemon riêng bên trong container. Job pipeline sẽ sử dụng DinD như một môi trường Docker độc lập để build image, chạy container test, rồi push image lên registry.
 
-Điều này tránh xung đột quyền truy cập hoặc ảnh hưởng trạng thái Docker host bên ngoài.
+Lợi ích chính của việc dùng Docker-in-Docker (DinD) thay vì dùng trực tiếp Docker daemon của host trong CI/CD pipeline gồm:
 
-DinD giúp pipeline tách biệt, dễ quản lý và tái sử dụng, đặc biệt khi nhiều job chạy song song hoặc trên cùng runner.
+- Cách ly môi trường build/test: DinD tạo ra Docker daemon riêng bên trong container, giúp các bước trong pipeline chạy độc lập, không can thiệp hay ảnh hưởng đến Docker daemon của máy chủ host. Điều này đảm bảo môi trường build nhất quán và an toàn hơn, tránh xung đột với các container hoặc tiến trình ngoài pipeline.
+
+- Tính linh hoạt và tái sử dụng: Với DinD, mỗi job CI/CD có thể có Docker daemon riêng, dễ dàng tái tạo hoặc thay thế mà không ảnh hưởng đến host hay các job khác. 
+
+- Dễ dàng triển khai trên các môi trường khác nhau: DinD giúp chuẩn hóa môi trường CI/CD trên các máy chủ hoặc cloud khác nhau mà không phụ thuộc trực tiếp vào cấu hình Docker daemon trên host.
+
