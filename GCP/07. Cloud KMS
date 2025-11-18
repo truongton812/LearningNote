@@ -1,0 +1,7 @@
+# Cloud KMS
+
+- Là dịch vụ tạo cryptographic key của GCP (symmetric và asymmetric)
+- Các loại key để mã hóa trên GCP:
+  - Google-managed key: key do Google quản lý, default cho các dịch vụ cần mã hóa như disk, storage,..
+  - Customer-managed key: key do user tạo trên KMS
+  - Customer-supplied key: key được import từ ngoài (VD generate trên on-prem) vào KMS
