@@ -1,37 +1,16 @@
 
+# Terraform
 
-### Types of IAC Tools
+## Terraform phase
 
-1. Configuration Management
-Ansible
-
-Puppet
-
-SaltStack
-
-2. Server Templating
-Docker
-
-HashiCorp Packer
-
-HashiCorp Vagrant
-
-3. Provisioning Tools
-HashiCorp Terraform
-
-CloudFormation
-
-### terraform phase
-
-Terraform hoạt động qua 3 phases:
+Terraform hoạt động qua các phases:
 - init: initilize project và identify provider. Khi chạy lệnh init thì terraform sẽ download và cài đặt plugin cho provider trong file .tf. Plugin sẽ được download về trong file .terraform/plugin (nằm trong cùng thư mục chứa file .tf)
-- plan: draft a plan to get to the target state
-- apply: make change to the real environment / hoặc bring environment to the desired state in case the environment is shifted from desired state. Dùng option  -auto-approve để bỏ qua xác nhận
-
+- plan: xác định và hiển thị những thay đổi nào sẽ được thực hiện đối với hạ tầng trước khi các thay đổi thực sự được áp dụn
+- apply: thực thi thay đổi trên môi trường thực tế hoặc đưa môi trường thực tế về đúng desired state nếu có thay đổi. Dùng option  -auto-approve để bỏ qua xác nhận
 - destroy: dùng để xóa resources
 
 
-### HCL (Hashicorp Configuration Language)
+## Hashicorp Configuration Language
 
 Syntax:
 ```
@@ -41,41 +20,24 @@ Syntax:
 }
 ```
 
-Trong đó:
-- block chứa thông tin về infrastruture platform và các resources ta muốn tạo
+Trong đó block chứa thông tin về infrastruture platform và các resources ta muốn tạo
 
-VD để tạo file trong localhost
-```
-resource "local_file" "pet" {
-  filename = "/root/pet.txt"
-  content = "we love pets" }
-```
+Các giá trị có thể nhận trong block là Provider/Resource/Variable/Output/Module
 
-
-Giải thích của chatgpt
-
-Trong file local.tf, một resource được khai báo như sau:
+**Ví dụ để tạo EC2 trên AWS**
 
 ```
-resource "local_file" "pet" {
-  filename = "/root/pets.txt"
-  content  = "We love pets!"
+provider "aws" {
+  region = "ap-southeast-1"
+}
+
+resource "aws_instance" "example" {
+  ami           = "ami-0c02fb55956c7d316"
+  instance_type = "t2.micro"
 }
 ```
 
-Block Name: resource
-
-Resource Type: local_file (trong đó “local” là provider, “file” là loại resource)
-
-Resource Name: pet
-
-Arguments:
-
-filename = "/root/pets.txt"
-
-content = "We love pets!"
-
-### Cách tổ chức file
+## Cách tổ chức file
 
 Trong thư mục thường đặt 1 file main.tf (gọi là configuration file). Trong file đấy chứa tất cả resource cần tạo
 Ngoài main.tf trong thư mục có thể đặt thêm các file:
