@@ -1,7 +1,8 @@
 
 # Terraform
 
-## 1. Terraform phase
+## 1. General
+## 1.1 Terraform phase
 
 Terraform hoạt động qua các phases:
 - init: initilize project và identify provider. Khi chạy lệnh init thì Terraform sẽ download và cài đặt plugin cho provider trong file .tf. Plugin sẽ được download về trong file .Terraform/plugin (nằm trong cùng thư mục chứa file .tf)
@@ -9,6 +10,17 @@ Terraform hoạt động qua các phases:
 - apply: thực thi thay đổi trên môi trường thực tế hoặc đưa môi trường thực tế về đúng desired state nếu có thay đổi. Dùng option  -auto-approve để bỏ qua xác nhận
 - destroy: dùng để xóa resources
 
+### 1.2 Các lệnh làm việc với Terraform
+- `Terraform validate` : dùng để kiểm tra syntax
+- `Terraform fmt` : format lại Terraform configuration file cho dễ đọc
+- `Terraform show` : print current state của infrastructure . Thêm option -json để đọc dưới dạng json
+- `Terraform providers` : xem tất cả providers có trong thư mục hiện tại
+- `Terraform providers mirror /path/to/other/configuration/directory` : copy provider ở current directory sang directory khác
+- `Terraform output` : in ra tất cả output trong thư mục configuration directory hiện tại. Thêm tên của output variable để chỉ lấy output của variable đấy
+- `Terraform apply -target=<resource_address>` : apply thay đổi chỉ cho một hoặc một số resource cụ thể được xác định bởi resource address
+- `Terraform apply -refresh-only` : dùng để sync file state với real-world state. Dùng trong trường hợp có thay đổi manually trên real-world infrastructure thì chạy lệnh này để update state file. Lưu ý là lệnh này chỉ modify state file
+- option `-resfresh=false` để bypass việc refresh Terraform state
+- `Terraform graph` : visualize ra mối quan hệ dependencies giữa các resource (cần phải cài phần mềm đọc format dot)
 
 ## 2. Hashicorp Configuration Language
 
@@ -287,41 +299,30 @@ Terraform-project/
 
 
 
-### 4. Terraform state
+## 5. Terraform state
 
 Workflow hoạt động của Terraform 
 
 - Khi chạy `Terraform init` -> download tất cả các provider plugin được khai báo
 - Chạy `Terraform plan` lần đầu tiên, Terraform sẽ nhận thấy không có state record -> hiểu rằng chưa có resource và Terraform chỉ cần tạo mới resource
-- Chạy `Terraform apply` -> refresh in-memory state 1 lần nữa và nhận ra chưa có state record, cần tạo mới -> nhấn yes để tạo mới
-- Nếu run Terraform apply 1 lần nữa -> Terraform sẽ không có action gì nếu configuration file không bị thay đổi . Terraform nhận biết được state hiện tại của resource thông qua file Terraform.tfstate (được tạo ra khi chạy Terraform apply lần đầu), file này lưu giữ trạng thái của resource từ lệnh Terraform apply trước
-- Nếu ta thay đổi configuration file và chạy Terraform apply 1 lần nữa thì Terraform sẽ nhận biết được desired state khác với real-world state -> thực hiện modify resource cho phù hợp
+- Chạy `Terraform apply` -> refresh in-memory state 1 lần nữa và nhận ra chưa có file state record, cần tạo mới -> nhấn yes để tạo mới
+- Nếu run `Terraform apply` 1 lần nữa mà configuration file không bị thay đổi thì Terraform sẽ không có action gì . Terraform nhận biết được trạng thái thực tế hiện tại của cơ sở hạ tầng do Terraform quản lý thông qua file Terraform.tfstate (được tạo ra khi chạy Terraform apply lần đầu), file này lưu giữ trạng thái của resource từ lệnh `Terraform apply` trước. Terraform xem state file như single source of truth để nhận biết trạng thái của resources mà không cần phải truy vấn lên hạ tầng thật (gây mất thời gian). Best practice là ta nên lưu state file ở remote machine để cả team dùng chung
+- Nếu ta thay đổi configuration file và chạy `Terraform apply` 1 lần nữa thì Terraform sẽ nhận biết được desired state khác với real-world state -> thực hiện modify resource cho phù hợp
+- Nếu sửa hạ tầng một cách thủ công, tức là thay đổi trực tiếp trên tài nguyên bên ngoài ngoài Terraform quản lý, sẽ gây ra sự khác biệt giữa trạng thái thực tế của hạ tầng và trạng thái lưu trong file Terraform.tfstate do Terraform quản lý. Khi đó, khi chạy lại lệnh Terraform plan hoặc Terraform apply, Terraform sẽ phát hiện ra sự không đồng bộ này và sẽ hiển thị các thay đổi hoặc cố gắng sửa lại tài nguyên để đưa về trạng thái đúng theo mã cấu hình Terraform.
 
 
-Chatgpt: File Terraform.tfstate trong Terraform là một file trạng thái (state file) dùng để lưu trữ thông tin về trạng thái hiện tại của cơ sở hạ tầng do Terraform quản lý. Nó ghi lại cấu hình hiện tại của các tài nguyên (resources) đã được tạo hoặc thay đổi khi thực thi các lệnh như Terraform apply. File này cho phép Terraform theo dõi và biết được những thay đổi cần thực hiện khi bạn chạy các lệnh tiếp theo, giúp đồng bộ trạng thái giữa file cấu hình và hạ tầng thực tế. State file có thể coi như là metadata của resource (VD xem được dependencies)
-Terraform xem state file như single source of truth để nhận biết trạng thái của resources mà không cần phải truy vấn lên hạ tầng thật (gây mất thời gian). Best practice là ta nên lưu state file ở remote machine để cả team dùng chung
-
-Nếu sửa hạ tầng một cách thủ công, tức là thay đổi trực tiếp trên tài nguyên bên ngoài ngoài Terraform quản lý, sẽ gây ra sự khác biệt giữa trạng thái thực tế của hạ tầng và trạng thái lưu trong file Terraform.tfstate do Terraform quản lý. Khi đó, khi chạy lại lệnh Terraform plan hoặc Terraform apply, Terraform sẽ phát hiện ra sự không đồng bộ này và sẽ hiển thị các thay đổi hoặc cố gắng sửa lại tài nguyên để đưa về trạng thái đúng theo mã cấu hình Terraform.
 
 
-### Các lệnh làm việc với Terraform
-- Terraform validate -> dùng để kiểm tra syntax
-- Terraform fmt -> format lại Terraform configuration file cho dễ đọc
-- Terraform show -> print current state của infrastructure . Thêm option -json để đọc dưới dạng json
-- Terraform providers -> xem tất cả providers có trong thư mục hiện tại
-- Terraform providers mirror /path/to/other/configuration/directory -> copy provider ở current directory sang directory khác
-- Terraform output -> in ra tất cả output trong thư mục configuration directory hiện tại. Thêm tên của output variable để chỉ lấy output của variable đấy
--Terraform apply -target=<resource_address> -> allows applying changes to specific resources or modules within a Terraform configuration, rather than applying the entire configuration. 
-- Terraform apply -refresh-only -> dùng để sync file state với real-world state. Dùng trong trường hợp có thay đổi manually trên real-world infrastructure thì chạy lệnh này để update state file. Lưu ý là lệnh này chỉ modify state file
-- option -resfresh=false để bypass việc refresh Terraform state
-- Terraform graph -> visualize ra mối quan hệ dependencies giữa các resource (cần phải cài phần mềm đọc format dot)
+## 6. Lifecycle rule trong Terraform
 
-### Lifecycle rule trong Terraform
+- Mặc định khi update 1 resource, Terraform sẽ xóa resource đấy trước sau đó mới recreate lại
+- Để thay đổi default behavior đấy thì dùng life cycle block
+- Các lifecycle có thể dùng:
+  - create_before_destroy: tạo resource trước rồi mới xóa resource cũ
+  - prevent_destroy: không xóa resource cũ. Nếu resource đấy bắt buộc phải xóa mới update được thì lệnh Terraform apply sẽ bị lỗi. VD áp dụng với database
+  - ignore_changes: chỉ định Terraform "bỏ qua" một hoặc một số attributes nhất định khi kiểm tra thay đổi của resource đó trong quá trình apply. Nói cách khác, nếu thuộc tính được khai báo trong ignore_changes bị thay đổi ngoài Terraform hoặc do điều kiện bên ngoài, Terraform sẽ không cố gắng cập nhật hay tạo lại resource chỉ vì thay đổi của những thuộc tính này. Có thể nhận vào 1 list attribute hoặc `ignore_changes = all`. VD `ignore_changes = [tags,ami]` thì khi ta thay đổi tag của EC2 manually, lệnh `Terraform apply` sẽ không sửa lại tag của EC2 đấy cho đúng với state file. Use case thường là bỏ qua thay đổi các tag trên resource hoặc các thuộc tính được tự động cập nhật, giúp Terraform không liên tục phát hiện và thực hiện các thay đổi không cần thiết
 
-Mặc định khi update 1 resource, Terraform sẽ xóa resource đấy trước sau đó mới recreate lại
-
-Để thay đổi default behavior đấy thì dùng life cycle block
-
+- Ví dụ:
 ```
 resource {
   ...
@@ -330,44 +331,19 @@ resource {
   }
 }
 ```
+## 7. Datasource
+- Data sources giúp lấy thông tin các tài nguyên hiện có trên môi trường như VPC, subnet, security group trong tài khoản AWS . Đây là cách phổ biến để tham khảo các tài nguyên đã tồn tại và dùng trong cấu hình.
+- Data source chỉ đọc thông tin, không thể quản lý các tài nguyên đấy (create,update,delete)
+- Ví dụ
 
-Các lifecycle có thể dùng:
-- create_before_destroy: tạo resource trước rồi mới xóa resource cũ
-- prevent_destroy: không xóa resource cũ. Nếu resource đấy bắt buộc phải xóa mới update được thì lệnh Terraform apply sẽ bị lỗi. VD áp dụng với database
-- ignore_changes: khi có thay đổi trên real-world infra thì Terraform không đưa sự thay đổi đấy về desired state theo configuration file (???). Nhận vào 1 list attribute hoặc ignore_changes = all. VD ignore_changes = [tags,ami] thì khi ta thay đổi tag của EC2 manually, lệnh Terraform apply sẽ không sửa lại tag của EC2 đấy cho đúng với state file
-
-### Datasource
-
-Datasource giúp Terraform đọc attribute từ resources nằm ngoài control của Terraform. . VD
-```
-data "local_file" "dog" {
-  filename = "/root/dog.txt"
-}
-```
--> Terraform sẽ tạo ra resource type là local_file từ data source (???)
-
-
-Datasource giúp Terraform quản lý các resource nằm ngoài control của Terraform. Xem thêm ví dụ về S3 ở dưới
-
-| Resource                               | Data Source                       |
-|--------------------------------------|---------------------------------|
-| Keyword: **resource**                 | Keyword: **data**                |
-| **Creates, Updates, Destroys** Infrastructure | Only **Reads** Infrastructure   |
-| Also called **Managed Resources**    | Also called **Data Resources**   |
-
-
-data sources giúp lấy thông tin các tài nguyên hiện có như VPC, subnet, security group trong tài khoản AWS . Đây là cách phổ biến để tham khảo các tài nguyên đã tồn tại và dùng trong cấu hình.
-
-Ví dụ
-
-- Lấy default VPC trong vùng hiện tại:
+**Lấy default VPC trong vùng hiện tại**
 ```
 data "aws_vpc" "default" {
   default = true
 }
 ```
 
-- Lấy danh sách subnet trong VPC đó:
+**Lấy danh sách subnet trong VPC đó**
 ```
 data "aws_subnets" "default_subnets" {
   filter {
@@ -377,7 +353,7 @@ data "aws_subnets" "default_subnets" {
 }
 ```
 
-- Lấy security group mặc định trong VPC:
+**Lấy security group mặc định trong VPC**
 ```
 data "aws_security_group" "default_sg" {
   vpc_id = data.aws_vpc.default.id
@@ -385,7 +361,7 @@ data "aws_security_group" "default_sg" {
 }
 ```
 
-- Ví dụ lấy tất cả subnet trong một VPC nhất định:
+**Ví dụ lấy tất cả subnet trong một VPC nhất định**
 
 ```
 data "aws_subnets" "selected" {
@@ -396,7 +372,7 @@ data "aws_subnets" "selected" {
 }
 ```
 
-- Sử dụng danh sách subnet trong các resource
+**Sử dụng danh sách subnet trong các resource**
 ```
 resource "aws_autoscaling_group" "example" {
   name                      = "example-asg"
@@ -407,7 +383,12 @@ resource "aws_autoscaling_group" "example" {
   desired_capacity          = 2
 }
 ```
-### Meta arguments
+
+
+
+
+
+## 8. Meta arguments
 
 Defination:
 
