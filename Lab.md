@@ -7,3 +7,5 @@
 4. Lab terraform build EC2 + RDS + infra, connect them together
 
 5. Lab CICD AWS
+
+6. Lab DNS + ELB + static page
