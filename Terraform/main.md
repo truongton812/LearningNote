@@ -86,7 +86,7 @@ resource "local_file" "pet" {
   - Truyền variable bằng option -var. VD `terraform apply -var "filename=/root/pet.txt" -var "content=We love pet"`
   - Truyền khi chạy lệnh `terraform apply` sẽ có prompt để nhập giá trị cho variable. 
 
- giải thích thêm về các variable type
+#### 3.3.2 Variable type
 - list. VD:
 ```
 variable "prefix" {
