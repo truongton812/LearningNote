@@ -25,7 +25,7 @@ Trong đó block chứa thông tin về infrastruture platform và các resource
 Các giá trị có thể nhận trong block là Provider/Resource/Variable/Output/Module
 
 
-## 3. Cách tổ chức thư mục
+## 3. Các loại file trong terraform và công dụng
 
 Trong thư mục terraform có thể có các file
 - *main.tf* : chứa tất cả resource cần tạo
@@ -217,6 +217,57 @@ output "instance_public_ip" {
 }
 ```
 - Khi dùng lệnh `terraform output` sẽ in ra tất cả output của configuration file trong thư mục hiện tại hoặc lệnh `terraform output <output_name>` để in ra specific output
+
+## 4. Cách tổ chức thư mục terraform cho nhiều môi trường
+
+Quy tắc tổ chức Terraform codebase để tối ưu khả năng scale và dễ dàng maintain
+
+- ✅ Chia nhỏ infrastructure thành các module reusable (vpc, compute, database). Mỗi module có 1 trách nhiệm duy nhất và module không nên gọi module khác trực tiếp
+
+- ✅ Cô Lập Môi Trường: Mỗi environment (dev/staging/prod) có backend riêng. Sử dụng terraform.tfvars để override variables
+
+```
+terraform-project/
+├── modules/
+│   ├── vpc/
+│   │   ├── main.tf
+│   │   ├── variables.tf
+│   │   ├── outputs.tf
+│   │   └── README.md
+│   ├── compute/
+│   │   ├── main.tf
+│   │   ├── variables.tf
+│   │   └── outputs.tf
+│   └── database/
+│       ├── main.tf
+│       ├── variables.tf
+│       └── outputs.tf
+├── environments/
+│   ├── dev/
+│   │   ├── main.tf
+│   │   ├── variables.tf
+│   │   ├── terraform.tfvars
+│   │   ├── backend.tf
+│   ├── staging/
+│   │   ├── main.tf
+│   │   ├── variables.tf
+│   │   ├── terraform.tfvars
+│   │   ├── backend.tf
+│   └── prod/
+│       ├── main.tf
+│       ├── variables.tf
+│       ├── terraform.tfvars
+│       ├── backend.tf
+├── files/
+│   └── scripts/
+│       └── user_data.sh
+├── templates/
+│   └── config.tftpl
+├── providers.tf
+├── versions.tf
+└── README.md
+```
+
 
 
 ##### Refer attribute của resource
