@@ -33,7 +33,7 @@ Trong thư mục terraform có thể có các file
 - *outputs.tf* : chứa output từ resources                       
 - *provider.tf* : chứa thông tin provider (VD AWS, Azure, GCP,...) và credential để kết nối đến provider                        
 
-### 3.1. Providers.tf
+### 3.1. Provider.tf
 - Dùng để khai báo và cấu hình Provider — tức là nhà cung cấp dịch vụ cloud hoặc hạ tầng mà bạn làm việc (ví dụ AWS, Azure, Google Cloud).
 - Có thể khai báo nhiều provider trong cùng 1 file -> khi chạy terraform init thì sẽ download tất cả các provider plugin được khai báo  (check trong directory `.terraform`)
 - Với dự án nhỏ, đơn giản có thể đưa provider vào main.tf cho tiện. Tuy nhiên với dự án lớn, đa môi trường, hay nhóm nhiều người làm, nên tách riêng provider.tf để giữ cấu trúc code sạch, rõ ràng, dễ maintain và dễ triển khai automation.
@@ -58,8 +58,6 @@ resource "aws_instance" "example" {
 Dùng để khai báo variable
 
 #### 3.3.1 Cách sử dụng
-
-
 
 - Syntax khai báo: `variable "content" {}`. Example:
 
@@ -87,44 +85,90 @@ resource "local_file" "pet" {
   - Truyền khi chạy lệnh `terraform apply` sẽ có prompt để nhập giá trị cho variable. 
 
 #### 3.3.2 Variable type
-- list. VD:
+
+##### 3.3.2.1 List
+- Là một danh sách có thứ tự các phần tử có cùng kiểu dữ liệu, cho phép trùng lặp giá trị
+- VD khai báo 1 list:
+
 ```
 variable "prefix" {
   type = list #ngoài ra có thể tạo constraint như type = list(number) -> tất cả các phần tử của list phải là number, nếu không terraform sẽ báo lỗi
   default = ["Mr", "Mrs", "Sir]
 }
 ```
-Gọi var trong file main.tf
+- Gọi từng phần tử của list:
 ```
 resource "random_pet" "mypet" {
   prefix = var.prefix[0]
 ```
-
-- map. VD:
+- Lấy danh sách các phần tử của list:
 ```
-variable "file-content" {
-  type = map #ngoài ra có thể tạo constraint như type = map(string) -> tất cả các phần tử value của map phải là string, nếu không terraform sẽ báo lỗi
-  default = {
-    "statement1" = "We love pets"
-    "statement2" = "We love animals"
+locals {
+  upper_list = [for item in var.example_list : upper(item)]
 }
 ```
-Gọi var trong file main.tf
+- Duyệt các phần tử của list bằng vòng lặp count hoặc for-each
 ```
-resource local_file my-pet {
-  content = var.file-content["statement2"]
+resource "aws_security_group" "example" {
+  count = length(var.ip_ranges)
+
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = [var.ip_ranges[count.index]]
+  }
+}
 ```
 
-- Set: giống list nhưng các phần tử của set phải là unique, nếu không sẽ báo lỗi
-VD:
+##### 3.3.2.2. Set: 
+- Là một danh sách có thứ tự các phần tử có cùng kiểu dữ liệu, nhưng không cho phép trùng lặp giá trị nếu không sẽ báo lỗi
+- VD khai báo 1 set:
 ```
 variable "prefix" {
   type = set #ngoài ra có thể tạo constraint như type = set(string) -> tất cả các phần tử của set phải là string, nếu không terraform sẽ báo lỗi
   default = ["Mr", "Mrs", "Sir]
 }
 ```
+##### 3.3.2.3. Map
+- Map là một cấu trúc dữ liệu key-value, trong đó tất cả các value phải có cùng kiểu dữ liệu, còn key trong map phải là kiểu string. Ví dụ map(string) có nghĩa các value đều là chuỗi. Lưu ý key là duy nhất trong cùng một map, bạn không thể có 2 key giống nhau
+- Trong Terraform, một map có thể được chuyển đổi thành object nếu nó có ít nhất các key phù hợp với schema của object, nhưng có thể mất các thuộc tính dư thừa. Việc chuyển đổi ngược lại không tự động.
+- VD khai báo 1 map:
+```
+variable "example_map" {
+  type = map #ngoài ra có thể tạo constraint như type = map(string) -> tất cả các value phải là string, nếu không terraform sẽ báo lỗi
+  default = {
+    "dev"     = "192.168.1.1"
+    "staging" = "192.168.1.2"
+    "prod"    = "192.168.1.3"
+  }
+}
+```
+- Gọi các phần tử của map:
+```
+resource local_file my-pet {
+  content = var.example_map["dev"]
+```
+- Lấy danh sách các giá trị từ map:
+```
+locals {
+  ip_list = [for key, val in var.example_map : val]
+}
+```
+- Duyệt từng cặp key-value để xử lý:
+```
+resource "example_resource" "r" {
+  for_each = var.example_map
 
-- Object: giống map nhưng các value của object có thể là type string/number/list/bool/... (không biết còn có thể có type khác không, nghiên cứu thêm). VD:
+  name = each.key
+  ip   = each.value
+}
+```
+
+##### 3.3.2.4. Object
+- Một object định nghĩa một schema hoặc cấu trúc rõ ràng với các thuộc tính được đặt tên (named attributes), mỗi thuộc tính có thể có kiểu dữ liệu khác nhau. Thuộc tính của object có thể thuộc các kiểu: string, number, bool, list, set, map, object, tuple. Ví dụ một object có thể có thuộc tính name kiểu string, age kiểu number, favorite_pet kiểu bool. Object dùng để định nghĩa kiểu dữ liệu phức tạp với nhiều trường riêng biệt, mỗi trường có kiểu riêng.
+- Có thể hiểu đơn giản là map là một tập hợp các giá trị cùng kiểu với key tùy ý, còn object là một kiểu dữ liệu có cấu trúc cố định với các trường đã xác định sẵn kiểu của từng trường.
+- Ví dụ khai báo 1 object
 ```
 variable "bella" {
   type = object({
@@ -145,50 +189,34 @@ variable "bella" {
 }
 ```
 
-Chatgpt:
-
-Trong Terraform, sự khác biệt giữa kiểu dữ liệu object và map như sau:
-
-Một map là một cấu trúc dữ liệu key-value, trong đó tất cả các giá trị có cùng kiểu dữ liệu. Ví dụ map(string) có nghĩa là một bản đồ với các giá trị đều là chuỗi. Map linh hoạt, được dùng để lưu trữ dữ liệu kiểu key-value mà kiểu của tất cả giá trị phải giống nhau.
-
-Một object định nghĩa một schema hoặc cấu trúc rõ ràng với các thuộc tính được đặt tên (named attributes), mỗi thuộc tính có thể có kiểu dữ liệu khác nhau. Ví dụ một object có thể có thuộc tính name kiểu string, age kiểu number, favorite_pet kiểu bool. Object dùng để định nghĩa kiểu dữ liệu phức tạp với nhiều trường riêng biệt, mỗi trường có kiểu riêng.
-
-Có thể hiểu đơn giản là map là một tập hợp các giá trị cùng kiểu với key tùy ý, còn object là một kiểu dữ liệu có cấu trúc cố định với các trường đã xác định sẵn kiểu của từng trường.
-
-Trong Terraform, một map có thể được chuyển đổi thành object nếu nó có ít nhất các key phù hợp với schema của object, nhưng có thể mất các thuộc tính dư thừa. Việc chuyển đổi ngược lại không tự động.
-
-thuộc tính của object có thể thuộc các kiểu: string, number, bool, list, set, map, object, tuple.
-
+##### 3.3.2.5. Tuple
 - Tuple: Tuple là một tập hợp có số lượng phần tử cố định, thứ tự cố định và có thể chứa các phần tử với kiểu dữ liệu khác nhau. Tuple là bất biến (immutable), nghĩa là không thể thay đổi, thêm hoặc xóa phần tử sau khi đã tạo.
-
-Tuple khác với list là List là một tập hợp phần tử có thứ tự, có thể thay đổi kích thước, thường chứa các phần tử cùng kiểu dữ liệu và có thể thêm, sửa, hoặc xóa phần tử trong danh sách (mutable).
-
-VD:
+- Tuple khác với list là list là một tập hợp phần tử có thứ tự, có thể thay đổi kích thước, thường chứa các phần tử cùng kiểu dữ liệu và có thể thêm, sửa, hoặc xóa phần tử trong danh sách (mutable).
+- Ví dụ khai báo 1 tuple:
 ```
 variable kitty {
   type = tuple #ngoài ra có thể tạo constraint như type = tuple([string, number, bool])
   default = ["cat",7,true]
 ```
 
-##### Output variable
-
-Dùng để output ra thông tin VD phục vụ automation (ansible, shell script), CICD (chatgpt hỏi thêm mục đích)
-
+### 3.4. Outputs.tf
+- Là biến được sử dụng để export các giá trị từ trong Terraform state sau khi thực thi. Output variable cho phép lấy các thông tin của tài nguyên vừa tạo (ví dụ: địa chỉ IP của EC2, ID của VPC, URL của Load Balancer) và hiển thị chúng ra terminal hoặc truyền cho các thành phần khác sử dụng.
+-  Công dụng của output variable
+  - Giúp tra cứu nhanh các thông tin của tài nguyên sau khi terraform apply.
+  - Cho phép các module con trả về dữ liệu cho module gọi (parent module).
+  - Hữu ích khi tích hợp Terraform trong CI/CD pipeline, để các bước kế tiếp lấy dữ liệu dynamic.
+- Output có thể khai được trong bất kỳ file .tf nào, ví dụ trong main.tf, tuy nhiên best practice là nên tách biệt output ra file riêng để codebase chuyên nghiệp và dễ maintain hơn. Việc để output trong file outputs.tf giúp:
+  - Giữ cấu trúc code sạch sẽ, dễ quản lý.
+  - Dễ dàng kiểm soát các giá trị đầu ra của toàn bộ dự án hoặc module.
+  - Người khác khi làm việc trong dự án dễ dàng tìm thấy phần output riêng biệt để tham chiếu hoặc sử dụng.
+- Ví dụ sử dụng output
 ```
-resource "random_pet" "my-pet" {
-  prefix    = var.prefix
-  separator = var.separator
-  length    = var.length
-}
-
-output "pet-name" {
-  value       = random_pet.my-pet.id
-  description = "Record the value of pet ID generated by the random_pet resource"
+output "instance_public_ip" {
+  description = "Public IP của instance EC2"
+  value       = aws_instance.example.public_ip
 }
 ```
-
-Khi dùng lệnh terraform output sẽ in ra tất cả output của configuration file trong thư mục hiện tại hoặc lệnh terraform output pet-name để in ra specific output
-
+- Khi dùng lệnh `terraform output` sẽ in ra tất cả output của configuration file trong thư mục hiện tại hoặc lệnh `terraform output <output_name>` để in ra specific output
 
 
 ##### Refer attribute của resource
