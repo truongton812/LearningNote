@@ -55,7 +55,11 @@ resource "aws_instance" "example" {
 
 ### 3.3. Variables.tf
 
-- Dùng để khai báo variable
+Dùng để khai báo variable
+
+#### 3.3.1 Cách sử dụng
+
+
 
 - Syntax khai báo: `variable "content" {}`. Example:
 
@@ -64,22 +68,6 @@ variable "filename" {
   default = "/root/pets.txt" #optional
   type = string #optional. Ngoài ra có thể nhận giá trị number, bool, list, map, object, tuple, set. Nếu không define thì default sẽ là any (tức có thể là bất kỳ type nào)
   description = "the file name" #optional
-}
-variable "content" {
-  default = "We love pets!"
-}
-variable "prefix" {
-  default = "Mrs"
-}
-variable "separator" {
-  default = "."
-}
-variable "length" {
-  default = "1"
-}
-variable "password_change" {
-  default = true
-  type = bool
 }
 ```
 
@@ -92,24 +80,13 @@ resource "local_file" "pet" {
 }
 ```
 
+- Nếu trong file variable.tf không khai báo giá trị default cho variable thì có các cách sau để truyền giá trị cho variable: (thứ tự ưu tiên tăng dần)
+  - Truyền variable bằng cách export vào biến môi trường (luôn phải có tiền tố TF_VAR ở trước). VD `export TF_VAR_filename="root/pet.txt"`
+  - Đặt biến trong file terraform.tfvars hoặc terraform.tfvars.json (hoặc file khác chỉ cần có đuôi là *auto.tfvars hoặc *auto.tfvars.json ). Biến được khai bao với định dạng `key = value`. Nếu đặt tên file khác các tên trên thì phải chỉ định file chứa variable bằng option `terraform apply -var-file <ten_file>`
+  - Truyền variable bằng option -var. VD `terraform apply -var "filename=/root/pet.txt" -var "content=We love pet"`
+  - Truyền khi chạy lệnh `terraform apply` sẽ có prompt để nhập giá trị cho variable. 
 
-Nếu trong file variable.tf ta không khai báo giá trị default cho variable thì ta có các cách sau để truyền giá trị cho variable: (thứ tự ưu tiên tăng dần)
-
-1. Ta có thể truyền variable bằng cách export vào biến môi trường (luôn phải có tiền tố TF_VAR ở trước)
-export TF_VAR_filename="root/pet.txt"
-export TF_VAR_lenght="2"
-2. Ta có thể đặt biến trong file terraform.tfvars hoặc terraform.tfvars.json (hoặc file khác chỉ cần có đuôi là *auto.tfvars hoặc *auto.tfvars.json ) trong đó chỉ chứa variable dạng `key = value`. Lưu ý nếu đặt tên khác các tên trên thì phải chỉ định file chứa variable bằng option `terraform apply -var-file <ten_file>`
-3. Ta có thể truyền variable bằng option -var
-VD: terraform apply -var "filename=/root/pet.txt" -var "content=We love pet"
-4. Truyền khi ta chạy lệnh terraform apply sẽ có prompt để ta nhập giá trị cho variable. 
-
-
-
-
-
-
-
-##### giải thích thêm về các variable type
+ giải thích thêm về các variable type
 - list. VD:
 ```
 variable "prefix" {
