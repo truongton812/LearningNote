@@ -1,7 +1,7 @@
 
 # Terraform
 
-## Terraform phase
+## 1. Terraform phase
 
 Terraform hoạt động qua các phases:
 - init: initilize project và identify provider. Khi chạy lệnh init thì terraform sẽ download và cài đặt plugin cho provider trong file .tf. Plugin sẽ được download về trong file .terraform/plugin (nằm trong cùng thư mục chứa file .tf)
@@ -10,7 +10,7 @@ Terraform hoạt động qua các phases:
 - destroy: dùng để xóa resources
 
 
-## Hashicorp Configuration Language
+## 2. Hashicorp Configuration Language
 
 Syntax:
 ```
@@ -24,7 +24,23 @@ Trong đó block chứa thông tin về infrastruture platform và các resource
 
 Các giá trị có thể nhận trong block là Provider/Resource/Variable/Output/Module
 
-**Ví dụ để tạo EC2 trên AWS**
+
+## 3. Cách tổ chức thư mục
+
+Trong thư mục terraform có thể có các file
+- *main.tf* : chứa tất cả resource cần tạo
+- *variables.tf* : Khai báo variable                         |
+- *outputs.tf* : chứa output từ resources                       
+- *provider.tf* : chứa thông tin provider (VD AWS, Azure, GCP,...) và credential để kết nối đến provider                        
+
+### 3.1. Providers.tf
+- Dùng để khai báo và cấu hình Provider — tức là nhà cung cấp dịch vụ cloud hoặc hạ tầng mà bạn làm việc (ví dụ AWS, Azure, Google Cloud).
+- Có thể khai báo nhiều provider trong cùng 1 file -> khi chạy terraform init thì sẽ download tất cả các provider plugin được khai báo  (check trong directory `.terraform`)
+- Với dự án nhỏ, đơn giản có thể đưa provider vào main.tf cho tiện. Tuy nhiên với dự án lớn, đa môi trường, hay nhóm nhiều người làm, nên tách riêng provider.tf để giữ cấu trúc code sạch, rõ ràng, dễ maintain và dễ triển khai automation.
+  
+### 3.2. Main.tf
+- Dùng để khai báo resources cần tạo
+- Ví dụ để tạo EC2 trên AWS
 
 ```
 provider "aws" {
@@ -37,27 +53,12 @@ resource "aws_instance" "example" {
 }
 ```
 
-## Cách tổ chức file
+### 3.3. Variables.tf
 
-Trong thư mục thường đặt 1 file main.tf (gọi là configuration file). Trong file đấy chứa tất cả resource cần tạo
-Ngoài main.tf trong thư mục có thể đặt thêm các file:
+- Dùng để khai báo variable
 
-| File Name    | Purpose                                                |
-|--------------|--------------------------------------------------------|
-| main.tf      | Main configuration file containing resource definition |
-| variables.tf | Contains variable declarations                         |
-| outputs.tf   | Contains outputs from resources                        |
-| provider.tf  | Contains Provider definition and credential                          |
+- Syntax khai báo: `variable "content" {}`. Example:
 
-
-### Multiple providers
-trong file main.tf ta có thể sử dụng nhiều provider, VD cả aws, azure,...
--> khi chạy terraform init thì sẽ download tất cả các provider plugin được khai báo trong file main.tf (check trong .terraform/....)
-
-
-### Variable trong terraform
-
-Để dùng variable, ta khai báo trong file variable.tf
 ```
 variable "filename" {
   default = "/root/pets.txt" #optional
@@ -82,27 +83,15 @@ variable "password_change" {
 }
 ```
 
-Cách gọi variable trong main.tf
+- Syntax để gọi variable `var.<variable_name>`. Example:
 
 ```
 resource "local_file" "pet" {
   filename = var.filename
   content  = var.content
 }
-
-resource "random_pet" "my-pet" {
-  prefix    = var.prefix
-  separator = var.separator
-  length    = var.length
-}
 ```
 
-
-##### Cách khai báo và sử dụng variable
-
-```
-variable "content" {}
-```
 
 Nếu trong file variable.tf ta không khai báo giá trị default cho variable thì ta có các cách sau để truyền giá trị cho variable: (thứ tự ưu tiên tăng dần)
 
@@ -113,6 +102,12 @@ export TF_VAR_lenght="2"
 3. Ta có thể truyền variable bằng option -var
 VD: terraform apply -var "filename=/root/pet.txt" -var "content=We love pet"
 4. Truyền khi ta chạy lệnh terraform apply sẽ có prompt để ta nhập giá trị cho variable. 
+
+
+
+
+
+
 
 ##### giải thích thêm về các variable type
 - list. VD:
