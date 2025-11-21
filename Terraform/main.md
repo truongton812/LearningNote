@@ -4,7 +4,7 @@
 ## 1. Terraform phase
 
 Terraform hoạt động qua các phases:
-- init: initilize project và identify provider. Khi chạy lệnh init thì terraform sẽ download và cài đặt plugin cho provider trong file .tf. Plugin sẽ được download về trong file .terraform/plugin (nằm trong cùng thư mục chứa file .tf)
+- init: initilize project và identify provider. Khi chạy lệnh init thì Terraform sẽ download và cài đặt plugin cho provider trong file .tf. Plugin sẽ được download về trong file .Terraform/plugin (nằm trong cùng thư mục chứa file .tf)
 - plan: xác định và hiển thị những thay đổi nào sẽ được thực hiện đối với hạ tầng trước khi các thay đổi thực sự được áp dụn
 - apply: thực thi thay đổi trên môi trường thực tế hoặc đưa môi trường thực tế về đúng desired state nếu có thay đổi. Dùng option  -auto-approve để bỏ qua xác nhận
 - destroy: dùng để xóa resources
@@ -25,9 +25,9 @@ Trong đó block chứa thông tin về infrastruture platform và các resource
 Các giá trị có thể nhận trong block là Provider/Resource/Variable/Output/Module
 
 
-## 3. Các loại file trong terraform và công dụng
+## 3. Các loại file trong Terraform và công dụng
 
-Trong thư mục terraform có thể có các file
+Trong thư mục Terraform có thể có các file
 - *main.tf* : chứa tất cả resource cần tạo
 - *variables.tf* : Khai báo variable                         |
 - *outputs.tf* : chứa output từ resources                       
@@ -35,7 +35,7 @@ Trong thư mục terraform có thể có các file
 
 ### 3.1. Provider.tf
 - Dùng để khai báo và cấu hình Provider — tức là nhà cung cấp dịch vụ cloud hoặc hạ tầng mà bạn làm việc (ví dụ AWS, Azure, Google Cloud).
-- Có thể khai báo nhiều provider trong cùng 1 file -> khi chạy terraform init thì sẽ download tất cả các provider plugin được khai báo  (check trong directory `.terraform`)
+- Có thể khai báo nhiều provider trong cùng 1 file -> khi chạy Terraform init thì sẽ download tất cả các provider plugin được khai báo  (check trong directory `.Terraform`)
 - Với dự án nhỏ, đơn giản có thể đưa provider vào main.tf cho tiện. Tuy nhiên với dự án lớn, đa môi trường, hay nhóm nhiều người làm, nên tách riêng provider.tf để giữ cấu trúc code sạch, rõ ràng, dễ maintain và dễ triển khai automation.
   
 ### 3.2. Main.tf
@@ -52,7 +52,22 @@ resource "aws_instance" "example" {
   instance_type = "t2.micro"
 }
 ```
+#### 3.2.1. Refer attribute của resource
+- Dùng khi muốn lấy attribute của resource này để làm input cho resource khác. VD lấy VPC ID để đưa vào tạo EC2 instance
+- Syntax: `resource_type.resouce_name.attribute`
+- Khi định nghĩa resource reference như vậy thì mặc định đã implicitly chỉ định thứ tự tạo resource cho Terraform. Lưu ý ngoài cách chỉ định implicitly còn có thể chỉ định explicitly dependencies bằng cú pháp `depends_on = [ resource_type.resource_name ]` (depends_on là 1 list nên có thể chỉ định nhiều items)
+- Ví dụ
+```
+resource "aws_instance" "example" {
+  ami           = "ami-abc123"
+  instance_type = "t2.micro"
+}
 
+resource "aws_eip" "example_eip" {
+  instance = aws_instance.example.id
+  vpc      = true
+}
+```
 ### 3.3. Variables.tf
 
 Dùng để khai báo variable
@@ -80,9 +95,9 @@ resource "local_file" "pet" {
 
 - Nếu trong file variable.tf không khai báo giá trị default cho variable thì có các cách sau để truyền giá trị cho variable: (thứ tự ưu tiên tăng dần)
   - Truyền variable bằng cách export vào biến môi trường (luôn phải có tiền tố TF_VAR ở trước). VD `export TF_VAR_filename="root/pet.txt"`
-  - Đặt biến trong file terraform.tfvars hoặc terraform.tfvars.json (hoặc file khác chỉ cần có đuôi là *auto.tfvars hoặc *auto.tfvars.json ). Biến được khai bao với định dạng `key = value`. Nếu đặt tên file khác các tên trên thì phải chỉ định file chứa variable bằng option `terraform apply -var-file <ten_file>`
-  - Truyền variable bằng option -var. VD `terraform apply -var "filename=/root/pet.txt" -var "content=We love pet"`
-  - Truyền khi chạy lệnh `terraform apply` sẽ có prompt để nhập giá trị cho variable. 
+  - Đặt biến trong file Terraform.tfvars hoặc Terraform.tfvars.json (hoặc file khác chỉ cần có đuôi là *auto.tfvars hoặc *auto.tfvars.json ). Biến được khai bao với định dạng `key = value`. Nếu đặt tên file khác các tên trên thì phải chỉ định file chứa variable bằng option `Terraform apply -var-file <ten_file>`
+  - Truyền variable bằng option -var. VD `Terraform apply -var "filename=/root/pet.txt" -var "content=We love pet"`
+  - Truyền khi chạy lệnh `Terraform apply` sẽ có prompt để nhập giá trị cho variable. 
 
 #### 3.3.2 Variable type
 
@@ -92,7 +107,7 @@ resource "local_file" "pet" {
 
 ```
 variable "prefix" {
-  type = list #ngoài ra có thể tạo constraint như type = list(number) -> tất cả các phần tử của list phải là number, nếu không terraform sẽ báo lỗi
+  type = list #ngoài ra có thể tạo constraint như type = list(number) -> tất cả các phần tử của list phải là number, nếu không Terraform sẽ báo lỗi
   default = ["Mr", "Mrs", "Sir]
 }
 ```
@@ -126,7 +141,7 @@ resource "aws_security_group" "example" {
 - VD khai báo 1 set:
 ```
 variable "prefix" {
-  type = set #ngoài ra có thể tạo constraint như type = set(string) -> tất cả các phần tử của set phải là string, nếu không terraform sẽ báo lỗi
+  type = set #ngoài ra có thể tạo constraint như type = set(string) -> tất cả các phần tử của set phải là string, nếu không Terraform sẽ báo lỗi
   default = ["Mr", "Mrs", "Sir]
 }
 ```
@@ -136,7 +151,7 @@ variable "prefix" {
 - VD khai báo 1 map:
 ```
 variable "example_map" {
-  type = map #ngoài ra có thể tạo constraint như type = map(string) -> tất cả các value phải là string, nếu không terraform sẽ báo lỗi
+  type = map #ngoài ra có thể tạo constraint như type = map(string) -> tất cả các value phải là string, nếu không Terraform sẽ báo lỗi
   default = {
     "dev"     = "192.168.1.1"
     "staging" = "192.168.1.2"
@@ -202,7 +217,7 @@ variable kitty {
 ### 3.4. Outputs.tf
 - Là biến được sử dụng để export các giá trị từ trong Terraform state sau khi thực thi. Output variable cho phép lấy các thông tin của tài nguyên vừa tạo (ví dụ: địa chỉ IP của EC2, ID của VPC, URL của Load Balancer) và hiển thị chúng ra terminal hoặc truyền cho các thành phần khác sử dụng.
 -  Công dụng của output variable
-  - Giúp tra cứu nhanh các thông tin của tài nguyên sau khi terraform apply.
+  - Giúp tra cứu nhanh các thông tin của tài nguyên sau khi Terraform apply.
   - Cho phép các module con trả về dữ liệu cho module gọi (parent module).
   - Hữu ích khi tích hợp Terraform trong CI/CD pipeline, để các bước kế tiếp lấy dữ liệu dynamic.
 - Output có thể khai được trong bất kỳ file .tf nào, ví dụ trong main.tf, tuy nhiên best practice là nên tách biệt output ra file riêng để codebase chuyên nghiệp và dễ maintain hơn. Việc để output trong file outputs.tf giúp:
@@ -216,18 +231,18 @@ output "instance_public_ip" {
   value       = aws_instance.example.public_ip
 }
 ```
-- Khi dùng lệnh `terraform output` sẽ in ra tất cả output của configuration file trong thư mục hiện tại hoặc lệnh `terraform output <output_name>` để in ra specific output
+- Khi dùng lệnh `Terraform output` sẽ in ra tất cả output của configuration file trong thư mục hiện tại hoặc lệnh `Terraform output <output_name>` để in ra specific output
 
-## 4. Cách tổ chức thư mục terraform cho nhiều môi trường
+## 4. Cách tổ chức thư mục Terraform cho nhiều môi trường
 
 Quy tắc tổ chức Terraform codebase để tối ưu khả năng scale và dễ dàng maintain
 
 - ✅ Chia nhỏ infrastructure thành các module reusable (vpc, compute, database). Mỗi module có 1 trách nhiệm duy nhất và module không nên gọi module khác trực tiếp
 
-- ✅ Cô Lập Môi Trường: Mỗi environment (dev/staging/prod) có backend riêng. Sử dụng terraform.tfvars để override variables
+- ✅ Cô Lập Môi Trường: Mỗi environment (dev/staging/prod) có backend riêng. Sử dụng Terraform.tfvars để override variables
 
 ```
-terraform-project/
+Terraform-project/
 ├── modules/
 │   ├── vpc/
 │   │   ├── main.tf
@@ -246,17 +261,17 @@ terraform-project/
 │   ├── dev/
 │   │   ├── main.tf
 │   │   ├── variables.tf
-│   │   ├── terraform.tfvars
+│   │   ├── Terraform.tfvars
 │   │   ├── backend.tf
 │   ├── staging/
 │   │   ├── main.tf
 │   │   ├── variables.tf
-│   │   ├── terraform.tfvars
+│   │   ├── Terraform.tfvars
 │   │   ├── backend.tf
 │   └── prod/
 │       ├── main.tf
 │       ├── variables.tf
-│       ├── terraform.tfvars
+│       ├── Terraform.tfvars
 │       ├── backend.tf
 ├── files/
 │   └── scripts/
@@ -270,49 +285,40 @@ terraform-project/
 
 
 
-##### Refer attribute của resource
-
-Dùng khi ta muốn lấy attribute của resource này để làm input cho resource khác. VD lấy VPC ID để đưa vào tạo EC2 instance
-
-Lấy bằng syntax: `resource_type.resouce_name.attribute`
-
-Hỏi chatgpt để lấy ví dụ
-
-Khi ta định nghĩa resource reference như vậy thì mặc định ta đã implicitly chỉ định thứ tự tạo resource cho terraform
-
-Ngoài cách implicitly còn có thể explicitly specify dependencies bằng chỉ thị   depends_on = [ resource_type.resource_name ] . Lưu ý depends_on là 1 list nên có thể chỉ định nhiều items
-
-### Terraform state
-
-Luồng hoạt động của terraform under the hood
-- Khi chạy terraform init -> download ....
-- Chạy terraform plan lần đầu tiên, terraform sẽ nhận thấy không có state record -> hiểu rằng chưa có resource và teraform chỉ cần tạo mới resource
-- chạy terraform apply -> refresh in-memory state 1 lần nữa và nhận ra chưa có state record, cần tạo mới -> nhấn yes để tạo mới
-- Nếu run terraform apply 1 lần nữa -> terraform sẽ không có action gì nếu configuration file không bị thay đổi . Terraform nhận biết được state hiện tại của resource thông qua file terraform.tfstate (được tạo ra khi chạy terraform apply lần đầu), file này lưu giữ trạng thái của resource từ lệnh terraform apply trước
-- Nếu ta thay đổi configuration file và chạy terraform apply 1 lần nữa thì terraform sẽ nhận biết được desired state khác với real-world state -> thực hiện modify resource cho phù hợp
 
 
-Chatgpt: File terraform.tfstate trong Terraform là một file trạng thái (state file) dùng để lưu trữ thông tin về trạng thái hiện tại của cơ sở hạ tầng do Terraform quản lý. Nó ghi lại cấu hình hiện tại của các tài nguyên (resources) đã được tạo hoặc thay đổi khi thực thi các lệnh như terraform apply. File này cho phép Terraform theo dõi và biết được những thay đổi cần thực hiện khi bạn chạy các lệnh tiếp theo, giúp đồng bộ trạng thái giữa file cấu hình và hạ tầng thực tế. State file có thể coi như là metadata của resource (VD xem được dependencies)
+### 4. Terraform state
+
+Workflow hoạt động của Terraform 
+
+- Khi chạy `Terraform init` -> download tất cả các provider plugin được khai báo
+- Chạy `Terraform plan` lần đầu tiên, Terraform sẽ nhận thấy không có state record -> hiểu rằng chưa có resource và Terraform chỉ cần tạo mới resource
+- Chạy `Terraform apply` -> refresh in-memory state 1 lần nữa và nhận ra chưa có state record, cần tạo mới -> nhấn yes để tạo mới
+- Nếu run Terraform apply 1 lần nữa -> Terraform sẽ không có action gì nếu configuration file không bị thay đổi . Terraform nhận biết được state hiện tại của resource thông qua file Terraform.tfstate (được tạo ra khi chạy Terraform apply lần đầu), file này lưu giữ trạng thái của resource từ lệnh Terraform apply trước
+- Nếu ta thay đổi configuration file và chạy Terraform apply 1 lần nữa thì Terraform sẽ nhận biết được desired state khác với real-world state -> thực hiện modify resource cho phù hợp
+
+
+Chatgpt: File Terraform.tfstate trong Terraform là một file trạng thái (state file) dùng để lưu trữ thông tin về trạng thái hiện tại của cơ sở hạ tầng do Terraform quản lý. Nó ghi lại cấu hình hiện tại của các tài nguyên (resources) đã được tạo hoặc thay đổi khi thực thi các lệnh như Terraform apply. File này cho phép Terraform theo dõi và biết được những thay đổi cần thực hiện khi bạn chạy các lệnh tiếp theo, giúp đồng bộ trạng thái giữa file cấu hình và hạ tầng thực tế. State file có thể coi như là metadata của resource (VD xem được dependencies)
 Terraform xem state file như single source of truth để nhận biết trạng thái của resources mà không cần phải truy vấn lên hạ tầng thật (gây mất thời gian). Best practice là ta nên lưu state file ở remote machine để cả team dùng chung
 
-Nếu sửa hạ tầng một cách thủ công, tức là thay đổi trực tiếp trên tài nguyên bên ngoài ngoài Terraform quản lý, sẽ gây ra sự khác biệt giữa trạng thái thực tế của hạ tầng và trạng thái lưu trong file terraform.tfstate do Terraform quản lý. Khi đó, khi chạy lại lệnh terraform plan hoặc terraform apply, Terraform sẽ phát hiện ra sự không đồng bộ này và sẽ hiển thị các thay đổi hoặc cố gắng sửa lại tài nguyên để đưa về trạng thái đúng theo mã cấu hình Terraform.
+Nếu sửa hạ tầng một cách thủ công, tức là thay đổi trực tiếp trên tài nguyên bên ngoài ngoài Terraform quản lý, sẽ gây ra sự khác biệt giữa trạng thái thực tế của hạ tầng và trạng thái lưu trong file Terraform.tfstate do Terraform quản lý. Khi đó, khi chạy lại lệnh Terraform plan hoặc Terraform apply, Terraform sẽ phát hiện ra sự không đồng bộ này và sẽ hiển thị các thay đổi hoặc cố gắng sửa lại tài nguyên để đưa về trạng thái đúng theo mã cấu hình Terraform.
 
 
-### Các lệnh làm việc với terraform
-- terraform validate -> dùng để kiểm tra syntax
-- terraform fmt -> format lại terraform configuration file cho dễ đọc
-- terraform show -> print current state của infrastructure . Thêm option -json để đọc dưới dạng json
-- terraform providers -> xem tất cả providers có trong thư mục hiện tại
-- terraform providers mirror /path/to/other/configuration/directory -> copy provider ở current directory sang directory khác
-- terraform output -> in ra tất cả output trong thư mục configuration directory hiện tại. Thêm tên của output variable để chỉ lấy output của variable đấy
--terraform apply -target=<resource_address> -> allows applying changes to specific resources or modules within a Terraform configuration, rather than applying the entire configuration. 
-- terraform apply -refresh-only -> dùng để sync file state với real-world state. Dùng trong trường hợp có thay đổi manually trên real-world infrastructure thì chạy lệnh này để update state file. Lưu ý là lệnh này chỉ modify state file
-- option -resfresh=false để bypass việc refresh terraform state
-- terraform graph -> visualize ra mối quan hệ dependencies giữa các resource (cần phải cài phần mềm đọc format dot)
+### Các lệnh làm việc với Terraform
+- Terraform validate -> dùng để kiểm tra syntax
+- Terraform fmt -> format lại Terraform configuration file cho dễ đọc
+- Terraform show -> print current state của infrastructure . Thêm option -json để đọc dưới dạng json
+- Terraform providers -> xem tất cả providers có trong thư mục hiện tại
+- Terraform providers mirror /path/to/other/configuration/directory -> copy provider ở current directory sang directory khác
+- Terraform output -> in ra tất cả output trong thư mục configuration directory hiện tại. Thêm tên của output variable để chỉ lấy output của variable đấy
+-Terraform apply -target=<resource_address> -> allows applying changes to specific resources or modules within a Terraform configuration, rather than applying the entire configuration. 
+- Terraform apply -refresh-only -> dùng để sync file state với real-world state. Dùng trong trường hợp có thay đổi manually trên real-world infrastructure thì chạy lệnh này để update state file. Lưu ý là lệnh này chỉ modify state file
+- option -resfresh=false để bypass việc refresh Terraform state
+- Terraform graph -> visualize ra mối quan hệ dependencies giữa các resource (cần phải cài phần mềm đọc format dot)
 
 ### Lifecycle rule trong Terraform
 
-Mặc định khi update 1 resource, terraform sẽ xóa resource đấy trước sau đó mới recreate lại
+Mặc định khi update 1 resource, Terraform sẽ xóa resource đấy trước sau đó mới recreate lại
 
 Để thay đổi default behavior đấy thì dùng life cycle block
 
@@ -327,21 +333,21 @@ resource {
 
 Các lifecycle có thể dùng:
 - create_before_destroy: tạo resource trước rồi mới xóa resource cũ
-- prevent_destroy: không xóa resource cũ. Nếu resource đấy bắt buộc phải xóa mới update được thì lệnh terraform apply sẽ bị lỗi. VD áp dụng với database
-- ignore_changes: khi có thay đổi trên real-world infra thì terraform không đưa sự thay đổi đấy về desired state theo configuration file (???). Nhận vào 1 list attribute hoặc ignore_changes = all. VD ignore_changes = [tags,ami] thì khi ta thay đổi tag của EC2 manually, lệnh terraform apply sẽ không sửa lại tag của EC2 đấy cho đúng với state file
+- prevent_destroy: không xóa resource cũ. Nếu resource đấy bắt buộc phải xóa mới update được thì lệnh Terraform apply sẽ bị lỗi. VD áp dụng với database
+- ignore_changes: khi có thay đổi trên real-world infra thì Terraform không đưa sự thay đổi đấy về desired state theo configuration file (???). Nhận vào 1 list attribute hoặc ignore_changes = all. VD ignore_changes = [tags,ami] thì khi ta thay đổi tag của EC2 manually, lệnh Terraform apply sẽ không sửa lại tag của EC2 đấy cho đúng với state file
 
 ### Datasource
 
-Datasource giúp terraform đọc attribute từ resources nằm ngoài control của terraform. . VD
+Datasource giúp Terraform đọc attribute từ resources nằm ngoài control của Terraform. . VD
 ```
 data "local_file" "dog" {
   filename = "/root/dog.txt"
 }
 ```
--> terraform sẽ tạo ra resource type là local_file từ data source (???)
+-> Terraform sẽ tạo ra resource type là local_file từ data source (???)
 
 
-Datasource giúp terraform quản lý các resource nằm ngoài control của terraform. Xem thêm ví dụ về S3 ở dưới
+Datasource giúp Terraform quản lý các resource nằm ngoài control của Terraform. Xem thêm ví dụ về S3 ở dưới
 
 | Resource                               | Data Source                       |
 |--------------------------------------|---------------------------------|
@@ -411,7 +417,7 @@ Các meta argument: depends_on, lifecycle, count, for each, loop,
 ```
 resource "local_file" "pet" {
   filename = "/root/${var.filename[count.index]}"
-  count = 3 #tuy nhiên sẽ chỉ ra 1 file do terraform tạo ra 3 file cùng 1 tên. Để fix thì cần phải tạo variable và dùng loop trên count
+  count = 3 #tuy nhiên sẽ chỉ ra 1 file do Terraform tạo ra 3 file cùng 1 tên. Để fix thì cần phải tạo variable và dùng loop trên count
 }
 ```
 Cách dùng count = 3 thì sẽ hard code số lượng, nếu ta thêm file vào list filename thì sẽ vẫn chỉ có 3 files tạo ra -> nên thay bằng `count = length(var.filename)`
@@ -444,7 +450,7 @@ Ta có thể output ra để xem resource "pet" sẽ là 1 map
 
 Dùng để chỉ định version của provider thay vì dùng version latest
 ```
-terraform {
+Terraform {
   required_providers {
     local = {
       source  = "hashicorp/local"
@@ -494,7 +500,7 @@ resource "aws_iam_user_policy_attachment" "lucy-admin-access" {
 
 ```
 
-Tuy nhiên cách trên sẽ thiếu bảo mật do đưa credential vào trong configuration file. Thay vì thế ta nên cài credential trong aws cli trên server chạy terraform . Lưu ý vẫn cần giữ cụm provider với region. Hoặc tạo file riêng provider.tf chứa block provider
+Tuy nhiên cách trên sẽ thiếu bảo mật do đưa credential vào trong configuration file. Thay vì thế ta nên cài credential trong aws cli trên server chạy Terraform . Lưu ý vẫn cần giữ cụm provider với region. Hoặc tạo file riêng provider.tf chứa block provider
 
 
 Ví dụ về S3
@@ -551,7 +557,7 @@ EOF
 ##### Nhược điểm của việc lưu trữ state file trên git:
 - Không hỗ trợ tính năng locking và bảo vệ concurrent actions
 
-Giải thích thêm về cơ chế lock state file: lock state file giúp đảm bảo an toàn và nhất quán cho state file nhiều người, hoặc nhiều tiến trình, cùng thực hiện thao tác thay đổi hạ tầng. Cách thức khóa state file: Khi một lệnh terraform apply hoặc terraform plan chạy, Terraform sẽ thực hiện thao tác lock trên state file, lock này giữ quyền truy cập state file cho duy nhất một tiến trình tại một thời điểm; các thao tác khác sẽ bị chặn hoặc báo lỗi "state locked" và phải đợi tiến trình đang chiếm giải phóng lock.
+Giải thích thêm về cơ chế lock state file: lock state file giúp đảm bảo an toàn và nhất quán cho state file nhiều người, hoặc nhiều tiến trình, cùng thực hiện thao tác thay đổi hạ tầng. Cách thức khóa state file: Khi một lệnh Terraform apply hoặc Terraform plan chạy, Terraform sẽ thực hiện thao tác lock trên state file, lock này giữ quyền truy cập state file cho duy nhất một tiến trình tại một thời điểm; các thao tác khác sẽ bị chặn hoặc báo lỗi "state locked" và phải đợi tiến trình đang chiếm giải phóng lock.
 
 ##### Lưu state file trên remote backend có các ưu điểm:
 
@@ -562,10 +568,10 @@ Giải thích thêm về cơ chế lock state file: lock state file giúp đảm
 
 ##### Cách khai báo remote state file
 ```
-terraform {
+Terraform {
   backend "s3" {
-    bucket         = "kodekloud-terraform-state-bucket01"
-    key            = "finance/terraform.tfstate"
+    bucket         = "kodekloud-Terraform-state-bucket01"
+    key            = "finance/Terraform.tfstate"
     region         = "us-west-1"
     dynamodb_table = "state-locking" #optinal, DynamoDB table được dùng làm cơ sở dữ liệu để lưu trạng thái khóa (lock), đảm bảo chỉ có một tiến trình duy nhất được phép chỉnh sửa state file tại một thời điểm. Khi một thao tác apply hoặc plan bắt đầu, Terraform sẽ tạo một khóa trong DynamoDB và giữ quyền truy cập; các thao tác khác phải chờ cho đến khi khóa được giải phóng.
   }
@@ -574,14 +580,14 @@ terraform {
 
 ##### Các lệnh làm việc với state
 
-Syntax: terraform state <subcommand> [options] [args]
+Syntax: Terraform state <subcommand> [options] [args]
 Trong đó subcommand có thể là list, mv, pull, rm, show
 VD:
-- terraform state list -> show ra tất cả resources trong state file (không show chi tiết)
-- terraform state show aws_s3_bucket.mybucket -> show ra chi tiết resource mybucket
-- terraform state mv -> dùng để đổi tên resource trong state file (lưu ý cần thay đổi manually trong configuration file) hoặc move item từ state file này sang state file khác
-- terraform state pull -> download và show ra remote state file
-- terraform state rm <resource> -> dùng để xóa item ra khỏi state file (lưu ý resource vẫn tồn tại trên môi trường thật)
+- Terraform state list -> show ra tất cả resources trong state file (không show chi tiết)
+- Terraform state show aws_s3_bucket.mybucket -> show ra chi tiết resource mybucket
+- Terraform state mv -> dùng để đổi tên resource trong state file (lưu ý cần thay đổi manually trong configuration file) hoặc move item từ state file này sang state file khác
+- Terraform state pull -> download và show ra remote state file
+- Terraform state rm <resource> -> dùng để xóa item ra khỏi state file (lưu ý resource vẫn tồn tại trên môi trường thật)
 
 ### Provisioner
 Provisioner trong Terraform là một tính năng cho phép thực thi các đoạn script hoặc lệnh sau khi tài nguyên (resource) được Terraform tạo ra. Provisioner có thể chạy script ở máy local (máy đang chạy Terraform) hoặc trên máy remote (ví dụ như máy chủ EC2 vừa mới tạo). Provisioner thường được dùng để cấu hình hạ tầng sau khi nó đã được tạo, ví dụ như cài đặt phần mềm, chỉnh sửa tập tin cấu hình, hoặc chạy các lệnh khởi tạo.
@@ -635,10 +641,10 @@ Ví dụ, khi tạo một máy ảo EC2, provisioner remote-exec có thể dùng
 
 ### module
 
-https://devops.vn/posts/su-dung-terraform-modules-tai-su-dung-ma-quan-ly-ha-tang/
+https://devops.vn/posts/su-dung-Terraform-modules-tai-su-dung-ma-quan-ly-ha-tang/
 
 
-### Dùng terraform để deploy helm chart
+### Dùng Terraform để deploy helm chart
 
 Sử dụng provider là Helm
 
@@ -674,7 +680,7 @@ data "aws_eks_cluster_auth" "eks" {
   name = aws_eks_cluster.eks.name #hoặc có thể dùng trực tiếp tên của cluster trên AWS
 }
 
-#Dùng data source sẽ giúp helm provider chờ cho đến khi cluster được tạo xong (trong TH tạo cluster cũng bằng terraform)
+#Dùng data source sẽ giúp helm provider chờ cho đến khi cluster được tạo xong (trong TH tạo cluster cũng bằng Terraform)
 
 provider "helm" {
   kubernetes {
