@@ -122,7 +122,7 @@ locals {
   eks_name = "demo"
 }
 ```
-- Syntax để gọi local value: `local.value` . VD: `{ Name = "${local.env}-main" }`
+- Syntax để gọi local value: `local.value` . VD: `{ Name = "${local.env}-main" }` (Name tag là tag đặc biệt trong AWS, giúp hiển thị tên resource lên giao diện console)
 
 #### 3.3.2 Variable type
 
