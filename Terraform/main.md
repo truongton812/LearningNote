@@ -109,7 +109,19 @@ resource "local_file" "pet" {
   - Truyền variable bằng cách export vào biến môi trường (luôn phải có tiền tố TF_VAR ở trước). VD `export TF_VAR_filename="root/pet.txt"`
   - Đặt biến trong file Terraform.tfvars hoặc Terraform.tfvars.json (hoặc file khác chỉ cần có đuôi là *auto.tfvars hoặc *auto.tfvars.json ). Biến được khai bao với định dạng `key = value`. Nếu đặt tên file khác các tên trên thì phải chỉ định file chứa variable bằng option `Terraform apply -var-file <ten_file>`
   - Truyền variable bằng option -var. VD `Terraform apply -var "filename=/root/pet.txt" -var "content=We love pet"`
-  - Truyền khi chạy lệnh `Terraform apply` sẽ có prompt để nhập giá trị cho variable. 
+  - Truyền khi chạy lệnh `Terraform apply` sẽ có prompt để nhập giá trị cho variable.
+ 
+- Ngoài `variable` còn có `local value`. Local value là các biến chỉ có giá trị nội bộ trong module nơi được khai báo, không thể truy cập từ module khác. VD nếu  khai báo locals ở module gốc (root), chỉ các resource, data, output trong root module dùng được. Module con (child) sẽ không thể truy xuất local của root.​ Hoặc nếu khai báo locals ở module con, chỉ các resource, output bên trong module con đó mới truy cập được. Local value không nhận giá trị bên ngoài (VD qua CLI, file, ENV) như variable
+- Syntax khai báo `local value`
+```
+locals {
+  env     = "staging"
+  region  = "us-east-2"
+  zone1   = "us-east-2a"
+  zone2   = "us-east-2b"
+  eks_name = "demo"
+}
+```
 
 #### 3.3.2 Variable type
 
@@ -294,9 +306,6 @@ Terraform-project/
 ├── versions.tf
 └── README.md
 ```
-
-
-
 
 
 ## 5. Terraform state
