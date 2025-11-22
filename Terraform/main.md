@@ -107,7 +107,7 @@ resource "local_file" "pet" {
 
 - Nếu trong file variable.tf không khai báo giá trị default cho variable thì có các cách sau để truyền giá trị cho variable: (thứ tự ưu tiên tăng dần)
   - Truyền variable bằng cách export vào biến môi trường (luôn phải có tiền tố TF_VAR ở trước). VD `export TF_VAR_filename="root/pet.txt"`
-  - Đặt biến trong file Terraform.tfvars hoặc Terraform.tfvars.json (hoặc file khác chỉ cần có đuôi là *auto.tfvars hoặc *auto.tfvars.json ). Biến được khai bao với định dạng `key = value`. Nếu đặt tên file khác các tên trên thì phải chỉ định file chứa variable bằng option `Terraform apply -var-file <ten_file>`
+  - Đặt biến trong file Terraform.tfvars hoặc Terraform.tfvars.json (hoặc file khác chỉ cần có đuôi là *auto.tfvars hoặc *auto.tfvars.json ). Biến được khai bao với định dạng `key = value`. Khai báo biến trong Terraform.tfvars giúp việc sửa biến rõ ràng hơn. Nếu đặt tên file khác các tên trên thì phải chỉ định file chứa variable bằng option `Terraform apply -var-file <ten_file>`
   - Truyền variable bằng option -var. VD `Terraform apply -var "filename=/root/pet.txt" -var "content=We love pet"`
   - Truyền khi chạy lệnh `Terraform apply` sẽ có prompt để nhập giá trị cho variable.
  
@@ -259,13 +259,6 @@ output "instance_public_ip" {
 - Khi dùng lệnh `Terraform output` sẽ in ra tất cả output của configuration file trong thư mục hiện tại hoặc lệnh `Terraform output <output_name>` để in ra specific output
 
 ## 4. Cách tổ chức thư mục Terraform cho nhiều môi trường
-
-Quy tắc tổ chức Terraform codebase để tối ưu khả năng scale và dễ dàng maintain
-
-- ✅ Chia nhỏ infrastructure thành các module reusable (vpc, compute, database). Mỗi module có 1 trách nhiệm duy nhất và module không nên gọi module khác trực tiếp
-
-- ✅ Cô Lập Môi Trường: Mỗi environment (dev/staging/prod) có backend riêng. Sử dụng Terraform.tfvars để override variables
-
 ```
 Terraform-project/
 ├── modules/
@@ -273,22 +266,12 @@ Terraform-project/
 │   │   ├── main.tf
 │   │   ├── variables.tf
 │   │   ├── outputs.tf
-│   │   └── README.md
 │   ├── compute/
 │   │   ├── main.tf
 │   │   ├── variables.tf
 │   │   └── outputs.tf
-│   └── database/
-│       ├── main.tf
-│       ├── variables.tf
-│       └── outputs.tf
 ├── environments/
 │   ├── dev/
-│   │   ├── main.tf
-│   │   ├── variables.tf
-│   │   ├── Terraform.tfvars
-│   │   ├── backend.tf
-│   ├── staging/
 │   │   ├── main.tf
 │   │   ├── variables.tf
 │   │   ├── Terraform.tfvars
@@ -298,9 +281,6 @@ Terraform-project/
 │       ├── variables.tf
 │       ├── Terraform.tfvars
 │       ├── backend.tf
-├── files/
-│   └── scripts/
-│       └── user_data.sh
 ├── templates/
 │   └── config.tftpl
 ├── providers.tf
@@ -308,6 +288,13 @@ Terraform-project/
 └── README.md
 ```
 
+Quy tắc tổ chức Terraform codebase để tối ưu khả năng scale và dễ dàng maintain
+
+✅ Chia nhỏ infrastructure thành các module reusable (vpc, compute, database). Mỗi module có 1 trách nhiệm duy nhất và module không nên gọi module khác trực tiếp
+
+✅ Cô Lập Môi Trường: Mỗi environment (dev/staging/prod) có backend riêng. Sử dụng Terraform.tfvars để override variables
+
+✅ File main.tf của từng module sẽ refer đến file variables.tf tương ứng trong cùng thư mục. Có thể override variable của module trực tiếp từ file main.tf của environment (hoặc trong main.tf của environment refer đến variables.tf của environment, rồi variables.tf lại refer đến terraform.tfvars)
 
 ## 5. Terraform state
 
