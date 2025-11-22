@@ -122,6 +122,7 @@ locals {
   eks_name = "demo"
 }
 ```
+- Syntax để gọi local value: `local.value` . VD: local.region
 
 #### 3.3.2 Variable type
 
