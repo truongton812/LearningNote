@@ -122,7 +122,7 @@ locals {
   eks_name = "demo"
 }
 ```
-- Syntax để gọi local value: `local.value` . VD: local.region
+- Syntax để gọi local value: `local.value` . VD: `{ Name = "${local.env}-main" }`
 
 #### 3.3.2 Variable type
 
