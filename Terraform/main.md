@@ -49,7 +49,25 @@ Trong thư mục Terraform có thể có các file
 - Dùng để khai báo và cấu hình Provider — tức là nhà cung cấp dịch vụ cloud hoặc hạ tầng mà bạn làm việc (ví dụ AWS, Azure, Google Cloud).
 - Có thể khai báo nhiều provider trong cùng 1 file -> khi chạy Terraform init thì sẽ download tất cả các provider plugin được khai báo  (check trong directory `.Terraform`)
 - Với dự án nhỏ, đơn giản có thể đưa provider vào main.tf cho tiện. Tuy nhiên với dự án lớn, đa môi trường, hay nhóm nhiều người làm, nên tách riêng provider.tf để giữ cấu trúc code sạch, rõ ràng, dễ maintain và dễ triển khai automation.
+- Cấu trúc file provider
+```
+provider "aws" {
+  profile = "my-user" #optional, nếu không khai báo terraform sẽ sử dụng profile default
+  region  = "us-east-2"
+}
+
+terraform { #khai báo constrain version cho provider
+  required_version = ">= 1.0"
   
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.94"
+    }
+  }
+}
+```
+
 ### 3.2. Main.tf
 - Dùng để khai báo resources cần tạo
 - Ví dụ để tạo EC2 trên AWS
