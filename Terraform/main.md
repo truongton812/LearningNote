@@ -424,7 +424,7 @@ Ta có thể output ra để xem resource "pet" sẽ là 1 map
 
 
 
-### Version constraint
+## 9. Version constraint
 
 Dùng để chỉ định version của provider thay vì dùng version latest
 ```
@@ -439,7 +439,7 @@ Terraform {
 ```
 
 
-### Terraform with AWS
+## 10. Terraform with AWS
 
 Ví dụ về IAM
 ```
@@ -522,7 +522,7 @@ EOF
 }
 ```
 
-### Remote state file
+## 11. Remote state file
 
 ##### Nhược điểm của việc lưu trữ state file trên máy local trong Terraform gồm các vấn đề sau:
 - Dễ gây xung đột khi làm việc nhóm: Khi nhiều người cùng quản trị hạ tầng, việc lưu state file trên máy cá nhân dễ dẫn đến xung đột, overwrite hoặc mất đồng bộ trạng thái hạ tầng.
@@ -617,9 +617,93 @@ Provisioner giúp đảm bảo rằng quá trình tạo hạ tầng không chỉ
 Ví dụ, khi tạo một máy ảo EC2, provisioner remote-exec có thể dùng để cài đặt Apache HTTP Server ngay sau khi máy được tạo ra, và Terraform sẽ chỉ đánh dấu tài nguyên đó là thành công khi lệnh cài đặt thành công
 
 
-### module
+## 12. Module
+- Terraform module là một nhóm các file cấu hình Terraform được đóng gói lại thành một đơn vị riêng biệt, có thể tái sử dụng. Mỗi module đại diện cho một phần hoặc thành phần cụ thể của hạ tầng (ví dụ: một VPC, một nhóm compute instance, một database) và giúp tổ chức, quản lý cấu hình một cách hiệu quả, tránh lặp lại mã nguồn.
+- Terraform modules là cách hiệu quả để tái sử dụng mã và quản lý hạ tầng một cách có tổ chức trong các dự án lớn bằng cách cho phép viết cấu hình một lần và dùng lại nhiều lần trong các dự án hoặc môi trường khác nhau, giúp tiết kiệm thời gian và giảm sai sót.
+- Module có thể chia sẻ giữa các nhóm, các dự án hoặc tải module từ cộng đồng
 
-https://devops.vn/posts/su-dung-Terraform-modules-tai-su-dung-ma-quan-ly-ha-tang/
+### 12.1. Cấu trúc thư mục module
+```
+Terraform-project/
+├── modules/
+│   ├── compute/
+│   │   ├── main.tf
+│   │   ├── variables.tf
+│   │   └── outputs.tf
+├── env/
+│   ├── dev/
+│   │   ├── main.tf
+│   │   ├── variables.tf
+│   │   ├── Terraform.tfvars
+│   │   ├── backend.tf
+├── providers.tf
+├── versions.tf
+└── README.md
+```
+
+**Nội dung file modules/compute/main.tf**
+```
+data "aws_ami" "amazon_linux" {
+  most_recent = true
+
+  filter {
+    name   = "name"
+    values = ["amzn2-ami-hvm-*-x86_64-gp2"]
+  }
+
+  filter {
+    name   = "virtualization-type"
+    values = ["hvm"]
+  }
+
+  owners = ["amazon"]
+}
+
+data "aws_availability_zones" "available" {
+  state = "available"
+}
+
+resource "aws_instance" "mytestinstance" {
+    ami = data.aws_ami.amazon_linux.id
+    instance_type = var.instance_type
+    availability_zone = data.aws_availability_zones.available.names[var.index]
+}
+```
+
+**Nội dung file modules/compute/variables.tf**
+```
+variable "instance_type" {
+}
+variable "index" {
+    default = 0
+}
+```
+
+**Nội dung file env/dev/main.tf**
+```
+module "compute" {
+    source = "../../modules/compute"
+    instance_type = var.instance_type #hoặc có thể khai báo trực tiếp instance_type ở đây
+    index = var.az_index #hoặc có thể khai báo trực tiếp index ở đây
+}
+```
+
+**Nội dung file env/dev/variables.tf**
+```
+variable "instance_type" {
+}
+
+variable "az_index" {
+}
+```
+**Nội dung file env/dev/terraform.tfvars**
+```
+cidr_block = "172.18.0.0/22"
+instance_type = "t2.nano"
+az_index = 2
+```
+
+
 
 
 ### Dùng Terraform để deploy helm chart
