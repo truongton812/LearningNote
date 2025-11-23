@@ -666,7 +666,7 @@ data "aws_availability_zones" "available" {
 resource "aws_instance" "mytestinstance" {
     ami = data.aws_ami.amazon_linux.id
     instance_type = var.instance_type
-    availability_zone = data.aws_availability_zones.available.names[var.index]
+    availability_zone = data.aws_availability_zones.available.names[var.index] #lấy az name theo index. Biến index được khai báo trong file modules/compute/variables.tf
 }
 ```
 
@@ -683,8 +683,8 @@ variable "index" {
 ```
 module "compute" {
     source = "../../modules/compute"
-    instance_type = var.instance_type #hoặc có thể khai báo trực tiếp instance_type ở đây
-    index = var.az_index #hoặc có thể khai báo trực tiếp index ở đây
+    instance_type = var.instance_type #hoặc có thể khai báo trực tiếp instance_type ở đây. VD instance_type = "t2.nano"
+    index = var.az_index #index lấy giá trị từ biến az_index trong file env/dev/variables.tf. Sau đó giá trị của index sẽ được override vào biến index ở modules/compute/variables.tf
 }
 ```
 
