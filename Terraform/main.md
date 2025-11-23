@@ -17,9 +17,10 @@ Terraform hoạt động qua các phases:
 - `Terraform providers` : xem tất cả providers có trong thư mục hiện tại
 - `Terraform providers mirror /path/to/other/configuration/directory` : copy provider ở current directory sang directory khác
 - `Terraform output` : in ra tất cả output trong thư mục configuration directory hiện tại. Thêm tên của output variable để chỉ lấy output của variable đấy
-- `Terraform apply -target=<resource_address>` : apply thay đổi chỉ cho một hoặc một số resource cụ thể được xác định bởi resource address
+- `Terraform plan/apply -target=<resource_address>` : plan/apply thay đổi chỉ cho một hoặc một số resource cụ thể được xác định bởi resource address (VD aws_instance.mytestinstance)
 - `Terraform apply -refresh-only` : dùng để sync file state với real-world state. Dùng trong trường hợp có thay đổi manually trên real-world infrastructure thì chạy lệnh này để update state file. Lưu ý là lệnh này chỉ modify state file
 - option `-resfresh=false` để bypass việc refresh Terraform state
+- `Terraform destroy` : dùng để xóa tất cả resource. Tuy nhiên best practice là comment các resource muốn xóa và apply lại
 - `Terraform graph` : visualize ra mối quan hệ dependencies giữa các resource (cần phải cài phần mềm đọc format dot)
 
 ## 2. Hashicorp Configuration Language
@@ -459,6 +460,12 @@ Terraform {
 
 ## 10. Terraform with AWS
 
+Best pratice để đảm bảo bảo mật khi làm việc với terraform
+- Tạo IAM role dành riêng cho terraform với các quyền phù hợp. VD role terraform-admin với quyền AdministratorAccess để provision resource, hoặc role terraform-viewer với quyền ViewOnlyAccess để thực thi plan. Role đấy có trust entity là AWS account - "This account" (mục đích là để các user trong account của mình có thể assume terraform role)
+- Tạo 1 user với quyền chỉ cho phép assume terraform role
+- Thêm profile terraform-admin hoặc terraform-viewer vào trong file ~/.aws/config và thay provider thành profile mới này
+
+
 Ví dụ về IAM
 ```
 provider "aws" {
@@ -728,8 +735,15 @@ instance_type = "t2.nano"
 az_index = 2
 ```
 
+## 13. Import
 
-
+- Là tính năng cho phép đưa cácresources đã được tạo thủ công hoặc ngoài phạm vi quản lý của Terraform vào trong Terraform state, từ đó quản lý chúng hoàn toàn bằng Terraform.​
+- Sau khi import, Terraform sẽ theo dõi trạng thái tài nguyên đó giống như các tài nguyên được khởi tạo hoàn toàn qua Terraform.​
+- Import chủ yếu để phục vụ việc chuyển đổi quản lý hạ tầng sang Terraform mà không phải xóa rồi tạo lại từ đầu.​
+- Quy trình sử dụng
+  - Khai báo resource trong file .tf tương ứng với tài nguyên cần import do terraform import không tự động sinh ra code cấu hình .tf cho resource đã import
+  - Chạy lệnh terraform import <resource_type>.<resource_name> <real_resource_id>, ví dụ: `terraform import aws_instance.example i-1234567890abcdef0`. Hoặc có thể khai báo import block trong file .tf
+- Khi không muốn dùng terraform để quản lý resource nữa thì sử dụng lệnh `terraform state rm <resource_type>.<resource_name>` -> resource sẽ bị xóa ra khỏi file state của Terraform. Lệnh này áp dụng cho cả resource được import và resource được tạo bởi Terraform. Lưu ý resource ngoài thực tế (ví dụ máy EC2 thực tế) vẫn còn nguyên, không bị xóa trên AWS hoặc môi trường cloud của bạn.​
 
 ### Dùng Terraform để deploy helm chart
 
