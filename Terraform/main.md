@@ -630,6 +630,10 @@ Terraform-project/
 │   │   ├── main.tf
 │   │   ├── variables.tf
 │   │   └── outputs.tf
+│   ├── vpc/
+│   │   ├── main.tf
+│   │   ├── variables.tf
+│   │   └── outputs.tf
 ├── env/
 │   ├── dev/
 │   │   ├── main.tf
@@ -681,10 +685,13 @@ variable "index" {
 
 **Nội dung file env/dev/main.tf**
 ```
+module "vpc" {
+    source = "../../modules/vpc"
 module "compute" {
-    source = "../../modules/compute"
+    source = "git@github.com:truongton812/lab-terraform.git?ref=0.1.2" #bên cạnh chỉ định folder còn có thể chỉ định git repo kèm tag version, hữu ích trong trường hợp nhiều môi trường cùng refer đến 1 module và ta không muốn làm ảnh hưởng đến toàn bộ các môi trường khi thay đổi module 
     instance_type = var.instance_type #hoặc có thể khai báo trực tiếp instance_type ở đây. VD instance_type = "t2.nano"
     index = var.az_index #index lấy giá trị từ biến az_index trong file env/dev/variables.tf. Sau đó giá trị của index sẽ được override vào biến index ở modules/compute/variables.tf
+    vpc_id = module.vpc.vpc_id #lấy output từ vpc module ở trên
 }
 ```
 
