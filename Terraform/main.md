@@ -412,6 +412,8 @@ Các meta-argument phổ biến trong Terraform bao gồm: count, for_each, depe
 ### 7.1. Count
 - Sử dụng để tạo nhiều bản sao của cùng một tài nguyên/module dựa trên số lượng nguyên (integer) chỉ định.
 - `Count` giúp giảm việc viết mã lặp lại và quản lý nhiều instance tài nguyên một cách linh hoạt.
+- `Count` chỉ có thể dùng trong khối "module", "resource" và "data" blocks, và phải set "count = x" nếu muốn sử dụng
+- The "count" object can only be used in
 - Khi output ra thì resource sẽ có type là list
 
 Ví dụ 1:
