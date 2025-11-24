@@ -419,9 +419,9 @@ Các meta-argument phổ biến trong Terraform bao gồm: count, for_each, depe
 Ví dụ 1:
 ```
 resource "aws_instance" "example" {
+  count         = 3 #tạo ra 3 EC2 instance
   ami           = "ami-0078ef784b6fa1ba4"
   instance_type = "t2.micro"
-  count         = 3 #tạo ra 3 EC2 instance
 }
 ```
 
@@ -433,10 +433,9 @@ variable "sandboxes" {
 }
 
 resource "aws_instance" "sandbox" {
+  count         = length(var.sandboxes) #giá trị của count phụ thuộc vào số phần tử trong chuỗi "sandboxes", giúp dễ dàng thay đổi code
   ami           = "ami-0078ef784b6fa1ba4"
   instance_type = "t2.micro"
-  count         = length(var.sandboxes) #giá trị của count phụ thuộc vào số phần tử trong chuỗi "sandboxes", giúp dễ dàng thay đổi code
-
   tags = {
     Name = var.sandboxes[count.index] #count.index là một biến đặc biệt có sẵn do Terraform tự động tạo ra bên trong resource khi sử dụng thuộc tính count. Nó đại diện cho chỉ số (index) của bản sao resource hiện tại mà Terraform đang xử lý, bắt đầu từ 0, tăng lên 1 theo từng bản sao.
   }
