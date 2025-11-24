@@ -491,7 +491,7 @@ variable "usernames" {
 
 resource "aws_iam_user" "users" {
   for_each = toset(var.usernames)
-  name     = each.value
+  name     = each.value #có thể dùng each.value hay each.key đều được, tuy nhiên nên dùng each.value cho nhất quán
 }
 ```
 
