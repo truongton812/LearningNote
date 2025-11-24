@@ -429,7 +429,19 @@ resource "aws_autoscaling_group" "example" {
 
 ## 8. Meta arguments
 
-Defination:
+Defination: Meta-argument trong Terraform là một loại đối số đặc biệt được tích hợp sẵn trong ngôn ngữ cấu hình Terraform, nhằm điều khiển cách Terraform tạo và quản lý cơ sở hạ tầng. Các meta-argument có thể được dùng trong mọi loại tài nguyên (resource) và cả trong các khối module. Chúng cho phép bạn kiểm soát vòng đời của tài nguyên như hành vi khi tạo mới, cập nhật, hay phá hủy tài nguyên, cũng như thiết lập dependency giữa các tài nguyên.
+
+Các meta-argument phổ biến trong Terraform bao gồm:
+
+count: Sử dụng để tạo nhiều bản sao của cùng một tài nguyên/module dựa trên số lượng nguyên (integer) chỉ định. Giúp giảm việc viết mã lặp lại và quản lý nhiều instance tài nguyên một cách linh hoạt.
+
+for_each: Tương tự count nhưng cho phép tạo nhiều instance dựa trên một map hoặc set với khóa duy nhất, giúp quản lý từng instance riêng biệt.
+
+depends_on: Xác định rõ các phụ thuộc giữa các tài nguyên, buộc Terraform phải tạo tài nguyên này sau khi tài nguyên khác đã được tạo xong.
+
+provider: Chỉ định nhà cung cấp dịch vụ (provider) cụ thể áp dụng cho tài nguyên/module, hữu ích khi dùng nhiều provider hoặc nhiều cấu hình provider.
+
+lifecycle: Khối meta-argument chứa các thiết lập kiểm soát vòng đời tài nguyên như create_before_destroy (tạo tài nguyên mới trước khi phá tài nguyên cũ), prevent_destroy (ngăn phá hủy tài nguyên quan trọng), và các tùy chọn bỏ qua thay đổi thuộc tính (ignore_changes).
 
 Các meta argument: depends_on, lifecycle, count, for each, loop, 
 
