@@ -350,26 +350,6 @@ Workflow hoạt động của Terraform
 - Nếu sửa hạ tầng một cách thủ công, tức là thay đổi trực tiếp trên tài nguyên bên ngoài ngoài Terraform quản lý, sẽ gây ra sự khác biệt giữa trạng thái thực tế của hạ tầng và trạng thái lưu trong file Terraform.tfstate do Terraform quản lý. Khi đó, khi chạy lại lệnh Terraform plan hoặc Terraform apply, Terraform sẽ phát hiện ra sự không đồng bộ này và sẽ hiển thị các thay đổi hoặc cố gắng sửa lại tài nguyên để đưa về trạng thái đúng theo mã cấu hình Terraform.
 
 
-
-
-## 6. Lifecycle rule trong Terraform
-
-- Mặc định khi update 1 resource, Terraform sẽ xóa resource đấy trước sau đó mới recreate lại
-- Để thay đổi default behavior đấy thì dùng life cycle block
-- Các lifecycle có thể dùng:
-  - create_before_destroy: tạo resource trước rồi mới xóa resource cũ
-  - prevent_destroy: không xóa resource cũ. Nếu resource đấy bắt buộc phải xóa mới update được thì lệnh Terraform apply sẽ bị lỗi. VD áp dụng với database
-  - ignore_changes: chỉ định Terraform "bỏ qua" một hoặc một số attributes nhất định khi kiểm tra thay đổi của resource đó trong quá trình apply. Nói cách khác, nếu thuộc tính được khai báo trong ignore_changes bị thay đổi ngoài Terraform hoặc do điều kiện bên ngoài, Terraform sẽ không cố gắng cập nhật hay tạo lại resource chỉ vì thay đổi của những thuộc tính này. Có thể nhận vào 1 list attribute hoặc `ignore_changes = all`. VD `ignore_changes = [tags,ami]` thì khi ta thay đổi tag của EC2 manually, lệnh `Terraform apply` sẽ không sửa lại tag của EC2 đấy cho đúng với state file. Use case thường là bỏ qua thay đổi các tag trên resource hoặc các thuộc tính được tự động cập nhật, giúp Terraform không liên tục phát hiện và thực hiện các thay đổi không cần thiết
-
-- Ví dụ:
-```
-resource {
-  ...
-  lifecycle {
-    create_before_destroy = true #tạo resource trước rồi mới xóa resource cũ
-  }
-}
-```
 ## 7. Datasource
 - Data sources giúp lấy thông tin các tài nguyên hiện có trên môi trường như VPC, subnet, security group trong tài khoản AWS . Đây là cách phổ biến để tham khảo các tài nguyên đã tồn tại và dùng trong cấu hình.
 - Data source chỉ đọc thông tin, không thể quản lý các tài nguyên đấy (create,update,delete)
@@ -429,45 +409,59 @@ resource "aws_autoscaling_group" "example" {
 
 ## 8. Meta arguments
 
-Defination: Meta-argument trong Terraform là một loại đối số đặc biệt được tích hợp sẵn trong ngôn ngữ cấu hình Terraform, nhằm điều khiển cách Terraform tạo và quản lý cơ sở hạ tầng. Các meta-argument có thể được dùng trong mọi loại tài nguyên (resource) và cả trong các khối module. Chúng cho phép bạn kiểm soát vòng đời của tài nguyên như hành vi khi tạo mới, cập nhật, hay phá hủy tài nguyên, cũng như thiết lập dependency giữa các tài nguyên.
+Meta-argument trong Terraform là một loại đối số đặc biệt được tích hợp sẵn trong ngôn ngữ cấu hình Terraform, nhằm điều khiển cách Terraform tạo và quản lý cơ sở hạ tầng. Các meta-argument có thể được dùng trong mọi loại tài nguyên (resource) và cả trong các khối module, cho phép kiểm soát vòng đời của tài nguyên như hành vi khi tạo mới, cập nhật, hay phá hủy tài nguyên, cũng như thiết lập dependency giữa các tài nguyên.
 
-Các meta-argument phổ biến trong Terraform bao gồm:
+Các meta-argument phổ biến trong Terraform bao gồm: count, for_each, depends_on, provider, lifecycle, loop
 
-count: Sử dụng để tạo nhiều bản sao của cùng một tài nguyên/module dựa trên số lượng nguyên (integer) chỉ định. Giúp giảm việc viết mã lặp lại và quản lý nhiều instance tài nguyên một cách linh hoạt.
+### 8.1. Count
+- Sử dụng để tạo nhiều bản sao của cùng một tài nguyên/module dựa trên số lượng nguyên (integer) chỉ định.
+- `Count` giúp giảm việc viết mã lặp lại và quản lý nhiều instance tài nguyên một cách linh hoạt.
 
-for_each: Tương tự count nhưng cho phép tạo nhiều instance dựa trên một map hoặc set với khóa duy nhất, giúp quản lý từng instance riêng biệt.
-
-depends_on: Xác định rõ các phụ thuộc giữa các tài nguyên, buộc Terraform phải tạo tài nguyên này sau khi tài nguyên khác đã được tạo xong.
-
-provider: Chỉ định nhà cung cấp dịch vụ (provider) cụ thể áp dụng cho tài nguyên/module, hữu ích khi dùng nhiều provider hoặc nhiều cấu hình provider.
-
-lifecycle: Khối meta-argument chứa các thiết lập kiểm soát vòng đời tài nguyên như create_before_destroy (tạo tài nguyên mới trước khi phá tài nguyên cũ), prevent_destroy (ngăn phá hủy tài nguyên quan trọng), và các tùy chọn bỏ qua thay đổi thuộc tính (ignore_changes).
-
-Các meta argument: depends_on, lifecycle, count, for each, loop, 
-
-1. Count: dùng để tạo nhiều instance của resources
+Ví dụ 1:
 ```
-resource "local_file" "pet" {
-  filename = "/root/${var.filename[count.index]}"
-  count = 3 #tuy nhiên sẽ chỉ ra 1 file do Terraform tạo ra 3 file cùng 1 tên. Để fix thì cần phải tạo variable và dùng loop trên count
-}
-```
-Cách dùng count = 3 thì sẽ hard code số lượng, nếu ta thêm file vào list filename thì sẽ vẫn chỉ có 3 files tạo ra -> nên thay bằng `count = length(var.filename)`
-```
-variable.tf
-variable "filename" {
-  default = ["pet.txt", "dog.txt", "animal.txt"]
+resource "aws_instance" "example" {
+  ami           = "ami-0078ef784b6fa1ba4"
+  instance_type = "t2.micro"
+  count         = 3 #tạo ra 3 EC2 instance
 }
 ```
 
+Ví dụ 2:
+```
+variable "sandboxes" {
+  type    = list(string)
+  default = ["sandbox_server_one", "sandbox_server_two", "sandbox_server_three"]
+}
 
-Chatgpt: count.index là một biến đặc biệt (special variable) mà Terraform tự động tạo ra bên trong resource khi sử dụng thuộc tính count. Nó đại diện cho chỉ số (index) của bản sao resource hiện tại mà Terraform đang xử lý, bắt đầu từ 0, tăng lên 1 theo từng bản sao.
+resource "aws_instance" "sandbox" {
+  ami           = "ami-0078ef784b6fa1ba4"
+  instance_type = "t2.micro"
+  count         = length(var.sandboxes) #giá trị của count phụ thuộc vào số phần tử trong chuỗi "sandboxes", giúp dễ dàng thay đổi code
 
-Nói cách khác, count.index giúp phân biệt từng instance/resource được tạo ra khi count được sử dụng để tạo nhiều bản sao resource cùng lúc. Đây là một biến tự động có sẵn, không phải do người dùng định nghĩa hay gọi như hàm
+  tags = {
+    Name = var.sandboxes[count.index] #count.index là một biến đặc biệt có sẵn do Terraform tự động tạo ra bên trong resource khi sử dụng thuộc tính count. Nó đại diện cho chỉ số (index) của bản sao resource hiện tại mà Terraform đang xử lý, bắt đầu từ 0, tăng lên 1 theo từng bản sao.
+  }
+}
+```
+
+**Nhược điểm khi sử dụng Count**
+
+count﻿ phải được biết trước khi Terraform thực hiện bất kỳ thao tác tạo hoặc thay đổi tài nguyên nào. Điều này có nghĩa là count﻿ không thể dựa vào các giá trị chỉ có được sau khi tài nguyên được tạo, như ID duy nhất của tài nguyên trên hệ thống bên ngoài. Đây là hạn chế lớn khi cần tạo tài nguyên dựa trên các giá trị động hoặc runtime.​
+
+Nếu một phần tử ở giữa danh sách mà count﻿ dùng để tạo các instance bị xóa, các instance phía sau sẽ bị dịch chuyển chỉ số (index) xuống, dẫn đến việc Terraform phá hủy và tạo lại các tài nguyên đó không cần thiết. Hiện tượng này gọi là "index shifting problem", làm tăng rủi ro gián đoạn và không ổn định cho hạ tầng.​
+
+count﻿ chủ yếu hỗ trợ tạo nhiều instance giống nhau, nên không phù hợp khi cần quản lý các tài nguyên khác biệt nhau về cấu hình, cho trường hợp đó for_each﻿ sẽ linh hoạt và phù hợp hơn.
+
+Việc hardcode giá trị count﻿ trong mã làm giảm tính linh hoạt và khó bảo trì, vì khi muốn thay đổi số lượng instance phải sửa mã nguồn và dễ xảy ra lỗi nếu không thống nhất quản lý giá trị này.​
+
+Một số expressions phức tạp hoặc giá trị nhạy cảm không thể được dùng trực tiếp trong meta-argument count﻿.
 
 Tuy nhiên count có 1 downside khi update là khi ta xóa resource ở index 1 thì index của các resource khác sẽ thay đổi -> tất cả đều phải recreate (hỏi thêm chatgpt để viết lại). Dùng for each có thể giải quyết vấn đề này
 Ta có thể output ra để xem resource "pet" sẽ là 1 list
-2. For each
+### 8.2. For each
+
+for_each: Tương tự count nhưng cho phép tạo nhiều instance dựa trên một map hoặc set với khóa duy nhất, giúp quản lý từng instance riêng biệt.
+
 ```
 resource "local_file" "pet" {
   filename = each.value
@@ -477,6 +471,30 @@ resource "local_file" "pet" {
 Ta có thể output ra để xem resource "pet" sẽ là 1 map
 
 
+depends_on: Xác định rõ các phụ thuộc giữa các tài nguyên, buộc Terraform phải tạo tài nguyên này sau khi tài nguyên khác đã được tạo xong.
+
+provider: Chỉ định nhà cung cấp dịch vụ (provider) cụ thể áp dụng cho tài nguyên/module, hữu ích khi dùng nhiều provider hoặc nhiều cấu hình provider.
+
+### 8.3. Lifecycle rule trong Terraform
+
+lifecycle: Khối meta-argument chứa các thiết lập kiểm soát vòng đời tài nguyên như create_before_destroy (tạo tài nguyên mới trước khi phá tài nguyên cũ), prevent_destroy (ngăn phá hủy tài nguyên quan trọng), và các tùy chọn bỏ qua thay đổi thuộc tính (ignore_changes).
+
+- Mặc định khi update 1 resource, Terraform sẽ xóa resource đấy trước sau đó mới recreate lại
+- Để thay đổi default behavior đấy thì dùng life cycle block
+- Các lifecycle có thể dùng:
+  - create_before_destroy: tạo resource trước rồi mới xóa resource cũ
+  - prevent_destroy: không xóa resource cũ. Nếu resource đấy bắt buộc phải xóa mới update được thì lệnh Terraform apply sẽ bị lỗi. VD áp dụng với database
+  - ignore_changes: chỉ định Terraform "bỏ qua" một hoặc một số attributes nhất định khi kiểm tra thay đổi của resource đó trong quá trình apply. Nói cách khác, nếu thuộc tính được khai báo trong ignore_changes bị thay đổi ngoài Terraform hoặc do điều kiện bên ngoài, Terraform sẽ không cố gắng cập nhật hay tạo lại resource chỉ vì thay đổi của những thuộc tính này. Có thể nhận vào 1 list attribute hoặc `ignore_changes = all`. VD `ignore_changes = [tags,ami]` thì khi ta thay đổi tag của EC2 manually, lệnh `Terraform apply` sẽ không sửa lại tag của EC2 đấy cho đúng với state file. Use case thường là bỏ qua thay đổi các tag trên resource hoặc các thuộc tính được tự động cập nhật, giúp Terraform không liên tục phát hiện và thực hiện các thay đổi không cần thiết
+
+- Ví dụ:
+```
+resource {
+  ...
+  lifecycle {
+    create_before_destroy = true #tạo resource trước rồi mới xóa resource cũ
+  }
+}
+```
 
 ## 9. Version constraint
 
