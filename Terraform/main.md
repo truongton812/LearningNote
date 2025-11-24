@@ -350,7 +350,7 @@ Workflow hoạt động của Terraform
 - Nếu sửa hạ tầng một cách thủ công, tức là thay đổi trực tiếp trên tài nguyên bên ngoài ngoài Terraform quản lý, sẽ gây ra sự khác biệt giữa trạng thái thực tế của hạ tầng và trạng thái lưu trong file Terraform.tfstate do Terraform quản lý. Khi đó, khi chạy lại lệnh Terraform plan hoặc Terraform apply, Terraform sẽ phát hiện ra sự không đồng bộ này và sẽ hiển thị các thay đổi hoặc cố gắng sửa lại tài nguyên để đưa về trạng thái đúng theo mã cấu hình Terraform.
 
 
-## 7. Datasource
+## 6. Datasource
 - Data sources giúp lấy thông tin các tài nguyên hiện có trên môi trường như VPC, subnet, security group trong tài khoản AWS . Đây là cách phổ biến để tham khảo các tài nguyên đã tồn tại và dùng trong cấu hình.
 - Data source chỉ đọc thông tin, không thể quản lý các tài nguyên đấy (create,update,delete)
 - Ví dụ
@@ -403,19 +403,16 @@ resource "aws_autoscaling_group" "example" {
 }
 ```
 
-
-
-
-
-## 8. Meta arguments
+## 7. Meta arguments
 
 Meta-argument trong Terraform là một loại đối số đặc biệt được tích hợp sẵn trong ngôn ngữ cấu hình Terraform, nhằm điều khiển cách Terraform tạo và quản lý cơ sở hạ tầng. Các meta-argument có thể được dùng trong mọi loại tài nguyên (resource) và cả trong các khối module, cho phép kiểm soát vòng đời của tài nguyên như hành vi khi tạo mới, cập nhật, hay phá hủy tài nguyên, cũng như thiết lập dependency giữa các tài nguyên.
 
 Các meta-argument phổ biến trong Terraform bao gồm: count, for_each, depends_on, provider, lifecycle, loop
 
-### 8.1. Count
+### 7.1. Count
 - Sử dụng để tạo nhiều bản sao của cùng một tài nguyên/module dựa trên số lượng nguyên (integer) chỉ định.
 - `Count` giúp giảm việc viết mã lặp lại và quản lý nhiều instance tài nguyên một cách linh hoạt.
+- Khi output ra thì resource sẽ có type là list
 
 Ví dụ 1:
 ```
@@ -446,41 +443,71 @@ resource "aws_instance" "sandbox" {
 
 **Nhược điểm khi sử dụng Count**
 
-count﻿ phải được biết trước khi Terraform thực hiện bất kỳ thao tác tạo hoặc thay đổi tài nguyên nào. Điều này có nghĩa là count﻿ không thể dựa vào các giá trị chỉ có được sau khi tài nguyên được tạo, như ID duy nhất của tài nguyên trên hệ thống bên ngoài. Đây là hạn chế lớn khi cần tạo tài nguyên dựa trên các giá trị động hoặc runtime.​
+- Nếu một phần tử ở đầu hoặc giữa list mà count﻿ dùng để tạo các bản sao resource bị xóa, các bản sao resource phía sau sẽ bị dịch chuyển index xuống, dẫn đến việc Terraform phá hủy và tạo lại các tài nguyên đó không cần thiết. Hiện tượng này gọi là "index shifting problem", làm tăng rủi ro gián đoạn và không ổn định cho hạ tầng.​
+- Count﻿ chủ yếu hỗ trợ tạo nhiều instance giống nhau, nên không phù hợp khi cần quản lý các tài nguyên khác biệt nhau về cấu hình, cho trường hợp đó for_each﻿ sẽ linh hoạt và phù hợp hơn.
 
-Nếu một phần tử ở giữa danh sách mà count﻿ dùng để tạo các instance bị xóa, các instance phía sau sẽ bị dịch chuyển chỉ số (index) xuống, dẫn đến việc Terraform phá hủy và tạo lại các tài nguyên đó không cần thiết. Hiện tượng này gọi là "index shifting problem", làm tăng rủi ro gián đoạn và không ổn định cho hạ tầng.​
+### 7.2. For each
+- Tương tự count nhưng cho phép tạo nhiều instance dựa trên một map hoặc set với khóa duy nhất, giúp quản lý từng instance riêng biệt.
+- Khi output ra thì resource sẽ có type là map
 
-count﻿ chủ yếu hỗ trợ tạo nhiều instance giống nhau, nên không phù hợp khi cần quản lý các tài nguyên khác biệt nhau về cấu hình, cho trường hợp đó for_each﻿ sẽ linh hoạt và phù hợp hơn.
-
-Việc hardcode giá trị count﻿ trong mã làm giảm tính linh hoạt và khó bảo trì, vì khi muốn thay đổi số lượng instance phải sửa mã nguồn và dễ xảy ra lỗi nếu không thống nhất quản lý giá trị này.​
-
-Một số expressions phức tạp hoặc giá trị nhạy cảm không thể được dùng trực tiếp trong meta-argument count﻿.
-
-Tuy nhiên count có 1 downside khi update là khi ta xóa resource ở index 1 thì index của các resource khác sẽ thay đổi -> tất cả đều phải recreate (hỏi thêm chatgpt để viết lại). Dùng for each có thể giải quyết vấn đề này
-Ta có thể output ra để xem resource "pet" sẽ là 1 list
-### 8.2. For each
-
-for_each: Tương tự count nhưng cho phép tạo nhiều instance dựa trên một map hoặc set với khóa duy nhất, giúp quản lý từng instance riêng biệt.
-
+Ví dụ 1:
 ```
-resource "local_file" "pet" {
-  filename = each.value
-  for_each = toset(var.filename) #do for_each chỉ làm việc với map hoặc set nên cần phải convert sang dạng set 
+variable "servers" {
+  default = {
+    server1 = "t2.micro"
+    server2 = "t3.micro"
+    server3 = "t2.small"
+  }
+}
+
+resource "aws_instance" "example" {
+  for_each = var.servers
+  ami = "ami-0078ef784b6fa1ba4"
+  instance_type = each.value
+  tags = {
+    Name = each.key
+  }
 }
 ```
-Ta có thể output ra để xem resource "pet" sẽ là 1 map
+
+Ví dụ 2:
+
+```
+variable "usernames" {
+  type    = list(string)
+  default = ["alice", "bob", "alice"]
+}
+
+resource "aws_iam_user" "users" {
+  for_each = toset(var.usernames)
+  name     = each.value
+}
+```
+
+Lưu ý khi dùng meta-argument for_each﻿, giá trị truyền vào phải là một map hoặc set. Nếu có một list nhưng muốn dùng cho for_each﻿, cần chuyển danh sách đó sang set bằng cách sử dụng hàm toset()﻿ trong Terraform. Điều này giúp tránh việc Terraform tạo lại tài nguyên không cần thiết khi danh sách có phần tử trùng lặp hoặc khi thứ tự phần tử thay đổi. Trong ví dụ trên, mặc dù trong danh sách có 2 phần tử trùng "alice", hàm toset﻿ sẽ loại bỏ trùng lặp, chỉ tạo hai tài nguyên dành cho "alice" và "bob".
 
 
-depends_on: Xác định rõ các phụ thuộc giữa các tài nguyên, buộc Terraform phải tạo tài nguyên này sau khi tài nguyên khác đã được tạo xong.
+### 7.3 depends_on
+- Giúp xác định rõ các phụ thuộc giữa các tài nguyên, buộc Terraform phải tạo tài nguyên này sau khi tài nguyên khác đã được tạo xong.
 
-provider: Chỉ định nhà cung cấp dịch vụ (provider) cụ thể áp dụng cho tài nguyên/module, hữu ích khi dùng nhiều provider hoặc nhiều cấu hình provider.
+Ví dụ
+```
+resource "aws_db_instance" "example_db" {
+  allocated_storage    = 20
+  engine               = "mysql"
+}
 
-### 8.3. Lifecycle rule trong Terraform
+resource "aws_instance" "app_server" {
+  ami           = "ami-0078ef784b6fa1ba4"
+  instance_type = "t3.micro"
 
-lifecycle: Khối meta-argument chứa các thiết lập kiểm soát vòng đời tài nguyên như create_before_destroy (tạo tài nguyên mới trước khi phá tài nguyên cũ), prevent_destroy (ngăn phá hủy tài nguyên quan trọng), và các tùy chọn bỏ qua thay đổi thuộc tính (ignore_changes).
+  depends_on = [aws_db_instance.example_db]
+}
+```
 
+### 7.4. Lifecycle
+- Dùng để kiểm soát vòng đời tài nguyên
 - Mặc định khi update 1 resource, Terraform sẽ xóa resource đấy trước sau đó mới recreate lại
-- Để thay đổi default behavior đấy thì dùng life cycle block
 - Các lifecycle có thể dùng:
   - create_before_destroy: tạo resource trước rồi mới xóa resource cũ
   - prevent_destroy: không xóa resource cũ. Nếu resource đấy bắt buộc phải xóa mới update được thì lệnh Terraform apply sẽ bị lỗi. VD áp dụng với database
@@ -496,7 +523,12 @@ resource {
 }
 ```
 
-## 9. Version constraint
+### 7.5 Provider
+- Chỉ định nhà cung cấp dịch vụ (provider) cụ thể áp dụng cho tài nguyên/module, hữu ích khi dùng nhiều provider hoặc nhiều cấu hình provider.
+
+
+
+## 8. Version constraint
 
 Dùng để chỉ định version của provider thay vì dùng version latest
 ```
@@ -511,7 +543,7 @@ Terraform {
 ```
 
 
-## 10. Terraform with AWS
+## 9. Terraform with AWS
 
 Best pratice để đảm bảo bảo mật khi làm việc với terraform
 - Tạo IAM role dành riêng cho terraform với các quyền phù hợp. VD role terraform-admin với quyền AdministratorAccess để provision resource, hoặc role terraform-viewer với quyền ViewOnlyAccess để thực thi plan. Role đấy có trust entity là AWS account - "This account" (mục đích là để các user trong account của mình có thể assume terraform role)
@@ -609,7 +641,7 @@ EOF
 }
 ```
 
-## 11. Remote state file
+## 10. Remote state file
 
 ##### Nhược điểm của việc lưu trữ state file trên máy local trong Terraform gồm các vấn đề sau:
 - Dễ gây xung đột khi làm việc nhóm: Khi nhiều người cùng quản trị hạ tầng, việc lưu state file trên máy cá nhân dễ dẫn đến xung đột, overwrite hoặc mất đồng bộ trạng thái hạ tầng.
@@ -654,7 +686,7 @@ VD:
 - Terraform state pull -> download và show ra remote state file
 - Terraform state rm <resource> -> dùng để xóa item ra khỏi state file (lưu ý resource vẫn tồn tại trên môi trường thật)
 
-### Provisioner
+## 11. Provisioner
 Provisioner trong Terraform là một tính năng cho phép thực thi các đoạn script hoặc lệnh sau khi tài nguyên (resource) được Terraform tạo ra. Provisioner có thể chạy script ở máy local (máy đang chạy Terraform) hoặc trên máy remote (ví dụ như máy chủ EC2 vừa mới tạo). Provisioner thường được dùng để cấu hình hạ tầng sau khi nó đã được tạo, ví dụ như cài đặt phần mềm, chỉnh sửa tập tin cấu hình, hoặc chạy các lệnh khởi tạo.
 
 Có hai loại provisioner chính trong Terraform:
