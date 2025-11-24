@@ -486,8 +486,17 @@ Terraform {
 Best pratice để đảm bảo bảo mật khi làm việc với terraform
 - Tạo IAM role dành riêng cho terraform với các quyền phù hợp. VD role terraform-admin với quyền AdministratorAccess để provision resource, hoặc role terraform-viewer với quyền ViewOnlyAccess để thực thi plan. Role đấy có trust entity là AWS account - "This account" (mục đích là để các user trong account của mình có thể assume terraform role)
 - Tạo 1 user với quyền chỉ cho phép assume terraform role
-- Thêm profile terraform-admin hoặc terraform-viewer vào trong file ~/.aws/config và thay provider thành profile mới này
+- Thêm profile terraform-admin hoặc terraform-viewer vào trong file ~/.aws/config với nội dung như dưới và thay provider thành profile mới này
 
+```
+[profile terraform-admin] #tên profile có thể đặt tuỳ ý
+role_arn = arn:aws:iam::424432388155:role/terraform-admin
+source_profile = my-user
+```
+- Mục đích của việc khai báo như trên: Khi chạy lệnh với option `--profile terraform-admin`, AWS CLI sẽ dùng credentials từ profile my-user để assume role terraform-admin và mọi lệnh thực hiện sẽ chạy dưới quyền của IAM role terraform-admin. Lưu ý:
+  - Chỉ cần khai báo credential cho profile my-user, không cần khai báo credentials trực tiếp cho profile terraform-admin trong file cấu hình AWS CLI.
+  - `my-user` cần được cấp quyền thực hiện hành động sts:AssumeRole lên role terraform-admin.
+  - Nếu muốn triển khai các resources trong thư mục env/dev thì cần đảo bảo trong thư mục env/dev cũng có file provider.tf Lý do là Terraform chỉ đọc cấu hình trong thư mục đang chạy, khi dùng option `-chdir=env/dev`, Terraform sẽ dùng file cấu hình và credential theo nội dung trong env/dev, không tự động lấy theo root
 
 Ví dụ về IAM
 ```
