@@ -276,6 +276,16 @@ output "instance_public_ip" {
 }
 ```
 - Khi dùng lệnh `Terraform output` sẽ in ra tất cả output của configuration file trong thư mục hiện tại hoặc lệnh `Terraform output <output_name>` để in ra specific output
+- Lưu ý không dùng được `Count` hay `For_each` trong block output, do đó nếu muốn lấy output của list/map thì dùng cú pháp:
+```
+output "myoutput" {
+    value = { for k, v in aws_iam_user.user : k => v.arn }
+}
+
+output "myoutput_list" {
+  value = [for v in aws_iam_user.user : v.arn]
+}
+```
 
 ## 4. Cách tổ chức thư mục Terraform cho nhiều môi trường
 ### 4.1 Scnerio 1: Các môi trường có cùng resources
