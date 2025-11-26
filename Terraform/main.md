@@ -979,3 +979,5 @@ Bạn chạy lệnh terragrunt apply trong thư mục nào sẽ tự động k�
 Có thể dùng terragrunt run-all apply để deploy toàn bộ các môi trường/module cùng lúc theo thứ tự phụ thuộc.
 
 Terragrunt giúp bạn quản lý define lại biến đầu vào, backend state, và tổ chức hạ tầng nhiều môi trường rõ ràng, tái sử dụng module dễ dàng hơn rất nhiều so với việc sử dụng module thuần Terraform mà phải xử lý thủ công từng phần riêng biệt.
+
+
