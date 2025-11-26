@@ -986,4 +986,26 @@ Có thể dùng terragrunt run-all apply để deploy toàn bộ các môi trư�
 
 Terragrunt giúp bạn quản lý define lại biến đầu vào, backend state, và tổ chức hạ tầng nhiều môi trường rõ ràng, tái sử dụng module dễ dàng hơn rất nhiều so với việc sử dụng module thuần Terraform mà phải xử lý thủ công từng phần riêng biệt.
 
+---
 
+Đoạn Terragrunt bạn đưa ra có dạng:
+
+`account_vars = read_terragrunt_config(find_in_parent_folders("account.hcl"))`
+
+Ý nghĩa và chức năng
+
+Hàm find_in_parent_folders("account.hcl") sẽ tìm file có tên account.hcl từ thư mục hiện tại, đi lên từng thư mục cha cho đến khi gặp file đầu tiên, rồi trả về đường dẫn tuyệt đối tới file đó.
+
+Hàm read_terragrunt_config(...) sẽ đọc nội dung file cấu hình Terragrunt (ở đây là file account.hcl) theo đường dẫn vừa tìm được, và trả về các biến, giá trị đã được định nghĩa bên trong file đó dưới dạng object map (key-value).
+
+Mục đích sử dụng
+
+Mục tiêu là để mọi môi trường (hoặc module con) đều có thể inject/có được những biến chung hoặc thông tin tài khoản (account) lưu ở file account.hcl từ thư mục cha mà không cần khai báo thủ công.
+
+Bạn có thể truy xuất biến theo cú pháp: account_vars.locals.var_name nếu biến đó nằm trong block locals của file account.hcl.
+
+Ví dụ tình huống:
+
+Giả sử bạn có nhiều môi trường (dev, prod), mỗi môi trường cần truy cập vào thông tin account dùng chung (ví dụ: ID, email, tag...), chỉ cần lưu và khai báo ở file cha, các thư mục con tự động "tham chiếu" vào dùng.
+
+Giải pháp này giúp tái sử dụng cấu hình chung, giảm lặp lại, thuận tiện khi cần thay đổi cho toàn bộ môi trường hoặc project
