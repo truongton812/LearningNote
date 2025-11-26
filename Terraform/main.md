@@ -896,3 +896,86 @@ provider "helm" {
   }
 }
 ```
+
+---
+
+Terragrunt
+
+
+Một ví dụ cụ thể giúp phân biệt rõ Terragrunt và Terraform module như sau:
+
+Giả sử bạn có module Terraform tạo VPC (đường dẫn modules/vpc) và muốn deploy cho 2 môi trường dev và prod.
+
+Dùng Terraform module thuần
+
+Bạn tạo thư mục prod và dev với file main.tf riêng biệt:
+
+prod/main.tf gọi module VPC với input cho prod (ví dụ region, cidr block,...)
+
+dev/main.tf gọi module VPC với input cho dev
+
+Bạn phải cấu hình backend riêng cho từng môi trường trong mỗi thư mục hoặc cấu hình lại thủ công mỗi khi đổi môi trường. Khi deploy bạn phải chạy terraform init, plan, apply riêng từng môi trường.
+
+Dùng Terragrunt
+Bạn tạo cấu trúc thư mục:
+
+text
+infrastructure/
+  ├─ modules/
+  │   └─ vpc/
+  └─ live/
+      ├─ prod/
+      │   └─ terragrunt.hcl
+      └─ dev/
+          └─ terragrunt.hcl
+File live/prod/terragrunt.hcl:
+
+text
+terraform {
+  source = "../../modules/vpc"
+}
+
+inputs = {
+  environment = "prod"
+  cidr_block  = "10.0.0.0/16"
+}
+
+remote_state {
+  backend = "s3"
+  config = {
+    bucket = "my-prod-terraform-state"
+    key    = "prod/terraform.tfstate"
+    region = "us-east-1"
+  }
+}
+File live/dev/terragrunt.hcl:
+
+text
+terraform {
+  source = "../../modules/vpc"
+}
+
+inputs = {
+  environment = "dev"
+  cidr_block  = "10.1.0.0/16"
+}
+
+remote_state {
+  backend = "s3"
+  config = {
+    bucket = "my-dev-terraform-state"
+    key    = "dev/terraform.tfstate"
+    region = "us-west-2"
+  }
+}
+Nhờ có Terragrunt:
+
+Bạn không cần copy module mà chỉ custom biến input và cấu hình backend cho từng môi trường trong file terragrunt.hcl.
+
+Terragrunt tự động cấu hình backend trạng thái cho bạn.
+
+Bạn chạy lệnh terragrunt apply trong thư mục nào sẽ tự động kế thừa và deploy môi trường đó.
+
+Có thể dùng terragrunt run-all apply để deploy toàn bộ các môi trường/module cùng lúc theo thứ tự phụ thuộc.
+
+Terragrunt giúp bạn quản lý define lại biến đầu vào, backend state, và tổ chức hạ tầng nhiều môi trường rõ ràng, tái sử dụng module dễ dàng hơn rất nhiều so với việc sử dụng module thuần Terraform mà phải xử lý thủ công từng phần riêng biệt.
