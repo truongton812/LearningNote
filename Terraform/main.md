@@ -919,7 +919,7 @@ Bạn phải cấu hình backend riêng cho từng môi trường trong mỗi th
 Dùng Terragrunt
 Bạn tạo cấu trúc thư mục:
 
-text
+```
 infrastructure/
   ├─ modules/
   │   └─ vpc/
@@ -928,9 +928,11 @@ infrastructure/
       │   └─ terragrunt.hcl
       └─ dev/
           └─ terragrunt.hcl
+```
+
 File live/prod/terragrunt.hcl:
 
-text
+```
 terraform {
   source = "../../modules/vpc"
 }
@@ -948,9 +950,11 @@ remote_state {
     region = "us-east-1"
   }
 }
+```
+
 File live/dev/terragrunt.hcl:
 
-text
+```
 terraform {
   source = "../../modules/vpc"
 }
@@ -968,6 +972,8 @@ remote_state {
     region = "us-west-2"
   }
 }
+```
+
 Nhờ có Terragrunt:
 
 Bạn không cần copy module mà chỉ custom biến input và cấu hình backend cho từng môi trường trong file terragrunt.hcl.
