@@ -449,7 +449,8 @@ data "archive_file" "lambda" { #Package code thành ZIP file cho Lambda/ECS ngay
 ```
 
 **external data source (chạy script local)**
-``
+
+```
 data "external" "instance_info" { #Chạy script external (Python/Bash) để generate data phức tạp.
   program = ["python3", "${path.module}/get-info.py"]
 }
