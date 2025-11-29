@@ -130,7 +130,7 @@ resource "local_file" "pet" {
   - Truyền variable bằng option -var. VD `Terraform apply -var "filename=/root/pet.txt" -var "content=We love pet"`
   - Truyền khi chạy lệnh `Terraform apply` sẽ có prompt để nhập giá trị cho variable.
  
-- Ngoài `variable` còn có `local value`. Local value là các biến chỉ có giá trị nội bộ trong module nơi được khai báo, không thể truy cập từ module khác. VD nếu  khai báo locals ở module gốc (root), chỉ các resource, data, output trong root module dùng được. Module con (child) sẽ không thể truy xuất local của root.​ Hoặc nếu khai báo locals ở module con, chỉ các resource, output bên trong module con đó mới truy cập được. Local value không nhận giá trị bên ngoài (VD qua CLI, file, ENV) như variable
+- Ngoài `variable` còn có `local value`. Local value là các biến chỉ có giá trị nội bộ trong module nơi được khai báo, không thể truy cập từ module khác. VD nếu  khai báo locals ở module gốc (root), chỉ các resource, data, output trong root module dùng được. Module con (child) sẽ không thể truy xuất local của root.​ Hoặc nếu khai báo locals ở module con, chỉ các resource, output bên trong module con đó mới truy cập được. *Local value không nhận giá trị bên ngoài (VD qua CLI, file tfvars, ENV) như variable*
 - Syntax khai báo `local value`
 ```
 locals {
@@ -142,7 +142,8 @@ locals {
 }
 ```
 - Syntax để gọi local value: `local.value` . VD: `{ Name = "${local.env}-main" }` (Name tag là tag đặc biệt trong AWS, giúp hiển thị tên resource lên giao diện console)
-
+- Use case thực tế của local value: local.common_tags gán tags mặc định trực tiếp, sau dùng merge(local.common_tags, var.extra_tags) cho resource mà không cần truyền từ ngoài
+  
 #### 3.3.2 Variable type
 
 ##### 3.3.2.1 List
