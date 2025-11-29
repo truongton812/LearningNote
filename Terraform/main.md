@@ -361,7 +361,8 @@ Workflow hoạt động của Terraform
 - Nếu sửa hạ tầng một cách thủ công, tức là thay đổi trực tiếp trên tài nguyên bên ngoài ngoài Terraform quản lý, sẽ gây ra sự khác biệt giữa trạng thái thực tế của hạ tầng và trạng thái lưu trong file Terraform.tfstate do Terraform quản lý. Khi đó, khi chạy lại lệnh Terraform plan hoặc Terraform apply, Terraform sẽ phát hiện ra sự không đồng bộ này và sẽ hiển thị các thay đổi hoặc cố gắng sửa lại tài nguyên để đưa về trạng thái đúng theo mã cấu hình Terraform.
 
 
-## 6. Datasource
+## 6. Datasource 
+### 6.1 Dùng datasource để đọc thông tin tài nguyên có sẵn
 - Data sources giúp lấy thông tin các tài nguyên hiện có trên môi trường như VPC, subnet, security group trong tài khoản AWS . Đây là cách phổ biến để tham khảo các tài nguyên đã tồn tại và dùng trong cấu hình.
 - Data source chỉ đọc thông tin, không thể quản lý các tài nguyên đấy (create,update,delete)
 - Ví dụ
@@ -411,6 +412,75 @@ resource "aws_autoscaling_group" "example" {
   min_size                  = 1
   max_size                  = 3
   desired_capacity          = 2
+}
+```
+
+### 6.2. Dùng datasource để generate content
+- Là data source chỉ tồn tại trong Terraform runtime, không query external API hay AWS mà tạo ra dữ liệu mới từ configuration người dùng cung cấp. Chúng được Terraform tính toán lại mỗi lần plan/apply, giúp config động và an toàn hơn.​
+- Các ví dụ phổ biến Generate content data sources
+
+**aws_iam_policy_document**
+```
+data "aws_iam_policy_document" "policy" {
+  statement {
+    actions   = ["s3:GetObject"]
+    resources = ["arn:aws:s3:::my-bucket/*"]
+  }
+}
+```
+
+**template_file / templatefile() function**
+```
+data "template_file" "user_data" { #Render template file với variables → tạo user-data script cho EC2.​
+  template = file("${path.module}/user-data.sh")
+  vars = {
+    hostname = "web-${var.env}"
+  }
+}
+```
+
+**archive_file (tạo ZIP/TAR)**
+```
+data "archive_file" "lambda" { #Package code thành ZIP file cho Lambda/ECS ngay lúc plan.​
+  type        = "zip"
+  source_dir  = "lambda/src"
+  output_path = "lambda.zip"
+}
+```
+
+**external data source (chạy script local)**
+``
+data "external" "instance_info" { #Chạy script external (Python/Bash) để generate data phức tạp.
+  program = ["python3", "${path.module}/get-info.py"]
+}
+```
+
+### 6.3 3. Dùng datasource để lấy dữ liệu từ external APIs hoặc HTTP endpoints
+- Dùng khi muốn fetch dữ liệu từ web API (public IP, external service data).
+- Use case: Dùng cho dynamic config như lấy latest version từ GitHub API.​
+- Ví dụ:
+```
+data "http" "public_ip" {
+  url = "https://api.ipify.org"
+}
+```
+
+### 6.4. Dùng datasource để đọc dữ liệu từ local files hoặc Terraform state khác
+
+Ví dụ
+```
+# Đọc file local
+data "local_file" "config" { #local_file: Đọc nội dung file config, certificate trên local machine.
+  filename = "${path.module}/config.json"
+}
+
+# Lấy output từ Terraform state khác (remote state)
+data "terraform_remote_state" "network" { #terraform_remote_state: Cross-reference output từ module/state khác (VPC ID từ network team)
+  backend = "s3"
+  config = {
+    bucket = "my-terraform-state"
+    key    = "network/terraform.tfstate"
+  }
 }
 ```
 
