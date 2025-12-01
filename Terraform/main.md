@@ -1081,3 +1081,167 @@ Ví dụ tình huống:
 Giả sử bạn có nhiều môi trường (dev, prod), mỗi môi trường cần truy cập vào thông tin account dùng chung (ví dụ: ID, email, tag...), chỉ cần lưu và khai báo ở file cha, các thư mục con tự động "tham chiếu" vào dùng.
 
 Giải pháp này giúp tái sử dụng cấu hình chung, giảm lặp lại, thuận tiện khi cần thay đổi cho toàn bộ môi trường hoặc project
+
+---
+
+value function  
+
+
+output "debug_public_subnets" {
+  value = aws_subnet.public-subnet
+}
+```
+debug_public_subnets = {
+  "10.0.0.0/19" = {
+    "arn" = "arn:aws:ec2:ap-southeast-1:969674608812:subnet/subnet-0b8cd81079fd5ee1e"
+    "assign_ipv6_address_on_creation" = false
+    "availability_zone" = "ap-southeast-1a"
+    "availability_zone_id" = "apse1-az1"
+    "cidr_block" = "10.0.0.0/19"
+    "customer_owned_ipv4_pool" = ""
+    "enable_dns64" = false
+    "enable_lni_at_device_index" = 0
+    "enable_resource_name_dns_a_record_on_launch" = false
+    "enable_resource_name_dns_aaaa_record_on_launch" = false
+    "id" = "subnet-0b8cd81079fd5ee1e"
+    "ipv6_cidr_block" = ""
+    "ipv6_cidr_block_association_id" = ""
+    "ipv6_native" = false
+    "map_customer_owned_ip_on_launch" = false
+    "map_public_ip_on_launch" = false
+    "outpost_arn" = ""
+    "owner_id" = "969674608812"
+    "private_dns_hostname_type_on_launch" = "ip-name"
+    "region" = "ap-southeast-1"
+    "tags" = tomap({
+      "Name" = "public-subnet-ap-southeast-1a"
+      "kubernetes.io/role/internal-elb" = "1"
+    })
+    "tags_all" = tomap({
+      "Name" = "public-subnet-ap-southeast-1a"
+      "Note" = "MyTestResource_DeleteLater"
+      "kubernetes.io/role/internal-elb" = "1"
+    })
+    "timeouts" = null /* object */
+    "vpc_id" = "vpc-01da8397d64cf5747"
+  }
+  "10.0.32.0/19" = {
+    "arn" = "arn:aws:ec2:ap-southeast-1:969674608812:subnet/subnet-05583c25015f7ecad"
+    "assign_ipv6_address_on_creation" = false
+    "availability_zone" = "ap-southeast-1a"
+    "availability_zone_id" = "apse1-az1"
+    "cidr_block" = "10.0.32.0/19"
+    "customer_owned_ipv4_pool" = ""
+    "enable_dns64" = false
+    "enable_lni_at_device_index" = 0
+    "enable_resource_name_dns_a_record_on_launch" = false
+    "enable_resource_name_dns_aaaa_record_on_launch" = false
+    "id" = "subnet-05583c25015f7ecad"
+    "ipv6_cidr_block" = ""
+    "ipv6_cidr_block_association_id" = ""
+    "ipv6_native" = false
+    "map_customer_owned_ip_on_launch" = false
+    "map_public_ip_on_launch" = false
+    "outpost_arn" = ""
+    "owner_id" = "969674608812"
+    "private_dns_hostname_type_on_launch" = "ip-name"
+    "region" = "ap-southeast-1"
+    "tags" = tomap({
+      "Name" = "public-subnet-ap-southeast-1a"
+      "kubernetes.io/role/internal-elb" = "1"
+    })
+    "tags_all" = tomap({
+      "Name" = "public-subnet-ap-southeast-1a"
+      "Note" = "MyTestResource_DeleteLater"
+      "kubernetes.io/role/internal-elb" = "1"
+    })
+    "timeouts" = null /* object */
+    "vpc_id" = "vpc-01da8397d64cf5747"
+  }
+}
+```
+
+output "debug_public_subnets" {
+  value = values(aws_subnet.public-subnet)
+}
+
+```
+debug_public_subnets = [
+  {
+    "arn" = "arn:aws:ec2:ap-southeast-1:969674608812:subnet/subnet-0c889ada3b20743d6"
+    "assign_ipv6_address_on_creation" = false
+    "availability_zone" = "ap-southeast-1a"
+    "availability_zone_id" = "apse1-az1"
+    "cidr_block" = "10.0.0.0/19"
+    "customer_owned_ipv4_pool" = ""
+    "enable_dns64" = false
+    "enable_lni_at_device_index" = 0
+    "enable_resource_name_dns_a_record_on_launch" = false
+    "enable_resource_name_dns_aaaa_record_on_launch" = false
+    "id" = "subnet-0c889ada3b20743d6"
+    "ipv6_cidr_block" = ""
+    "ipv6_cidr_block_association_id" = ""
+    "ipv6_native" = false
+    "map_customer_owned_ip_on_launch" = false
+    "map_public_ip_on_launch" = false
+    "outpost_arn" = ""
+    "owner_id" = "969674608812"
+    "private_dns_hostname_type_on_launch" = "ip-name"
+    "region" = "ap-southeast-1"
+    "tags" = tomap({
+      "Name" = "public-subnet-ap-southeast-1a"
+      "kubernetes.io/role/internal-elb" = "1"
+    })
+    "tags_all" = tomap({
+      "Name" = "public-subnet-ap-southeast-1a"
+      "Note" = "MyTestResource_DeleteLater"
+      "kubernetes.io/role/internal-elb" = "1"
+    })
+    "timeouts" = null /* object */
+    "vpc_id" = "vpc-0c5e229a2e6d340cf"
+  },
+  {
+    "arn" = "arn:aws:ec2:ap-southeast-1:969674608812:subnet/subnet-0bda880977c130bbf"
+    "assign_ipv6_address_on_creation" = false
+    "availability_zone" = "ap-southeast-1a"
+    "availability_zone_id" = "apse1-az1"
+    "cidr_block" = "10.0.32.0/19"
+    "customer_owned_ipv4_pool" = ""
+    "enable_dns64" = false
+    "enable_lni_at_device_index" = 0
+    "enable_resource_name_dns_a_record_on_launch" = false
+    "enable_resource_name_dns_aaaa_record_on_launch" = false
+    "id" = "subnet-0bda880977c130bbf"
+    "ipv6_cidr_block" = ""
+    "ipv6_cidr_block_association_id" = ""
+    "ipv6_native" = false
+    "map_public_ip_on_launch" = false
+    "outpost_arn" = ""
+    "owner_id" = "969674608812"
+    "private_dns_hostname_type_on_launch" = "ip-name"
+    "region" = "ap-southeast-1"
+    "tags" = tomap({
+      "Name" = "public-subnet-ap-southeast-1a"
+      "kubernetes.io/role/internal-elb" = "1"
+    })
+    "tags_all" = tomap({
+      "Name" = "public-subnet-ap-southeast-1a"
+      "Note" = "MyTestResource_DeleteLater"
+      "kubernetes.io/role/internal-elb" = "1"
+    })
+    "timeouts" = null /* object */
+    "vpc_id" = "vpc-0c5e229a2e6d340cf"
+  },
+]
+```
+
+output "debug_public_subnet_ids" {
+  value = values(aws_subnet.public-subnet)[*].id
+}
+
+```
+debug_public_subnet_ids = [
+  "subnet-0c889ada3b20743d6",
+  "subnet-0bda880977c130bbf",
+]
+```
