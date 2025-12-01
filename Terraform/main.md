@@ -1086,6 +1086,33 @@ Giải pháp này giúp tái sử dụng cấu hình chung, giảm lặp lại, 
 
 value function  
 
+Trong Terraform, values() là một hàm dùng để lấy ra danh sách các giá trị (values) từ một map.
+
+Cú pháp:
+
+text
+values(map)
+Nếu bạn có một biến hoặc tài nguyên kiểu map (cặp key-value), values() trả về một danh sách (list) chỉ chứa các giá trị của map đó, không bao gồm các key.
+
+Các giá trị trả về được sắp xếp theo thứ tự từ điển của các key.
+
+Ở ví dụ bạn hỏi:
+
+text
+values(aws_subnet.public-subnet)[*].id
+aws_subnet.public-subnet là một map các resource subnet đã tạo, mỗi phần tử có nhiều thuộc tính.
+
+values(aws_subnet.public-subnet) lấy ra danh sách các object subnet trong map đấy.
+
+[ * ].id là cú pháp splat expression, lấy thuộc tính id của từng subnet trong danh sách, trả về một list các ID subnet.
+
+Nói ngắn gọn, đoạn này lấy ra danh sách ID của tất cả subnet public đã được tạo.
+
+Điểm chính cần nhớ:
+
+values(map) chuyển map sang list giá trị.
+
+
 
 output "debug_public_subnets" {
   value = aws_subnet.public-subnet
