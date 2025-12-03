@@ -1,5 +1,7 @@
 Học lại về hạ tầng pki, rất hay
 
+<img width="1024" height="576" alt="image" src="https://github.com/user-attachments/assets/15448756-d5b1-43dd-89ed-4157f4c36ece" />
+
 ---
 
 Container under the hood
