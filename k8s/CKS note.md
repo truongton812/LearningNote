@@ -43,3 +43,40 @@ spec:
   - Ingress
   - Egress
 ```
+
+- Nếu 1 pod được áp nhiều network policy thì sẽ là union của tất cả các network policy áp lên
+
+---
+
+Ví dụ về network policy
+```
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: example
+  namespace: default
+spec:
+  podSelector:
+    matchLabels:
+      id: frontend
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          id: ns1
+    ports:
+    - protocol: TCP
+      port: 80
+  - to:
+    - podSelector:
+        matchLabels:
+          id: backend
+```
+
+Ở phần egress có 2 cái block , sẽ là logic OR
+
+Trong 1 block có 2 key là `to` và `ports`. sẽ là logic AND
+
+Chỉ define Egress, tức Ingress ko bị limit
