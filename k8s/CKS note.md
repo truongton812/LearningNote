@@ -23,6 +23,9 @@ Lưu ý
 - crictl là cli cho cri-compatible container runtime. Ta có thể dùng crictl để tương tác với docker/podman/containerd tùy ý, chỉ cần config runtime endpoint trong /etc/crictl.yaml
 
 ## Network policy
+
+Network policy là namespaced resource
+
 - Network policy cho phép tất cả Pod trong default namespace  giao tiếp bình thường
 ```
 apiVersion: networking.k8s.io/v1
@@ -46,7 +49,7 @@ spec:
   policyTypes:
   - Ingress
 ```
-- Network policy cô lập hoàn toàn các Pod trong default namespace, chặn cả outbound và inbound traffic. Lưu ý trong thực tế ta sẽ dùng default network policy là deny all như thế này, sau đó tạo các allow ingress và egress để đảm bảo bảo mật. Tuy nhiên deny all sẽ chặn cả DNS traffic (port 53) nên nếu muốn mọi thứ hoạt động thì cần allow port 53
+- Network policy cô lập hoàn toàn các Pod trong default namespace, chặn cả outbound và inbound traffic. Lưu ý trong thực tế ta sẽ dùng default network policy là deny all như thế này, sau đó tạo các allow ingress và egress để đảm bảo bảo mật. Tuy nhiên deny all sẽ chặn cả DNS traffic (port 53) nên nếu muốn sử dụng service name trong cụm thì cần allow port 53
 ```
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
