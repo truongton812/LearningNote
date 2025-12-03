@@ -1,3 +1,19 @@
+Học lại về hạ tầng pki, rất hay
+
+---
+
+Container under the hood
+
+Container bản chất là sử dụng linux namespace
+- pid namespace: để isolate process. Các process không thể nhìn thấy nhau, tuy nhiên bản chất vẫn là những process chạy trên máy host
+- mount namespace
+- network namespace
+- user namespace
+
+Ngoài namespace, container còn sử dụng cgroup để giới hạn tài nguyên 1 container có thể sử dụng
+
+---
+
 Từ sau bản k8s 1.28, dùng lệnh docker ps sẽ ko thấy container, phải dùng lệnh crictl ps
 
 Lưu ý 
@@ -30,18 +46,26 @@ spec:
   policyTypes:
   - Ingress
 ```
-- Network policy cô lập hoàn toàn các Pod trong default namespace, chặn cả outbound và inbound traffic 
+- Network policy cô lập hoàn toàn các Pod trong default namespace, chặn cả outbound và inbound traffic. Lưu ý trong thực tế ta sẽ dùng default network policy là deny all như thế này, sau đó tạo các allow ingress và egress để đảm bảo bảo mật. Tuy nhiên deny all sẽ chặn cả DNS traffic (port 53) nên nếu muốn mọi thứ hoạt động thì cần allow port 53
 ```
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: test-network-policy
+  name: default deny
   namespace: default
 spec:
   podSelector: {}
   policyTypes:
   - Ingress
   - Egress
+  egress:
+  - to:
+    ports:
+    - port: 53
+      protocol: TCP
+    - port: 53
+      protocol: UDP
+
 ```
 
 - Nếu 1 pod được áp nhiều network policy thì sẽ là union của tất cả các network policy áp lên
