@@ -46,6 +46,11 @@ pgrep -f tcp://[IP]:[PORT] | xargs kill -9
 
 git remote get-url <github_repo_name> | grep -o "\/[a-zA-Z0-9_\-]\+\.git" | sed -E "s/^\/|\.git$//g"
 
+
+##### 10. Dùng lệnh curl với domain name custom mà không cần sửa dns bằng option resolve
+
+`curl https://secure-ingress.com:31047/service2 --resolve secure-ingress.com:31047:34.105.246.184` -> gọi đến IP 34.105.246.184 bằng domain secure-ingress.com:31047
+
 ### Thêm ổ vào server
 
 Để thêm ổ sdb vào LVM hiện tại trên ổ sda (Volume Group ubuntu-vg), bạn có thể thực hiện theo các bước dưới đây:
