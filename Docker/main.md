@@ -163,3 +163,10 @@ Lợi ích chính của việc dùng Docker-in-Docker (DinD) thay vì dùng tr�
 - Dễ dàng triển khai trên các môi trường khác nhau: DinD giúp chuẩn hóa môi trường CI/CD trên các máy chủ hoặc cloud khác nhau mà không phụ thuộc trực tiếp vào cấu hình Docker daemon trên host.
 
 > Đại khái tưởng tượng thay vì trên host có nhiều tiến trình docker job chạy song song thì khi dùng dind các job sẽ được đặt trong từng container riêng biệt
+
+---
+
+Trick để exec vào filesystem của container trong trường hợp container không có bash hoặc shell
+- Tìm PID của process đang chạy trong container. VD `ps -aux | grep kube-apiserver`
+- truy cập vào filesystem bằng PID. VD `ls /proc/<PID>/root/`
+- Bonus: tìm 1 binary trong file system VD `find /proc/<PID>/root/ | grep kube-apiserver`
