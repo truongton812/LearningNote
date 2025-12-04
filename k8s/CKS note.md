@@ -188,7 +188,8 @@ Cách thức hoạt động: Khi một yêu cầu API đến (như kubectl get p
 ### 11.1. Role và clusterrole
 
 - Role là tài nguyên namespace-scoped, định nghĩa quyền truy cập chỉ trong một namespace cụ thể.​
-- ClusterRole là tài nguyên cluster-scoped, không thuộc namespace nào và có thể định nghĩa quyền cho tài nguyên cluster-wide như Node hoặc PersistentVolume.​ ClusterRole thường dùng để tái sử dụng quyền chung trên nhiều namespace hoặc cho tài nguyên không thuộc namespace.​
+- ClusterRole là tài nguyên cluster-scoped, không thuộc namespace nào và có thể định nghĩa quyền truy cập trên toàn bộ cluster, bao gồm cả tài nguyên có scope namespace và tài nguyên có scope cluster như node hoặc persistent volume.​ ClusterRole thường dùng để tái sử dụng quyền chung trên nhiều namespace hoặc cho tài nguyên không thuộc namespace.​
+
 
 ### 11.2. RoleBinding và ClusterRoleBinding
 - RoleBinding gán quyền từ Role (hoặc ClusterRole) cho user/group/ServiceAccount chỉ trong namespace của nó.​ RoleBinding có thể tham chiếu ClusterRole để áp dụng quyền cluster-wide nhưng giới hạn trong namespace của binding.​
