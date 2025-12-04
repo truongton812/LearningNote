@@ -24,7 +24,7 @@ Lưu ý
 - podman là tool để manage container và image
 - crictl là cli cho cri-compatible container runtime. Ta có thể dùng crictl để tương tác với docker/podman/containerd tùy ý, chỉ cần config runtime endpoint trong /etc/crictl.yaml
 
-## Network policy
+## 4. Network policy
 
 Network policy là namespaced resource
 
@@ -109,3 +109,28 @@ spec:
 Trong 1 block có 2 key là `to` và `ports`. sẽ là logic AND
 
 Chỉ define Egress, tức Ingress ko bị limit
+
+### 4.1 Network policy trong Cloud
+
+Mặc định khi tạo worker node trên cloud thì các pod trên worker node sẽ có quyền truy cập metadata server. Trong đấy có thể chứa các sensitive data
+
+Có thể dùng network policy để restrict pod có quyền truy cập metadata server
+
+Ví dụ dùng network policy để restrict truy cập đến metadata server 169.254.169.254/32
+```
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: cloud-metadata-deny
+  namespace: default
+spec:
+  podSelector: {}
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - ipBlock:
+        cidr: 0.0.0.0/0
+        except:
+        - 169.254.169.254/32
+```
