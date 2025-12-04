@@ -110,6 +110,8 @@ Trong 1 block có 2 key là `to` và `ports`. sẽ là logic AND
 
 Chỉ define Egress, tức Ingress ko bị limit
 
+Trong Kubernetes, các rule NetworkPolicy được xử lý theo thứ tự và rule đầu tiên đã chặn rồi thì rule sau không có tác dụng.
+
 ### 4.1 Network policy trong Cloud
 
 Mặc định khi tạo worker node trên cloud thì các pod trên worker node sẽ có quyền truy cập metadata server. Trong đấy có thể chứa các sensitive data
