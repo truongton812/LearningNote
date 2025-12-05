@@ -1,4 +1,4 @@
-Học lại về hạ tầng pki, rất hay
+<img width="1649" height="817" alt="image" src="https://github.com/user-attachments/assets/5e95bf69-61d6-47d4-a8cc-9691bf012c29" />Học lại về hạ tầng pki, rất hay
 
 <img width="1024" height="576" alt="image" src="https://github.com/user-attachments/assets/15448756-d5b1-43dd-89ed-4157f4c36ece" />
 
@@ -160,7 +160,7 @@ Kubernetes định nghĩa bốn đối tượng RBAC chính: Role, ClusterRole, 
 
 - Role: Quy định các quyền (verbs như get, list, create) trên tài nguyên trong một namespace cụ thể, ví dụ cho phép list pods trong namespace default.​
 
-- ClusterRole: Tương tự Role nhưng áp dụng cho tài nguyên toàn cluster (cluster-scoped), như nodes hoặc toàn bộ pods.​
+- ClusterRole: Quy định các quyền trên tài nguyên trong tất cả các namespace và tài nguyên thuộc non-namespaced (VD Node, Persistent Volume)
 
 - RoleBinding: Gán Role cho subject (User, Group, ServiceAccount) trong một namespace.​
 
@@ -202,7 +202,31 @@ Quy trình để tạo client certificate. Ta hoàn toàn có thể tạo CSR r�
 - Role là tài nguyên namespace-scoped, định nghĩa quyền truy cập chỉ trong một namespace cụ thể.​
   - Có thể có tạo nhiều role với cùng tên, chỉ cần chúng khác namespace
   - User X có thể gán với nhiều role trên nhiều namespace. VD user X có thể có quyền đọc secret trong namespace1, có quyền đọc/ghi secret trong namespace2
-- ClusterRole là tài nguyên cluster-scoped, không thuộc namespace nào và có thể định nghĩa quyền truy cập trên toàn bộ cluster, bao gồm cả tài nguyên có scope namespace và tài nguyên có scope cluster như node hoặc persistent volume.​ ClusterRole thường dùng để tái sử dụng quyền chung trên nhiều namespace hoặc cho tài nguyên không thuộc namespace.​
+- ClusterRole là tài nguyên cluster-scoped, không thuộc namespace nào và có thể định nghĩa quyền truy cập trên toàn bộ cluster, bao gồm cả tài nguyên có scope namespace và tài nguyên có scope cluster như node hoặc persistent volume.​ ClusterRole thường dùng để tái sử dụng quyền chung trên nhiều namespace hoặc cho tài nguyên không thuộc namespace.​ Khi 1 user được gán với ClusterRole thì user đấy sẽ có quyền giống nhau trên toàn bộ namespace. VD tạo ClusterRole với quyền get secret rồi gán cho user ⭢ user đó có quyền get secret trên toàn bộ namespace
+  - Lưu ý ClusterRole sẽ áp dụng lên tất cả namespace hiện có và **các namespace trong tương lai**
+ 
+### 11.2 Kết hợp giữa Role/ClusterRole và RoleBinding/ClusterRoleBinding
+Có thể có các tổ hợp
+
+#### 11.2.1 Role + RoleBinding
+<img width="1649" height="817" alt="image" src="https://github.com/user-attachments/assets/8a1c0be1-aee6-4454-a482-c295fc7a28c4" />
+
+Kết quả: User có quyền trên 1 namespace cụ thể
+
+#### 11.2.2 ClusterRole + ClusterRoleBinding
+<img width="1224" height="571" alt="image" src="https://github.com/user-attachments/assets/c5ffa2a2-5a09-4f5e-8c99-21f41a3f1e2d" />
+
+Kết quả: User có quyền trên toàn bộ namespace và các non-namespaced resources
+
+#### 11.2.3 ClusterRole + RoleBinding
+<img width="1201" height="566" alt="image" src="https://github.com/user-attachments/assets/d2ccb287-ebb3-4e89-ae38-8c470ae0350b" />
+
+Kết quả: User có quyền trên 1 số namespace được chỉ định
+
+#### 11.2.3 Role + ClusterRoleBinding
+<img width="1091" height="568" alt="image" src="https://github.com/user-attachments/assets/a6164a87-503b-48ca-b544-6ae4b1887b09" />
+
+Không thể thực hiện được
 
 <img width="1301" height="565" alt="image" src="https://github.com/user-attachments/assets/55ac9097-6515-463c-a344-dc1097f04ba8" />
 
