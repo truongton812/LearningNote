@@ -1,4 +1,4 @@
-Học lại về hạ tầng pki, rất hay
+<img width="1176" height="397" alt="image" src="https://github.com/user-attachments/assets/cd1988dc-077d-49b7-841b-df88e6acf61c" />Học lại về hạ tầng pki, rất hay
 
 <img width="1024" height="576" alt="image" src="https://github.com/user-attachments/assets/15448756-d5b1-43dd-89ed-4157f4c36ece" />
 
@@ -196,6 +196,20 @@ Quy trình để tạo client certificate. Ta hoàn toàn có thể tạo CSR r�
 
 <img width="1307" height="636" alt="image" src="https://github.com/user-attachments/assets/efcbc22a-fc15-41fe-b977-37a4a10aabba" />
 
+Quy trình: 
+- User tạo key (có thể dùng openssl)
+- từ key user tạo CSR
+- Admin tạo CertificateSigningRequest resource trong cụm k8s bằng thông tin CSR user gửi (lưu ý cần mã hóa base64), sau đó admin approve bằng lệnh `kubectl certificate approve <ten_csr>`
+- User download cert và thêm vào trong kubeconfig để sử dụng
+- Các lệnh làm việc với kubeconfig
+  - `kubectl config view`. Thêm option `--raw` để xem data
+  - `kubectl config set-credentials <user_name> --client-key=<key> --client-certificate=<cert>`. Thêm option `--embed-certs` để include vào
+  - `kubectl config set-context <context_name> --user=<user_name> --cluster=<cluster_name>`
+
+Lưu ý không thể invaliadte 1 certificate
+⭢ trong trường hợp certificate bị leak thì xử lý bằng cách:
+- Remove tất cả access bằng RBAC
+- Tạo CA mới và issue lại tất cả các cert
 
 ### 11.1. Role và clusterrole
 
@@ -251,3 +265,12 @@ Trường hợp dùng ClusterRoleBinding với ClusterRole "view". Tạo Cluster
 `kubectl create clusterrolebinding myapp-view-cluster --clusterrole=view --serviceaccount=dev:myapp`
 
 -> SA "myapp" đọc được tài nguyên namespace-scoped ở mọi namespace (như kubectl get pods -n dev hoặc kubectl get pods -n prod).​ Vẫn không đọc cluster-scoped resources như Node do ClusterRole "view" mặc định chỉ định nghĩa quyền đọc (get, list, watch) cho namespace-scoped resources như Pod, Service, ConfigMap, Secret, nó không bao gồm cluster-scoped resources như Node, PersistentVolume, Namespace. Muốn đọc được cluster-scoped resources thì cần tạo ClusterRole cho phép đọc cluster-scoped resources (ví dụ ClusterRole "system:node-reader" cho phép list Node), sau đó bind bằng ClusterRoleBinding với ServiceAccount hoặc User (không dùng RoleBinding vì nó là namespace-scoped)
+
+Lưu ý permission là additive
+
+<img width="1176" height="397" alt="image" src="https://github.com/user-attachments/assets/bf45b00d-7a61-47a3-8e7d-58ab2a04e270" />
+
+
+
+# 12. CSR
+
