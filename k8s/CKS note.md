@@ -1,4 +1,4 @@
-<img width="1649" height="817" alt="image" src="https://github.com/user-attachments/assets/5e95bf69-61d6-47d4-a8cc-9691bf012c29" />Học lại về hạ tầng pki, rất hay
+Học lại về hạ tầng pki, rất hay
 
 <img width="1024" height="576" alt="image" src="https://github.com/user-attachments/assets/15448756-d5b1-43dd-89ed-4157f4c36ece" />
 
@@ -227,8 +227,6 @@ Kết quả: User có quyền trên 1 số namespace được chỉ định
 <img width="1091" height="568" alt="image" src="https://github.com/user-attachments/assets/a6164a87-503b-48ca-b544-6ae4b1887b09" />
 
 Không thể thực hiện được
-
-<img width="1301" height="565" alt="image" src="https://github.com/user-attachments/assets/55ac9097-6515-463c-a344-dc1097f04ba8" />
 
 Dùng lệnh `kubectl auth can-i` để test . VD `kubectl auth can-i -n <namespace> get secrets --as <service_account/user>` (hoặc thay vì chỉ định cụ thể 1 namespace thì dùng -A để chỉ định tất cả ns) -> kết quả trả về sẽ là yes hoặc no
 
