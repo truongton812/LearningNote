@@ -362,6 +362,7 @@ Trong k8s có 1 service resource tên kubernetes ở namespace default. Ta có t
 ### 12.2 mối liên hệ giữa noderestriction và admission controller
 
 - NodeRestriction là một admission controller validating trong Kubernetes, được kích hoạt qua cờ --enable-admission-plugins=NodeRestriction trên kube-apiserver. Nó hạn chế kubelet (thuộc nhóm system:nodes với username system:node:<NodeName>) chỉ sửa đổi Node API object của chính mình và Pod API objects được bind vào node đó. Admission controller ngăn kubelet xóa Node object hoặc thay đổi nhãn có prefix kubernetes.io/ hoặc k8s.io/ một cách tùy ý.​
+- NodeRestriction hạn chế Node label mà kubelet có thể modify - chỉ có thể modify label của node đấy và pod trên node đấy, ko modify được node khác (???)
 
 - NodeRestriction chính là một plugin cụ thể thuộc hệ thống admission controllers của Kubernetes, hoạt động ở giai đoạn validating để kiểm tra và từ chối các yêu cầu API không hợp lệ trước khi persist vào etcd. Admission controllers chạy theo thứ tự: mutating trước, validating sau (NodeRestriction thuộc validating), và được enable qua danh sách comma-separated trong kube-apiserver. Mối liên hệ trực tiếp nằm ở việc NodeRestriction được thiết kế dành riêng để bảo vệ Node/Pod objects khỏi các thay đổi không mong muốn từ kubelet, tăng cường bảo mật cluster.​
 
