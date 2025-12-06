@@ -323,5 +323,22 @@ Lưu ý permission là additive
 
 # 12. Workflow request đi tới API server
 
+Khi request đi đến apiserver cần đi qua 3 bước
+- authentication
+- authorization
+- admission control (check lại xem bước này làm gì, trong bài giảng ghi là "has the limit of pods been reached"
 
-Khi request tạo
+<img width="96" height="96" alt="download" src="https://github.com/user-attachments/assets/75b3c1a3-1fa9-4c43-a65d-2074b1957637" />
+
+1 API request luôn phải tie với normal user/ serviceaccount, nếu không sẽ bị treated là anonymous request.
+
+Tất cả các request đều cần được authenticated, nếu không sẽ bị treated là anonymouse user
+
+Các best pratice về bảo mật
+- Không cho phép truy cập anonymous bằng cách sửa file /etc/kubernetes/manifest/kube-apiserver.yaml, thêm option --anonymous-auth=false
+- Đóng insecure port bằng cách sửa file /etc/kubernetes/manifest/kube-apiserver.yaml, thêm option --insecure-port=0 (nếu thay bằng port khác thì sẽ là mở insecure port, rất nguy hiểm vì khi đấy truy cập cụm k8s thông qua insecure port sẽ không có cơ chế authentication và authorization, chỉ có admission control. Chỉ phù hợp cho test/debug)
+- Không expose API server ra outside
+- Restrict access từ node đến apiserver bằng NodeRestriction
+- prevent unauthorized access bằng RBAC
+- ngăn pod truy cập apiserver
+- apiserver port nên nằm sau firewall/ chỉ cho phép truy cập từ 1 ip range cụ thể
