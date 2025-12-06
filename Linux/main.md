@@ -121,3 +121,10 @@ resize2fs /dev/ubuntu-vg/ubuntu-lv
 # hoặc
 xfs_growfs /
 ```
+##### 11. pipe
+
+Lệnh `crictl inspect abcuiauiia | vim - ` gồm phần pipe là ký hiệu | dùng để chuyển đầu ra (output) của lệnh bên trái sang làm đầu vào (input) cho lệnh bên phải.
+
+Dấu - trong lệnh vim - đại diện cho stdin (standard input), nghĩa là Vim sẽ đọc dữ liệu đầu vào từ pipe (|) thay vì từ một file cụ thể trên đĩa.
+
+Đây là tính năng chuẩn của nhiều công cụ Unix/Linux như Vim, cat, grep, kubectl giúp xử lý dữ liệu động một cách linh hoạt
