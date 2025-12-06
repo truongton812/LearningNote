@@ -330,7 +330,7 @@ Khi request đi đến apiserver cần đi qua 3 bước
 - authorization
 - admission control (check lại xem bước này làm gì, trong bài giảng ghi là "has the limit of pods been reached"
 
-<img width="96" height="96" alt="download" src="https://github.com/user-attachments/assets/75b3c1a3-1fa9-4c43-a65d-2074b1957637" />
+<img width="1529" height="665" alt="image" src="https://github.com/user-attachments/assets/9cbf58dd-b787-46c3-8630-e0db6e397cdf" />
 
 1 API request luôn phải tie với normal user/ serviceaccount, nếu không sẽ bị treated là anonymous request.
 
