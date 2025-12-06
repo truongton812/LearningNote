@@ -190,11 +190,52 @@ ServiceAccount (SA) trong Kubernetes là một tài nguyên namespaced, được
 
 Trong thư mục /var/run/secrets/kubernetes.io/serviceaccount sẽ có các file ca.crt, namespace và token
 
+Có thể sử dụng token tại /var/run/secrets/kubernetes.io/serviceaccount/token để gọi đến api server bằng lệnh `curl https://10.96.0.1 -k -H 'Authorization: Bearer $(cat token)` -> lúc này ta có thể tương tác với api server bằng service account tương ứng với token (lưu ý mới pass qua được bước authen, còn để thực hiện action thì phải xem service account có quyền gì)
+
+
 Lệnh tạo service account `kubectl create serviceaccount <name>`
 
 Lệnh cấp quyền cho service account : dùng rolebinding
 
 Lệnh để lấy token của service account: `kubectl create token <sa_name>` (lưu ý chỉ generate được temp token, có thể dùng jwt decoder để đọc thông tin) (hoặc đọc secret rồi decode base64 - cần check lại thông tin)
+
+---
+
+automountServiceAccountToken dùng để bật/tắt việc tự động mount token của ServiceAccount vào Pod, từ đó quyết định Pod có sẵn cred để gọi Kubernetes API hay không.​
+
+Mặc định, khi không cấu hình gì, Kubernetes sẽ tự gắn ServiceAccount (thường là default) cho Pod và tự động mount token vào thư mục như /var/run/secrets/kubernetes.io/serviceaccount/token để Pod có thể auth tới API server.​
+
+Điều này tiện cho app nào cần gọi K8s API, nhưng cũng làm tăng surface tấn công nếu container bị compromise vì attacker có thể dùng token đó.​
+
+Khi đặt automountServiceAccountToken: false ở level ServiceAccount hoặc Pod, Kubernetes sẽ không mount token vào Pod nữa, Pod sẽ không có sẵn cred để gọi API server qua token đó.​
+
+Cấu hình có 2 chỗ:
+-Trong ServiceAccount YAML: áp dụng cho tất cả Pod dùng SA đó (trừ khi Pod override).​
+```
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: build-robot
+automountServiceAccountToken: false
+...
+```
+- Trong Pod.spec: override giá trị trên ServiceAccount, Pod spec luôn được ưu tiên.​
+```
+apiVersion: v1
+kind: Pod
+metadata:
+  name: my-pod
+spec:
+  serviceAccountName: build-robot
+  automountServiceAccountToken: false
+...
+
+```
+Use case thực tế
+- Pod không cần gọi Kubernetes API (app thuần business logic, job đơn giản, sidecar không quản lý cluster) nên disable để giảm quyền và giảm rủi ro nếu bị lộ token.​
+- Môi trường security-sensitive (production, multi-tenant, PCI, v.v.): best practice là set automountServiceAccountToken: false cho default SA và chỉ bật cho những Pod/SA thực sự cần gọi API, thậm chí kết hợp với RBAC tối thiểu (least privilege).
+
+---
 
 Normal User (hay còn gọi là Humans/Users) đại diện cho người dùng bên ngoài cluster, không phải là tài nguyên trong k8s, như quản trị viên hoặc developer sử dụng kubectl, được xác thực qua certificates, tokens, hoặc OpenID Connect mà không được quản lý tự động bởi Kubernetes (VD được quản lý bởi AWS, GCP,...). Chúng thuộc các group mặc định như system:authenticated và được phân quyền qua RBAC (Role/ClusterRole với RoleBinding/ClusterRoleBinding), khác với SA chỉ giới hạn trong namespace
 
@@ -280,5 +321,7 @@ Lưu ý permission là additive
 
 
 
-# 12. CSR
+# 12. Workflow request đi tới API server
 
+
+Khi request tạo
