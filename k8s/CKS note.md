@@ -440,3 +440,64 @@ Các bước dưới còn thiếu bước update repo, tìm lại trong vở
 - Pod terminationGracePeriodSeconds / trạng thái Terminating: cho pod thời gian shutdown sạch sẽ trước khi bị kill.
 - Pod Lifecycle Events: các hook như preStop để chạy logic dọn dẹp / drain kết nối khi pod chuẩn bị bị terminate.
 - PodDisruptionBudget (PDB): giới hạn số pod có thể bị down cùng lúc khi nâng cấp / bảo trì, giúp tránh downtime toàn bộ ứng dụng.
+
+## 14. Secret trong k8s
+- container sẽ thông qua kubelet <-> apiserver <-> etcd để đọc secret lưu trong etcd
+- Về cơ bản nếu ta có quyền root để exec vào container trên worker node thì sẽ lấy được thông tin secret (VD dùng lệnh inspect container, đọc đến env hoặc mount path. Với mount volume thì tìm phức tạp hơn chút, phải tìm đến pid của container trên host (cùng dùng lệnh inspect tìm pid), sau đó dùng các lệnh như `ls /proc/<pid>/root` `find /proc/<pid>/root/etc/<secret_name` để tìm và đọc secret. Vì bản chất là secret này được lưu trên host, sau đó mount vào container thôi)
+
+### 14.1 Đọc secret trong etcd
+Giả sử hacker có quyền truy cập etcd thì sẽ đọc được secret do thông tin lưu trong etcd mặc định không được mã hóa
+
+Cách truy cập etcd bằng cert và key (lấy từ /etc/kubernetes/manifests/kube-apiserver.yaml | grep etcd)
+
+`ETCDCTL_API=3 etcdctl --cert <path> --key <path>  --cacert <path> endpoint health (nếu dùng external etcd thì cần chỉ định --endpoint)`
+
+Cách đọc secret trong etcd
+
+`ETCDCTL_API=3 etcdctl --cert <path> --key <path>  --cacert <path> get /registry/secrets/<namespace>/<secret_name>` -> lấy được secret ở dạng plain text
+
+Để mã hóa secret lưu trong etcd, cần sử dụng EncryptionConfiguration resource (tạo trong /etc/kubernetes/etcd/ec.yaml - không biết tạo chỗ khác được không hay phải tạo ở đây), sau đó khai báo trong file config ở trường --encryption-provider-config
+
+```
+apiVersion: apiserver.config.k8s.io/v1
+kind: EncryptionConfiguration
+resources:
+- resources: ["secrets"]
+  providers:
+  - identity: {}
+  - aescbc:
+      keys:
+      - name: key1
+        secret: <base64-key> #dungf1 chuỗi túy ý sau đó mã hóa bằng base64 lệnh là echo -n <string> | base64. -n là để bỏ xuống dòng
+      - name: key2
+        secret: <base64-key>
+  - aesgcm:
+      keys:
+      - name: key1
+        secret: <base64-key>
+      - name: key2
+        secret: <base64-key>
+```
+
+-> file này trường provider sẽ đọc từ trên xuống theo thứ tự, provider đầu tiên sẽ được sử dụng để encrypt data và lưu vào etcd. Như hình trên là không có mã hóa do provider đầu tiên là identity. Nếu muốn có mã hóa thì đưa identity xuống dưới. Sau đó nếu muốn thay thế tất cả các secret hiện tại thành mã hóa thì dùng lệnh `kubectl get secrets --all-namespaces -ojson | kubectl replace -f -` (do etcd chỉ sử dụng cơ chế mã hóa cho các secret về sau sau khi ta apply EncryptionConfiguration resource, còn các secret đã tồn tại thì dùng config trước)
+
+Để decrypt tất cả các secret thì lại đảo provider identity lên đầu rồi dùng lệnh `kubectl get secrets --all-namespaces -ojson | kubectl replace -f -`
+
+
+Sau khi tạo file EncryptionConfiguration trong /etc/kubernetes/etcd/ec.yaml cần sửa config của kube-apiserver, thêm option `--encryption-provider-config=trong /etc/kubernetes/etcd/ec.yaml`
+
+Sửa cả volume thêm cụm hostPath
+```
+- hostPath:
+    path: /etc/kubernetes/etcd
+    type: DirectoryOrCreate
+  name: etcd
+```
+
+Rồi mount vào container
+```
+- mountPath: /etc/kubernetes/etcd
+  name: etcd
+```
+
+Lưu ý EncryptionConfiguration chỉ giúp mã hóa secret khi ta đọc trực tiếp tới etcd, còn nếu thông qua apiserver thì vẫn chỉ là base64 như thường, dễ dàng decode (cần check lại thông tin)
