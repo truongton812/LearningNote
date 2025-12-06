@@ -347,4 +347,12 @@ Các best pratice về bảo mật
 
 Giải thích về các option khi gọi đến apiserver
 - gọi không có option gì (VD curl https://10.154.0.2:6443) -> lỗi không có local issuer certificate, không thể thiết lập secure connection
-- Nếu curl với option --cacert và trỏ về ca (VD curl https://10.154.0.2:6443 --cacert ca.crt) -> apiserver sẽ nhận dạng đây là anonymous request
+- Nếu curl với option --cacert và trỏ về ca (VD curl https://10.154.0.2:6443 --cacert ca.crt) -> apiserver sẽ nhận dạng đây là anonymous request, tuy nhiên sẽ không có quyền gì. (cảm thấy option --cacert và option -k đều cho ra cùng 1 kết quả, cần check lại)
+(nguyên nhân là do từ k8s 1.6 trở lên, anonymous access mặc định được enable. Nếu client gọi API server mà không gửi bất kỳ credential nào (không cert, không token, không basic auth), API server sẽ gán request đó thành “anonymous user” thay vì reject ngay.​ Điều kiện là API server đang bật một mode authorization thực sự (RBAC, ABAC, Node, Webhook, v.v.), không phải mode “AlwaysAllow”.​ Lưu ý thêm là khi sử dụng RBAC/ABAC, user system:anonymous (hoặc group system:unauthenticated) mặc định không có quyền gì; muốn cho anonymous làm gì phải tạo rule/RoleBinding/Policy rõ ràng cho nó.​ Nếu không cấu hình gì cho anonymous, mọi request không auth sẽ bị từ chối bởi layer authorization, dù anonymous access đang “enabled by default”)
+- Nếu curl với option --cacert --cert --key (VD curl https://10.154.0.2:6443 --cacert ca.crt --cert cert.crt --key key.pem) -> sẽ có thể truy cập api server
+
+## 12.1 Cách truy cập API server
+
+Trong k8s có 1 service resource tên kubernetes ở namespace default. Ta có thể gọi đến pod apiserver thông qua service này. Nếu muốn expose ra thì chuyển service kubernetes đấy thành NodePort
+
+Để truy cập API server từ bên ngoài cụm, ta cần sửa file kubeconfig, lưu ý trong apiserver.cert có cấu hình để chỉ allow traffic từ 1 số IP và DNS cụ thể (xem bằng lệnh `openssl x509 -in /etc/kubernetes/pki/apiserver.crt -text` trên master node, tìm đến trường `X509v3 Subject Alternative Name`), do đó cần sửa file /etc/hosts để trỏ dns name kubernetes về IP public của cluster (nhớ kèm theo port)), sau đó sửa lại file kubeconfig trỏ về server k8s theo dns name kubernetes)
