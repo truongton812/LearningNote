@@ -323,7 +323,7 @@ Lưu ý permission là additive
 
 
 
-# 12. Workflow request đi tới API server
+## 12. Workflow request đi tới API server
 
 Khi request đi đến apiserver cần đi qua 3 bước
 - authentication
@@ -353,8 +353,16 @@ Giải thích về các option khi gọi đến apiserver
 (nguyên nhân là do từ k8s 1.6 trở lên, anonymous access mặc định được enable. Nếu client gọi API server mà không gửi bất kỳ credential nào (không cert, không token, không basic auth), API server sẽ gán request đó thành “anonymous user” thay vì reject ngay.​ Điều kiện là API server đang bật một mode authorization thực sự (RBAC, ABAC, Node, Webhook, v.v.), không phải mode “AlwaysAllow”.​ Lưu ý thêm là khi sử dụng RBAC/ABAC, user system:anonymous (hoặc group system:unauthenticated) mặc định không có quyền gì; muốn cho anonymous làm gì phải tạo rule/RoleBinding/Policy rõ ràng cho nó.​ Nếu không cấu hình gì cho anonymous, mọi request không auth sẽ bị từ chối bởi layer authorization, dù anonymous access đang “enabled by default”)
 - Nếu curl với option --cacert --cert --key (VD curl https://10.154.0.2:6443 --cacert ca.crt --cert cert.crt --key key.pem) -> sẽ có thể truy cập api server
 
-## 12.1 Cách truy cập API server
+### 12.1 Cách truy cập API server
 
 Trong k8s có 1 service resource tên kubernetes ở namespace default. Ta có thể gọi đến pod apiserver thông qua service này. Nếu muốn expose ra thì chuyển service kubernetes đấy thành NodePort
 
 Để truy cập API server từ bên ngoài cụm, ta cần sửa file kubeconfig, lưu ý trong apiserver.cert có cấu hình để chỉ allow traffic từ 1 số IP và DNS cụ thể (xem bằng lệnh `openssl x509 -in /etc/kubernetes/pki/apiserver.crt -text` trên master node, tìm đến trường `X509v3 Subject Alternative Name`), do đó cần sửa file /etc/hosts để trỏ dns name kubernetes về IP public của cluster (nhớ kèm theo port)), sau đó sửa lại file kubeconfig trỏ về server k8s theo dns name kubernetes)
+
+### 12.2 mối liên hệ giữa noderestriction và admission controller
+
+- NodeRestriction là một admission controller validating trong Kubernetes, được kích hoạt qua cờ --enable-admission-plugins=NodeRestriction trên kube-apiserver. Nó hạn chế kubelet (thuộc nhóm system:nodes với username system:node:<NodeName>) chỉ sửa đổi Node API object của chính mình và Pod API objects được bind vào node đó. Admission controller ngăn kubelet xóa Node object hoặc thay đổi nhãn có prefix kubernetes.io/ hoặc k8s.io/ một cách tùy ý.​
+
+- NodeRestriction chính là một plugin cụ thể thuộc hệ thống admission controllers của Kubernetes, hoạt động ở giai đoạn validating để kiểm tra và từ chối các yêu cầu API không hợp lệ trước khi persist vào etcd. Admission controllers chạy theo thứ tự: mutating trước, validating sau (NodeRestriction thuộc validating), và được enable qua danh sách comma-separated trong kube-apiserver. Mối liên hệ trực tiếp nằm ở việc NodeRestriction được thiết kế dành riêng để bảo vệ Node/Pod objects khỏi các thay đổi không mong muốn từ kubelet, tăng cường bảo mật cluster.​
+
+- Để kích hoạt, chỉnh sửa manifest /etc/kubernetes/manifests/kube-apiserver.yaml trên control plane, thêm NodeRestriction vào --enable-admission-plugins, sau đó kubelet cần dùng credentials phù hợp. Ví dụ: --enable-admission-plugins=NamespaceLifecycle,LimitRanger,NodeRestriction. Kiểm tra bằng kubectl get nodes hoặc logs apiserver sau khi restart.
