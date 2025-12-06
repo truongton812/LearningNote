@@ -355,11 +355,19 @@ Giải thích về các option khi gọi đến apiserver
 
 ### 12.1 Cách truy cập API server
 
+Có thể gọi đến api server từ các nguồn: outside, pod, node (còn các thành phần của cụm thì hiển nhiên)
+
 Trong k8s có 1 service resource tên kubernetes ở namespace default. Ta có thể gọi đến pod apiserver thông qua service này. Nếu muốn expose ra thì chuyển service kubernetes đấy thành NodePort
 
 Để truy cập API server từ bên ngoài cụm, ta cần sửa file kubeconfig, lưu ý trong apiserver.cert có cấu hình để chỉ allow traffic từ 1 số IP và DNS cụ thể (xem bằng lệnh `openssl x509 -in /etc/kubernetes/pki/apiserver.crt -text` trên master node, tìm đến trường `X509v3 Subject Alternative Name`), do đó cần sửa file /etc/hosts để trỏ dns name kubernetes về IP public của cluster (nhớ kèm theo port)), sau đó sửa lại file kubeconfig trỏ về server k8s theo dns name kubernetes)
 
-### 12.2 mối liên hệ giữa noderestriction và admission controller
+### 12.2 Cách truy cập API server từ worker node
+
+Trên worker node cũng có cert để gọi đến api server, xem ở cấu hình của kubelet tại /etc/kubernetes/kubelet.conf (file này có vẻ giống file kubeconfig, cũng có cluster/user/context)
+
+Dùng file /etc/kubernetes/kubelet.conf (export vào biến KUBECONFIG) để gọi đến api server thì sẽ có username là `system:node:<node_name>`. Mặc định thì user này chỉ có các quyền là `get node`, đánh label cho chính node đấy (không thể đánh label cho node khác). Lưu ý không đánh được label có string `node-restriction.kubernetes.io` -> đây gọi là noderestriction, viết kết hợp lại với 12.3
+
+### 12.3 mối liên hệ giữa noderestriction và admission controller
 
 - NodeRestriction là một admission controller validating trong Kubernetes, được kích hoạt qua cờ --enable-admission-plugins=NodeRestriction trên kube-apiserver. Nó hạn chế kubelet (thuộc nhóm system:nodes với username system:node:<NodeName>) chỉ sửa đổi Node API object của chính mình và Pod API objects được bind vào node đó. Admission controller ngăn kubelet xóa Node object hoặc thay đổi nhãn có prefix kubernetes.io/ hoặc k8s.io/ một cách tùy ý.​
 - NodeRestriction hạn chế Node label mà kubelet có thể modify - chỉ có thể modify label của node đấy và pod trên node đấy, ko modify được node khác (???)
@@ -367,3 +375,68 @@ Trong k8s có 1 service resource tên kubernetes ở namespace default. Ta có t
 - NodeRestriction chính là một plugin cụ thể thuộc hệ thống admission controllers của Kubernetes, hoạt động ở giai đoạn validating để kiểm tra và từ chối các yêu cầu API không hợp lệ trước khi persist vào etcd. Admission controllers chạy theo thứ tự: mutating trước, validating sau (NodeRestriction thuộc validating), và được enable qua danh sách comma-separated trong kube-apiserver. Mối liên hệ trực tiếp nằm ở việc NodeRestriction được thiết kế dành riêng để bảo vệ Node/Pod objects khỏi các thay đổi không mong muốn từ kubelet, tăng cường bảo mật cluster.​
 
 - Để kích hoạt, chỉnh sửa manifest /etc/kubernetes/manifests/kube-apiserver.yaml trên control plane, thêm NodeRestriction vào --enable-admission-plugins, sau đó kubelet cần dùng credentials phù hợp. Ví dụ: --enable-admission-plugins=NamespaceLifecycle,LimitRanger,NodeRestriction. Kiểm tra bằng kubectl get nodes hoặc logs apiserver sau khi restart.
+
+## 13. Kubernetes version
+
+Kubernetes version có dạng X.X.X (major-minor-patch). Trong đó minor được publish mỗi 3 tháng. K8s version không có LTS
+
+K8s chỉ hỗ trợ support cho 3 bản minor gần nhất
+
+Quy tắc:
+
+- kube-apiserver: Trong cụm HA (high-availability), các instance kube-apiserver mới nhất và cũ nhất phải nằm trong một minor version hoặc lệch nhau tối đa một minor version,  Ví dụ, nếu instance mới nhất chạy phiên bản 1.34, thì các instance khác chỉ được phép ở 1.34 hoặc 1.33, không được xuống 1.32 hoặc thấp hơn
+- Các thành phần Kube-controller-manager, kube-scheduler và cloud-controller-manager không được mới hơn kube-apiserver và cũ hơn tối đa 1 minor version.
+- kubelet và kube-proxy không được mới hơn kube-apiserver và có thể cũ hơn tối đa 2 minor versions. ví dụ, nếu apiserver ở 1.34 thì kubelet và kube-proxy hỗ trợ 1.34, 1.33. Trước khi nâng cấp kubelet minor version, cần drain pod khỏi node vì không hỗ trợ in-place upgrade.​
+- Kubectl hỗ trợ lệch tối đa 1 minor version so với apiserver (có thể lớn hơn). VD apiserver ở 1.33 thì kubectl hỗ trợ 1.34, 1.33 và 1.32. Trong cụm HA với kube-apiserver lệch phiên bản (ví dụ: instance 1.33 và 1.34), kubectl chỉ hỗ trợ đúng các phiên bản đó (1.33 và 1.34), loại trừ 1.35 vì lệch quá xa so với instance cũ nhất. Quy tắc này giúp duy trì ổn định khi nâng cấp dần từng thành phần control plane.
+
+Tóm lại quy tắc quan trọng: trong cụm k8s, các thành phần phải ngang hoặc nhỏ hơn apiserver 1 minor version (trừ kubelet,kube-proxy và kubectl)
+
+Lưu ý Kubernetes Version Skew Policy không có ràng buộc cụ thể riêng biệt cho patch versions giữa các thành phần như kube-apiserver, kubelet hay kube-proxy. Chính sách chỉ quy định độ lệch dựa trên minor versions (ví dụ: kubelet cũ hơn tối đa 3 minor so với apiserver), trong khi patch versions (z trong x.y.z) được khuyến nghị cập nhật lên bản mới nhất trước khi nâng cấp minor để tận dụng các bản sửa lỗi và bảo mật
+
+### 13.1 Upgrade cụm k8s
+Các bước cần thực hiện
+- Drain node bằng lệnh `kubectl drain`
+- Mark node as SchedulingDisabled bằng lệnh `kubectl cordon` (thực chất drain đã bao gồm cordon)
+- Upgrade
+- Uncordon
+
+Thực hiện trên master node trước (apiserver, controller manager, scheduler). Sau đó thực hiện trên worker node (kubelet, kube-proxy)
+
+Các bước dưới còn thiếu bước update repo, tìm lại trong vở
+
+#### 13.1.1 Upgrade master node
+- kubectl drain <node> --ignore-daemonsets
+- apt-get update
+- apt-cache show kubeadm | grep <version> -> tìm các phiên bản kubeadm khả dụng
+- apt-mark hold kubectl kubelet -> để tránh lỗi
+- apt-mark unhold kubeadm -> trong TH kubeadm bị hold
+- apt-get install kubeadm=<version>. Check lại version bằng kubeadm version
+- kubeadm upgrade plan
+- kubeadm upgrade apply <version> -> upgrade kubeadm sẽ upgrade luôn các components, xem chi tiết ở lệnh plan
+- apt-mark unhold kubectl kubelet
+- systemctl restart kubelet
+- apt-get install kubelet=<version> kubectl=<version> : do kubelet và kubectl không được update = kubeadm
+- kubectl uncordon <node>
+
+#### 13.1.2 Upgrade worker node
+- Đứng trên master node để drain/cordon worker node
+- Đứng trên worker node chạy các lệnh
+- apt-get update
+- apt-cache show kubeadm | grep <version>
+- apt-mark hold kubelet kubectl
+- apt-mark unhold kubeadm
+- apt-get install kubeadm=<version>
+- kubeadm upgrade node
+- hold lại kubeadm
+- unhold kubelet và kubectl
+- apt-get install kubelet=<version> kubectl=<version>
+- hold lại kubelet và kubectl
+- restart kubelet
+- uncordon node (đứng trên master node)
+
+
+### 13.2 Cch giúp ứng dụng của bạn “sống sót” khi nâng cấp cluster Kubernetes hoặc hạ tầng bên dưới.​
+
+- Pod terminationGracePeriodSeconds / trạng thái Terminating: cho pod thời gian shutdown sạch sẽ trước khi bị kill.
+- Pod Lifecycle Events: các hook như preStop để chạy logic dọn dẹp / drain kết nối khi pod chuẩn bị bị terminate.
+- PodDisruptionBudget (PDB): giới hạn số pod có thể bị down cùng lúc khi nâng cấp / bảo trì, giúp tránh downtime toàn bộ ứng dụng.
