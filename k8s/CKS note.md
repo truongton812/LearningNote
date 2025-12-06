@@ -342,3 +342,9 @@ Các best pratice về bảo mật
 - prevent unauthorized access bằng RBAC
 - ngăn pod truy cập apiserver
 - apiserver port nên nằm sau firewall/ chỉ cho phép truy cập từ 1 ip range cụ thể
+
+
+
+Giải thích về các option khi gọi đến apiserver
+- gọi không có option gì (VD curl https://10.154.0.2:6443) -> lỗi không có local issuer certificate, không thể thiết lập secure connection
+- Nếu curl với option --cacert và trỏ về ca (VD curl https://10.154.0.2:6443 --cacert ca.crt) -> apiserver sẽ nhận dạng đây là anonymous request
