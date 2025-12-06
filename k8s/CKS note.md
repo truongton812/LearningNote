@@ -501,3 +501,6 @@ Rồi mount vào container
 ```
 
 Lưu ý EncryptionConfiguration chỉ giúp mã hóa secret khi ta đọc trực tiếp tới etcd, còn nếu thông qua apiserver thì vẫn chỉ là base64 như thường, dễ dàng decode (cần check lại thông tin)
+
+
+EncryptionConfiguration là một tài nguyên cấu hình YAML dùng cho kube-apiserver trong Kubernetes, giúp mã hóa dữ liệu nhạy cảm (như Secrets, ConfigMaps) lưu trữ tại rest trong etcd. Nó được chỉ định qua flag --encryption-provider-config khi khởi động API server, đảm bảo dữ liệu chỉ được mã hóa khi ghi vào etcd và giải mã khi đọc
