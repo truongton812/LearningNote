@@ -38,3 +38,5 @@ xem log
 
 4. kubectl -n argocd rollout restart deployment argocd-image-updater
 Restart pod
+
+5. Trong mỗi container/pod đều có các biến môi trường lưu thông tin về cụm K8s (VD host, port,...), in ra bằng lệnh env
