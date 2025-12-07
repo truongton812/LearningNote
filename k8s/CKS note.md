@@ -517,3 +517,6 @@ System call có thể coi như là API mà kernal cung cấp để process có t
 
 Để bảo vệ kernal, ta có thể thêm 1 lớp sandbox ở giữa
 <img width="1135" height="488" alt="image" src="https://github.com/user-attachments/assets/fbf25a53-32fd-4731-bafe-db6b8678628f" />
+
+
+Kubelet tại 1 thời điểm chỉ có thể chạy 1 container runtime (VD containerd, dockershim,...). Ta có thể cấu hình
