@@ -511,3 +511,9 @@ EncryptionConfiguration là một tài nguyên cấu hình YAML dùng cho kube-a
 Về cơ bản container chỉ là các process được cô lập bằng namespaces/cgroups, nhưng bản chất các process này vẫn chạy trên Linux kernel của host và có thể thực hiện system call trực tiếp xuống kernel giống như process bình thường
 
 <img width="1065" height="530" alt="image" src="https://github.com/user-attachments/assets/db8642c8-fa18-4d2f-a9f7-f4a43638576d" />
+
+
+System call có thể coi như là API mà kernal cung cấp để process có thể giao tiếp với kernal
+
+Để bảo vệ kernal, ta có thể thêm 1 lớp sandbox ở giữa
+<img width="1135" height="488" alt="image" src="https://github.com/user-attachments/assets/fbf25a53-32fd-4731-bafe-db6b8678628f" />
