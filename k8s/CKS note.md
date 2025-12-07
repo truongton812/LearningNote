@@ -504,3 +504,10 @@ Lưu ý EncryptionConfiguration chỉ giúp mã hóa secret khi ta đọc trực
 
 
 EncryptionConfiguration là một tài nguyên cấu hình YAML dùng cho kube-apiserver trong Kubernetes, giúp mã hóa dữ liệu nhạy cảm (như Secrets, ConfigMaps) lưu trữ tại rest trong etcd. Nó được chỉ định qua flag --encryption-provider-config khi khởi động API server, đảm bảo dữ liệu chỉ được mã hóa khi ghi vào etcd và giải mã khi đọc
+
+
+# 14. Bảo mật container runtime
+
+Về cơ bản container chỉ là các process được cô lập bằng namespaces/cgroups, nhưng bản chất các process này vẫn chạy trên Linux kernel của host và có thể thực hiện system call trực tiếp xuống kernel giống như process bình thường
+
+<img width="1065" height="530" alt="image" src="https://github.com/user-attachments/assets/db8642c8-fa18-4d2f-a9f7-f4a43638576d" />
