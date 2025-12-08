@@ -506,7 +506,7 @@ Lưu ý EncryptionConfiguration chỉ giúp mã hóa secret khi ta đọc trực
 EncryptionConfiguration là một tài nguyên cấu hình YAML dùng cho kube-apiserver trong Kubernetes, giúp mã hóa dữ liệu nhạy cảm (như Secrets, ConfigMaps) lưu trữ tại rest trong etcd. Nó được chỉ định qua flag --encryption-provider-config khi khởi động API server, đảm bảo dữ liệu chỉ được mã hóa khi ghi vào etcd và giải mã khi đọc
 
 
-# 14. Bảo mật container runtime
+## 14. Bảo mật container runtime
 
 Về cơ bản container chỉ là các process được cô lập bằng namespaces/cgroups, nhưng bản chất các process này vẫn chạy trên Linux kernel của host và có thể thực hiện system call trực tiếp xuống kernel giống như process bình thường
 
@@ -518,5 +518,72 @@ System call có thể coi như là API mà kernal cung cấp để process có t
 Để bảo vệ kernal, ta có thể thêm 1 lớp sandbox ở giữa. Sandbox là một môi trường cô lập (hay "hộp cát") được sử dụng để chạy phần mềm, ứng dụng hoặc mã đáng ngờ mà không ảnh hưởng đến hệ thống chính, thường áp dụng trong bảo mật máy tính. Sanbox trong trường hợp này có thể xem là 1 lớp bảo mật để hạn chế tấn công. sandbox container runtime cung cấp lớp cách ly bảo mật cao hơn so với runc truyền thống, ngăn chặn container truy cập trực tiếp kernel host để giảm rủi ro escape
 <img width="1135" height="488" alt="image" src="https://github.com/user-attachments/assets/fbf25a53-32fd-4731-bafe-db6b8678628f" />
 
+- Khi sử dụng sandbox, container process không thể gọi trực tiếp syscall mà phải thông qua lớp sandbox -> ta có thể kiểm soát syscall thông qua lớp sandbox
+- Sử dụng sandbox ta phải đánh đổi:
+  - Tốn nhiều resource hơn
+  - không phù hợp với các container cần gọi nhiều syscall
+  - không còn có thể trực tiếp truy cập hardware do lớp sandbox đã chặn
 
-Kubelet tại 1 thời điểm chỉ có thể chạy 1 container runtime (VD containerd, dockershim,...). Ta có thể cấu hình
+Kubelet tại 1 thời điểm chỉ có thể chạy 1 container runtime (VD containerd, dockershim, cri-o...). Ta có thể cấu hình bằng `kubelet --container-runtime --container-runtime-endpoint`
+
+### 14.1 Kata container
+- Là 1 loại sandbox giúp chạy container trong 1 máy ảo riêng (Firecracker/QEMU) để tăng bảo mật hardware isolation.​
+- Mỗi container sẽ có 1 kernel riêng chạy trên 1 lớp phần cứng ảo hóa riêng, tách biệt với kernal của máy host
+- Do là tạo thêm 1 lớp ảo hóa nên nếu sử dụng trên cloud thì phải enable tính năng nested virtualization (ảo hóa trong ảo hóa)
+<img width="696" height="536" alt="image" src="https://github.com/user-attachments/assets/4312d594-231c-4a3e-8162-b702660ff7ad" />
+
+### 14.2 gVisor
+- Sandbox của Google dùng user-space kernel, chặn syscall trực tiếp cho workload untrusted, ưu tiên bảo mật hơn tốc độ.​
+- GVisor tạo ra 1 kernel riêng (viết bằng golang) nhận tất cả các syscall từ application, sau đó transform, phân loại hoặc skip trước khi gửi tới kernal thật
+- GVisor runs trong userspace tách biệt với linux kernal. OCI container runtime của gVisor là runsc
+<img width="500" height="307" alt="image" src="https://github.com/user-attachments/assets/1cb99efc-c4d6-4b55-975d-890cce32506d" />
+
+### 14.3 Runtime class
+- RuntimeClass là một tài nguyên Kubernetes (thuộc nhóm API node.k8s.io/v1) cho phép chọn cấu hình container runtime cụ thể để chạy các container trong Pod, giúp cân bằng giữa hiệu suất và bảo mật.​
+- RuntimeClass được định nghĩa cluster-wide với trường handler trỏ đến CRI runtime handler (như runc, gVisor, Kata), và kubelet trên node sẽ sử dụng nó khi Pod chỉ định runtimeClassName. Nếu không chỉ định, Kubernetes dùng runtime mặc định; nếu handler không tồn tại, Pod sẽ fail.​
+- Ứng dụng thực tế: Chạy workload nhạy cảm bảo mật với runtime sandbox như gVisor (handler: runsc) hoặc Kata (handler: kata-runtime).​ Hỗ trợ multi-runtime trong cluster, như runc cho hiệu suất cao và VM-based cho isolation mạnh
+
+-  ví dụ định nghĩa RuntimeClass cho gVisor (handler: runsc) và Kata Containers (handler: kata)
+```
+apiVersion: node.k8s.io/v1
+kind: RuntimeClass
+metadata:
+  name: gvisor  # Tên dùng trong Pod spec
+handler: runsc  # CRI handler trên node
+overhead:
+  podFixed:
+    cpu: 100m
+    memory: 128Mi
+---
+apiVersion: node.k8s.io/v1
+kind: RuntimeClass
+metadata:
+  name: kata
+handler: kata-runtime
+nodeSelector:
+  node.kubernetes.io/runtime: kata  # Chỉ schedule lên node hỗ trợ Kata [web:21][web:22]
+```
+
+- Áp dụng RuntimeClass vào Pod spec bằng runtimeClassName
+```
+apiVersion: v1
+kind: Pod
+metadata:
+  name: secure-app
+spec:
+  runtimeClassName: gvisor  # Dùng gVisor sandbox
+  containers:
+  - name: app
+    image: nginx
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: vm-isolated-app
+spec:
+  runtimeClassName: kata  # Dùng Kata VM isolation
+  containers:
+  - name: app
+    image: busybox
+    command: ["sleep", "3600"] [web:21][web:24]
+```
