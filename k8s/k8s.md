@@ -718,4 +718,15 @@ Trường hợp dùng RoleBinding với ClusterRole "view": Tạo RoleBinding tr
 Trường hợp dùng ClusterRoleBinding với ClusterRole "view". Tạo ClusterRoleBinding:
 `kubectl create clusterrolebinding myapp-view-cluster --clusterrole=view --serviceaccount=dev:myapp`
 
+## 12. Gọi đến localhost và gọi đến internal IP
+Khi đứng trên master node của cụm Kubernetes và gọi đến localhost:6443 hoặc 10.154.0.2:6443 (IP internal của master), cả hai đều kết nối thành công đến Kubernetes API server vì localhost (127.0.0.1) và IP internal đều trỏ đến cùng một giao diện mạng trên node đó, nơi API server lắng nghe trên port 6443.​
+
+Sự khác biệt chính
+- localhost:6443: Sử dụng loopback interface (127.0.0.1), kết nối nội bộ nhanh chóng, không đi qua network stack bên ngoài. Phù hợp cho các lệnh kubectl cục bộ trên master mà không phụ thuộc vào CNI plugin của cluster.​
+- 10.154.0.2:6443: Sử dụng IP pod network (thường do CNI như Calico hoặc Flannel cấp), đi qua network stack của cluster, có thể chịu ảnh hưởng từ firewall, routing policy hoặc network policy. Tuy nhiên, trên master node, nó vẫn resolve đúng vì node biết route đến IP internal của chính mình.​
+
+Kiểm tra thực tế
+
+Bạn có thể test bằng curl -k https://localhost:6443/version và curl -k https://10.154.0.2:6443/version – cả hai sẽ trả về phiên bản API server giống nhau. Trong kubeconfig (tại ~/.kube/config), server thường dùng IP internal hoặc hostname để đảm bảo tính nhất quán cluster-wide
+
 -> SA "myapp" đọc được tài nguyên namespace-scoped ở mọi namespace (như kubectl get pods -n dev hoặc kubectl get pods -n prod).​ Vẫn không đọc cluster-scoped resources như Node do ClusterRole "view" mặc định chỉ định nghĩa quyền đọc (get, list, watch) cho namespace-scoped resources như Pod, Service, ConfigMap, Secret, nó không bao gồm cluster-scoped resources như Node, PersistentVolume, Namespace. Muốn đọc được cluster-scoped resources thì cần tạo ClusterRole cho phép đọc cluster-scoped resources (ví dụ ClusterRole "system:node-reader" cho phép list Node), sau đó bind bằng ClusterRoleBinding với ServiceAccount hoặc User (không dùng RoleBinding vì nó là namespace-scoped)
