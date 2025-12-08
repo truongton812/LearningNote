@@ -515,7 +515,7 @@ Về cơ bản container chỉ là các process được cô lập bằng namesp
 
 System call có thể coi như là API mà kernal cung cấp để process có thể giao tiếp với kernal
 
-Để bảo vệ kernal, ta có thể thêm 1 lớp sandbox ở giữa
+Để bảo vệ kernal, ta có thể thêm 1 lớp sandbox ở giữa. Sandbox là một môi trường cô lập (hay "hộp cát") được sử dụng để chạy phần mềm, ứng dụng hoặc mã đáng ngờ mà không ảnh hưởng đến hệ thống chính, thường áp dụng trong bảo mật máy tính. Sanbox trong trường hợp này có thể xem là 1 lớp bảo mật để hạn chế tấn công. sandbox container runtime cung cấp lớp cách ly bảo mật cao hơn so với runc truyền thống, ngăn chặn container truy cập trực tiếp kernel host để giảm rủi ro escape
 <img width="1135" height="488" alt="image" src="https://github.com/user-attachments/assets/fbf25a53-32fd-4731-bafe-db6b8678628f" />
 
 
