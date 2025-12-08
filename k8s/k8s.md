@@ -730,3 +730,55 @@ Kiểm tra thực tế
 Bạn có thể test bằng curl -k https://localhost:6443/version và curl -k https://10.154.0.2:6443/version – cả hai sẽ trả về phiên bản API server giống nhau. Trong kubeconfig (tại ~/.kube/config), server thường dùng IP internal hoặc hostname để đảm bảo tính nhất quán cluster-wide
 
 -> SA "myapp" đọc được tài nguyên namespace-scoped ở mọi namespace (như kubectl get pods -n dev hoặc kubectl get pods -n prod).​ Vẫn không đọc cluster-scoped resources như Node do ClusterRole "view" mặc định chỉ định nghĩa quyền đọc (get, list, watch) cho namespace-scoped resources như Pod, Service, ConfigMap, Secret, nó không bao gồm cluster-scoped resources như Node, PersistentVolume, Namespace. Muốn đọc được cluster-scoped resources thì cần tạo ClusterRole cho phép đọc cluster-scoped resources (ví dụ ClusterRole "system:node-reader" cho phép list Node), sau đó bind bằng ClusterRoleBinding với ServiceAccount hoặc User (không dùng RoleBinding vì nó là namespace-scoped)
+
+## 13. CRI, OCI
+
+### 13.1. Container runtime 
+- Là phần mềm chịu trách nhiệm thực thi, quản lý vòng đời container (tạo, chạy, dừng, xóa), tải/giải nén image từ registry, cách ly tài nguyên qua namespaces/cgroups và tích hợp với orchestrator như Kubernetes qua CRI.​
+- Runtime tải image, chuẩn bị bundle OCI, tạo môi trường cách ly (namespaces/cgroups), khởi chạy entrypoint và giám sát lifecycle, đảm bảo container cô lập và hiệu quả tài nguyên. Trong Kubernetes của bạn, CRI giúp kubelet giao tiếp thống nhất với high-level runtime, ủy thác low-level để chạy container OCI-compliant.
+- Container runtime chia thành hai loại:
+  - Low-level runtime (như runc, crun): Chỉ tập trung tạo/xóa container trực tiếp bằng kernel primitives, nhẹ và nhanh.​
+  - High-level runtime (như containerd, CRI-O, Docker): Quản lý toàn diện image, networking, storage, gọi low-level runtime để thực thi, hỗ trợ CRI cho Kubernetes.​
+
+### 13.2 Container Runtime Interface (CRI) 
+- Là một API chuẩn hóa trong Kubernetes, cho phép kubelet trên worker node giao tiếp thống nhất với các container runtime khác nhau như containerd, CRI-O hay Docker (qua dockershim trước đây).​
+- CRI đóng vai trò lớp trung gian, giúp kubelet gửi lệnh tạo, chạy, dừng hoặc xóa container mà không cần biết chi tiết triển khai của từng runtime cụ thể. Nhờ đó, Kubernetes có thể hỗ trợ nhiều runtime tương thích OCI mà không thay đổi code cốt lõi, tăng tính linh hoạt cho cluster.​
+- CRI tích hợp chặt chẽ với tiêu chuẩn OCI, nơi low-level runtime như runc xử lý việc tạo namespaces và cgroups, còn high-level runtime như containerd quản lý image và lifecycle qua CRI. 
+
+### 13.3 OCI
+- OCI (Open Container Initiative) là một dự án của Linux Foundation, được khởi xướng vào tháng 6 năm 2015 bởi Docker, CoreOS và các nhà phát triển appc, nhằm thiết kế các tiêu chuẩn mở cho ảo hóa cấp hệ điều hành (container).​
+- OCI tập trung tạo ra các tiêu chuẩn kỹ thuật tối thiểu cho định dạng image container, runtime container và phân phối container, giúp các công cụ như Docker, Podman, Kubernetes tương tác mà không phụ thuộc vào nhà cung cấp cụ thể. Các thành viên sáng lập bao gồm Docker, Google, Microsoft, Amazon và nhiều công ty lớn khác, thúc đẩy hệ sinh thái container mở.​
+- OCI phát triển ba thông số chính: Runtime Specification (runtime-spec) cho việc chạy container, Image Specification (image-spec) cho cấu trúc image, và Distribution Specification (distribution-spec) cho phân phối nội dung. Tham chiếu triển khai là runc – runtime cấp thấp từ Docker, cùng các runtime khác như crun hay Kata Containers.​
+
+### 13.4 Dockershim
+- trước đây Kubernetes (qua kubelet) giao tiếp thống nhất với các container runtime qua CRI, nhưng Docker không tuân thủ trực tiếp chuẩn CRI nên cần Dockershim làm lớp trung gian để "dịch" lệnh từ kubelet sang Docker Engine.​
+- Dockershim là một thành phần (shim) trong Kubernetes (từ v1.23 trở về trước), hoạt động như lớp trung gian để kubelet giao tiếp với Docker Engine qua giao thức CRI, vì Docker không tuân thủ trực tiếp chuẩn CRI.​ Kubelet gửi lệnh CRI (tạo/dừng container) đến Dockershim, shim này chuyển đổi thành lệnh Docker tương ứng và gọi Docker daemon, sau đó phản hồi ngược lại kubelet. Các runtime CRI-native như containerd hay CRI-O giao tiếp trực tiếp với kubelet mà không cần shim, giúp đơn giản hóa và giảm overhead.​
+- Dockershim được xây dựng để Kubernetes tương tác với Docker như một container runtime, nhưng việc maintain nó ngày càng tốn kém, tăng tiêu thụ tài nguyên (RAM, CPU) và rủi ro bảo mật do phụ thuộc vào Docker stack không cần thiết. Kubernetes đã deprecated dockershim từ v1.20 và loại bỏ hoàn toàn từ v1.24, khuyến khích chuyển sang runtime CRI-native như containerd hoặc CRI-O.​
+- Sau khi loại bỏ, worker node nhẹ hơn, kubelet giao tiếp trực tiếp với high-level runtime (như containerd bên trong Docker), hỗ trợ OCI tốt hơn và giảm độ phức tạp trong GitOps/Kubernetes orchestration.
+
+ 
+### 13.5 High-level container runtime 
+- là phần mềm quản lý toàn diện vòng đời container, bao gồm tải/giải nén image từ registry, quản lý storage/networking, giám sát và gọi low-level runtime (như runc) để thực thi container cụ thể.​
+- Các loại phổ biến
+  - containerd: Daemon OCI-native nhẹ, quản lý image/lifecycle/supervision, tích hợp CRI cho Kubernetes, là backend mặc định của Docker từ v1.11.​
+  - CRI-O: Runtime dành riêng cho Kubernetes, tuân thủ CRI, chỉ tập trung chạy container OCI mà không có tính năng build/push image thừa.​
+  - Docker Engine (dockerd): Công cụ hoàn chỉnh nhất với CLI thân thiện, build/push image, nhưng nặng hơn nên ít dùng trực tiếp trong K8s sau dockershim.​
+- High-level runtime giao tiếp với kubelet qua CRI, ủy thác low-level runtime để chạy container, giúp cluster của bạn linh hoạt với GitOps và orchestration OCI chuẩn
+
+### 13.6.Low-level container runtime 
+- là phần mềm cấp thấp tuân thủ OCI Runtime Specification, chỉ chịu trách nhiệm tạo, chạy và xóa container cụ thể bằng cách gọi trực tiếp kernel primitives như namespaces, cgroups, pivot_root, mà không quản lý image hay lifecycle phức tạp.​
+- Các loại phổ biến
+  - runc: Runtime tham chiếu của OCI (viết bằng Go), nhẹ và phổ biến nhất, được Docker/containerd/CRI-O sử dụng làm backend mặc định.​
+  - crun: Phiên bản viết bằng C từ Red Hat, nhanh hơn runc (giảm 20-50% thời gian khởi động), hỗ trợ cgroups v2 tốt, nhẹ về memory.​
+  - Kata Containers: Chạy container trong lightweight VM (Firecracker/QEMU) để tăng bảo mật hardware isolation.​
+  - gVisor: Sandbox của Google dùng user-space kernel, chặn syscall trực tiếp cho workload untrusted, ưu tiên bảo mật hơn tốc độ.​
+- Vai trò trong hệ thống: High-level runtime (containerd/CRI-O) chuẩn bị bundle OCI rồi gọi low-level runtime qua lệnh như runc run, đảm bảo Kubernetes CRI hoạt động mượt mà trong cluster GitOps của bạn.
+
+### 13.7 Runc
+- Runc là một low-level container runtime mã nguồn mở, tuân thủ chuẩn OCI Runtime Specification, chịu trách nhiệm thực thi trực tiếp container bằng cách sử dụng kernel Linux primitives như namespaces, cgroups và pivot_root để tạo môi trường cô lập.​
+- Runc được gọi bởi high-level runtime như containerd hoặc CRI-O để tạo, chạy và dừng container cụ thể, không quản lý image hay lifecycle phức tạp mà chỉ tập trung vào việc khởi chạy tiến trình đầu tiên (entrypoint) trong bundle OCI chuẩn. Lệnh cơ bản như runc run <bundle> sẽ thiết lập filesystem bundle (rootfs + config.json) và chạy container một cách nhẹ nhàng.​
+- Là runtime tham chiếu của OCI, runc là nền tảng cho hầu hết các hệ thống container hiện đại: Docker/containerd -> runc, CRI-O -> runc, giúp Kubernetes qua CRI tương tác thống nhất mà không cần dockershim. Trong môi trường Kubernetes của bạn, runc đảm bảo tính tương thích cao, hỗ trợ GitOps và orchestration ổn định với các CRI-native runtime.
+- Ngoài runc, còn nhiều OCI runtime khác tuân thủ Runtime Specification, chủ yếu là low-level runtime thay thế runc để thực thi container trực tiếp qua kernel primitives.​ Các OCI runtime phổ biến
+  - crun: Runtime viết bằng C, nhanh hơn runc (giảm thời gian khởi động 20-50%), nhẹ hơn về memory, được Red Hat khuyến nghị cho RHEL.​
+  - Kata Containers: OCI runtime chạy container trong lightweight VM (Firecracker/QEMU), tăng bảo mật bằng hardware isolation, phù hợp hybrid cloud.​
+  - gVisor: Sandbox runtime của Google dùng user-space kernel, chặn syscall trực tiếp để bảo mật cao, chậm hơn nhưng an toàn cho untrusted workload.​
