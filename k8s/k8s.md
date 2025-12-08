@@ -744,11 +744,12 @@ Bạn có thể test bằng curl -k https://localhost:6443/version và curl -k h
 - Là một API chuẩn hóa trong Kubernetes, cho phép kubelet trên worker node giao tiếp thống nhất với các container runtime khác nhau như containerd, CRI-O hay Docker (qua dockershim trước đây).​
 - CRI đóng vai trò lớp trung gian, giúp kubelet gửi lệnh tạo, chạy, dừng hoặc xóa container mà không cần biết chi tiết triển khai của từng runtime cụ thể. Nhờ đó, Kubernetes có thể hỗ trợ nhiều runtime tương thích OCI mà không thay đổi code cốt lõi, tăng tính linh hoạt cho cluster.​
 - CRI tích hợp chặt chẽ với tiêu chuẩn OCI, nơi low-level runtime như runc xử lý việc tạo namespaces và cgroups, còn high-level runtime như containerd quản lý image và lifecycle qua CRI. 
+<img width="680" height="380" alt="image" src="https://github.com/user-attachments/assets/a70c927d-ff51-42b3-b3e7-ae40325d9762" />
 
 ### 13.3 OCI
 - OCI (Open Container Initiative) là một dự án của Linux Foundation, được khởi xướng vào tháng 6 năm 2015 bởi Docker, CoreOS và các nhà phát triển appc, nhằm thiết kế các tiêu chuẩn mở cho ảo hóa cấp hệ điều hành (container).​
 - OCI tập trung tạo ra các tiêu chuẩn kỹ thuật tối thiểu cho định dạng image container, runtime container và phân phối container, giúp các công cụ như Docker, Podman, Kubernetes tương tác mà không phụ thuộc vào nhà cung cấp cụ thể. Các thành viên sáng lập bao gồm Docker, Google, Microsoft, Amazon và nhiều công ty lớn khác, thúc đẩy hệ sinh thái container mở.​
-- OCI phát triển ba thông số chính: Runtime Specification (runtime-spec) cho việc chạy container, Image Specification (image-spec) cho cấu trúc image, và Distribution Specification (distribution-spec) cho phân phối nội dung. Tham chiếu triển khai là runc – runtime cấp thấp từ Docker, cùng các runtime khác như crun hay Kata Containers.​
+- OCI phát triển ba thông số chính: Runtime Specification (runtime-spec) cho việc chạy container (nhờ Specification này mà các application như kubelet có thể giao tiếp với bất kỳ container runtime nào), Image Specification (image-spec) cho cấu trúc image, và Distribution Specification (distribution-spec) cho phân phối nội dung. OCI tạo ra runc (là container runtime tuân thủ các Runtime Specification để cho các container runtime khác lấy làm tham chiếu)
 
 ### 13.4 Dockershim
 - trước đây Kubernetes (qua kubelet) giao tiếp thống nhất với các container runtime qua CRI, nhưng Docker không tuân thủ trực tiếp chuẩn CRI nên cần Dockershim làm lớp trung gian để "dịch" lệnh từ kubelet sang Docker Engine.​
