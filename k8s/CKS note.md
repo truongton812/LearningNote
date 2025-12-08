@@ -587,3 +587,5 @@ spec:
     image: busybox
     command: ["sleep", "3600"] [web:21][web:24]
 ```
+
+Lưu ý trên worker node cần phải cài đặt gVisor/Kata và cấu hình containerd sử dụng gVisor/Kata
