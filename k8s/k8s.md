@@ -830,3 +830,7 @@ spec:
   - Custom Metrics API: metric gắn với object trong cluster, ví dụ “requests per second per pod”, “error rate của service A”.​
   - External Metrics API: metric đến từ hệ thống ngoài cluster, ví dụ “số message pending trong AWS SQS/Redis queue”.​
  
+
+
+
+
