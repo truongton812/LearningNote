@@ -783,3 +783,50 @@ Bạn có thể test bằng curl -k https://localhost:6443/version và curl -k h
   - crun: Runtime viết bằng C, nhanh hơn runc (giảm thời gian khởi động 20-50%), nhẹ hơn về memory, được Red Hat khuyến nghị cho RHEL.​
   - Kata Containers: OCI runtime chạy container trong lightweight VM (Firecracker/QEMU), tăng bảo mật bằng hardware isolation, phù hợp hybrid cloud.​
   - gVisor: Sandbox runtime của Google dùng user-space kernel, chặn syscall trực tiếp để bảo mật cao, chậm hơn nhưng an toàn cho untrusted workload.​
+
+## 14. Horizontal Pod Autoscaler (HPA)
+- Là cơ chế tự động tăng/giảm số lượng Pod của một workload (Deployment, ReplicaSet, StatefulSet…) dựa trên các metric như CPU, memory hoặc metric tuỳ chỉnh, thay vì phải scale thủ công.​
+- HPA được khai báo bằng resource HorizontalPodAutoscaler, trỏ vào một workload mục tiêu (scaleTargetRef) và định nghĩa minReplicas, maxReplicas cùng ngưỡng metric mong muốn.​
+- HPA định kỳ đọc metric từ metrics server (mặc định là CPU, memory; có thể là custom/external metrics nếu cấu hình thêm).​ Sau đó dựa trên giá trị hiện tại so với target (ví dụ average CPU 80% so với target 50%), HPA tính toán ra số Pod “lý tưởng” và cập nhật lại trường replicas của Deployment/StatefulSet tương ứng.​
+- Để sử dụng HPA cần cài đặt Metrics server (hoặc hệ thống metrics khác như Prometheus adapter) để expose CPU/memory hoặc custom metrics cho API của autoscaler.​
+
+### 14.1. Basic và custom/external metric
+- Metrics-server là aggregator nhẹ, thu thập CPU/memory realtime từ kubelet trên các node và expose qua Metrics API. Metrics-server chỉ cung cấp resource metrics cơ bản (CPU, memory) cho Pod và Node, không sinh ra custom metrics
+- Để HPA scale theo custom metric, cần thêm monitoring + metrics adapter:
+  - Dùng hệ thống monitoring như Prometheus, Datadog, CloudWatch… để scrape metric app (ví dụ `/metrics` với Prometheus).​
+  - Cài metrics adapter (ví dụ prometheus-adapter, cloudwatch-adapter…), adapter này map metric từ monitoring sang Kubernetes Custom Metrics API (custom.metrics.k8s.io) và/hoặc External Metrics API (external.metrics.k8s.io).​
+- Luồng điển hình với Prometheus:
+  - App export metric: ví dụ http_requests_per_second qua endpoint `/metrics.`
+  - Prometheus scrape metric này và lưu trữ.​
+  - Cài đặt prometheus-adapter (có thể cài bằng helm) và cấu hình
+  - Prometheus Adapter query PromQL từ Prometheus và expose các metric đó lại dưới dạng các resource metrics trong Kubernetes API (custom.metrics.k8s.io / external.metrics.k8s.io). 
+  - HPA (autoscaling/v2) khai báo metrics kiểu Pods/Object/External sử dụng tên metric đã expose. HPA thay vì phải gọi thẳng `http://prometheus/api/v1/query?query=...` để lấy metric thì chỉ gọi `GET /apis/custom.metrics.k8s.io/...` tới kube-apiserver, phần query Prometheus, tính toán, map về Pod/Service là do Adapter thực hiện
+
+
+Ví dụ HPA resource
+```
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: policy-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: policy-deployment
+  minReplicas: 3
+  maxReplicas: 50
+  metrics:
+  - type: Pods
+    pods:
+      metric:
+        name: claims_per_sec  # Custom metric từ Prometheus
+      target:
+        type: AverageValue
+        averageValue: 100
+  ```
+
+- Khác biệt giữa Custom và External Metrics
+  - Custom Metrics API: metric gắn với object trong cluster, ví dụ “requests per second per pod”, “error rate của service A”.​
+  - External Metrics API: metric đến từ hệ thống ngoài cluster, ví dụ “số message pending trong AWS SQS/Redis queue”.​
+ 
