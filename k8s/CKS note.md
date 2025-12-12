@@ -589,3 +589,40 @@ spec:
 ```
 
 Lưu ý trên worker node cần phải cài đặt gVisor/Kata và cấu hình containerd sử dụng gVisor/Kata
+
+
+## 15. Security context
+
+Security Context trong Kubernetes là cơ chế định nghĩa các thiết lập quyền hạn và kiểm soát truy cập cho Pod hoặc Container, giúp thực thi nguyên tắc least privilege (quyền hạn tối thiểu). Nó bao gồm các thuộc tính như UID/GID người dùng chạy process, Linux capabilities, SELinux/AppArmor, và chế độ privileged/unprivileged.​
+
+Cấp độ áp dụng
+Security Context có thể định nghĩa ở hai mức: Pod-level (áp dụng cho tất cả container trong Pod qua podSecurityContext) và Container-level (áp dụng riêng cho từng container qua securityContext, ghi đè Pod-level nếu xung đột).​
+Ví dụ YAML cơ bản:
+
+```
+spec:
+  securityContext:
+    runAsUser: 1000  # Chạy với UID 1000 (non-root)
+    runAsGroup: 3000
+    fsGroup: 2000    # Gán group cho shared volumes
+```
+Điều này ngăn container chạy root, giảm rủi ro privilege escalation.​
+
+Các thuộc tính chính
+runAsUser/runAsNonRoot: Chỉ định UID hoặc buộc non-root (true/false).
+
+capabilities: Thêm/drop Linux capabilities (ví dụ: drop ALL để loại bỏ quyền thừa).
+
+readOnlyRootFilesystem: true để mount root FS chỉ đọc, hạn chế ghi file.
+
+seccompProfile/appArmorProfile: Áp dụng profile bảo mật hệ thống Linux.​
+
+Internal vs External
+Internal Security Context nằm trong Pod spec (UID, capabilities). External do node-level tools như SELinux thực thi bên ngoài. Sử dụng Pod Security Admission (PSA) thay PSP (deprecated) để enforce cluster-wide.​
+
+Best Practices
+Luôn chạy non-root: runAsNonRoot: true.
+
+Drop capabilities không cần: capabilities: { drop: ["ALL"] }.
+
+Kết hợp với NetworkPolicy và RBAC cho bảo mật toàn diện
