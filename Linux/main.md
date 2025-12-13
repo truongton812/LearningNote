@@ -128,3 +128,11 @@ Lệnh `crictl inspect abcuiauiia | vim - ` gồm phần pipe là ký hiệu | d
 Dấu - trong lệnh vim - đại diện cho stdin (standard input), nghĩa là Vim sẽ đọc dữ liệu đầu vào từ pipe (|) thay vì từ một file cụ thể trên đĩa.
 
 Đây là tính năng chuẩn của nhiều công cụ Unix/Linux như Vim, cat, grep, kubectl giúp xử lý dữ liệu động một cách linh hoạt
+
+##### 12. Root process
+
+Trên Linux/Unix, một process chạy với UID 0 (root) về nguyên tắc là có “toàn quyền” trên hệ thống (đọc/ghi/xóa hầu hết mọi file, mount/unmount filesystem, thay đổi quyền file và sở hữu (chown/chmod), tạo/sửa user, cấu hình network, dừng dịch vụ, reboot máy, v.v.), nhưng vẫn có một vài ngoại lệ và cơ chế hạn chế bổ sung.
+
+Nếu chỉ nhìn ở mức phân quyền UNIX truyền thống, process chạy dưới root có thể thực hiện mọi lệnh quản trị và phá hỏng hoặc chiếm quyền toàn bộ hệ thống. Tuy nhiên nhiều hệ thống hiện đại dùng thêm cơ chế như Linux capabilities, SELinux, AppArmor, seccomp, namespaces (container) để “chia nhỏ” hoặc giới hạn quyền của root.
+
+Ví dụ: trong container, process là root nhưng chỉ là “root trong namespace đó”; nó vẫn bị giới hạn bởi kernel và policy của host, nên không nhất thiết làm được tất cả mọi thứ trên host.
