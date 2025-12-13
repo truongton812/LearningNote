@@ -633,3 +633,25 @@ spec:
 - Cơ chế hoạt động: Sidecar proxy của client lấy chứng chỉ từ control plane (như Citadel trong Istio), sau đó thực hiện TLS handshake hai chiều với sidecar proxy của server, trao đổi và xác thực chứng chỉ trước khi cho phép traffic mã hóa đi qua. Control plane quản lý phân phối, xoay vòng chứng chỉ tự động và cấu hình policy (PERMISSIVE hoặc STRICT) để enforce mTLS toàn mesh hoặc namespace cụ thể.​
 - Service mesh dùng các rule iptables trong network namespace của pod để chuyển hướng (redirect) traffic đến/đi từ app sang proxy. Nhờ iptables, app chỉ cần kết nối như bình thường (ví dụ gọi http://service-b), nhưng kernel sẽ tự động bắt và chuyển traffic sang proxy, proxy mới thực sự thiết lập kết nối mTLS với service khác. Do đó mọi traffic in/out của app đều đi qua proxy, app không nói chuyện trực tiếp với bên ngoài. Các rule iptables này được thiết lập bằng một initContainer (chạy các lệnh iptables trong pod (network namespace shared), sau đó exit) chạy trước khi app và proxy start.
 - Lưu ý để thiết lập được iptables rule, initContainer phải có Linux capability NET_ADMIN.
+
+
+## 17. Open policy agent (OPA)
+- Là một policy engine mã nguồn mở dùng để hiện thực “policy as code” cho nhiều hệ thống, trong đó Kubernetes là use case rất phổ biến. OPA dùng ngôn ngữ khai báo Rego để mô tả các rule cho phép/từ chối, sau đó đánh giá input dạng JSON (request, config…) và trả về quyết định cho hệ thống gọi nó.​
+- Mục đích của OPA là để hợp nhất việc thực thi policy (security, compliance, governance) cho nhiều thành phần: Kubernetes, microservices, API gateway, CI/CD pipeline, Terraform….​ Giúp enforce các rule chi tiết hơn so với cơ chế sẵn có như RBAC, ví dụ cấm privileged container, bắt buộc gắn label, không cho tạo Service type LoadBalancer ở namespace nào đó, v.v..​
+- Trong Kubernetes OPA thường chạy kèm với một thành phần tích hợp, ví dụ Gatekeeper hay kube-mgmt, để hook vào admission controller của API server.​ Cách hoạt động:
+  - Khi người dùng kubectl apply một manifest, API server gửi object đó đi qua chuỗi admission controller (built‑in + dynamic) trước khi ghi vào etcd.
+  - OPA (thường thông qua Gatekeeper hoặc kube-mgmt) được triển khai như ValidatingAdmissionWebhook; API server gọi webhook này, gửi JSON của object sang OPA để đánh giá policy.​
+  - Khi nhận request, OPA tính toán và trả về “allow/deny” kèm message, admission controller dùng kết quả này để chặn hoặc cho qua request.​
+
+### 17.1 OPA Gatekeeper
+OPA gatekeeper dùng để install CDR trong cụm k8s. VD Gatekeeper tạo custom resource tên  RequiredLabels (để y/c các label cần sử dụng)
+
+- OPA Gatekeeper là một admission controller “bọc” OPA thành dạng Kubernetes‑native để bạn quản lý policy như resource trong cluster.​
+- Gatekeeper dùng OPA ở bên trong nhưng cung cấp thêm các CRD như ConstraintTemplate và Constraint để bạn khai báo policy bằng YAML, apply bằng GitOps giống mọi manifest khác. Nó triển khai validating admission webhook, nghĩa là mọi request tạo/sửa/xóa resource đi vào API server sẽ bị chặn lại và gửi sang Gatekeeper để kiểm tra policy trước khi được ghi vào etcd.​
+
+
+- ConstraintTemplate: định nghĩa “kiểu policy” (Rego + schema các tham số), ví dụ “cấm container chạy privileged”.​
+
+- Constraint: instance cụ thể của template, gắn vào nhóm resource/namespace nào, tham số cụ thể ra sao (list namespace được phép, registry được phép…).​
+
+Tính năng bổ sung: Gatekeeper có cơ chế audit định kỳ, quét toàn cluster để phát hiện resource hiện tại vi phạm constraint (không chỉ request mới), giúp bạn xem độ tuân thủ và dọn dẹp cấu hình cũ. Dự án này là CNCF project, được khuyến nghị làm cách chuẩn để dùng OPA cho Kubernetes admission thay vì tự viết webhook từ đầu.
