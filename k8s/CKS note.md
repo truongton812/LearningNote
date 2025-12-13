@@ -592,37 +592,36 @@ Lưu ý trên worker node cần phải cài đặt gVisor/Kata và cấu hình c
 
 
 ## 15. Security context
-
-Security Context trong Kubernetes là cơ chế định nghĩa các thiết lập quyền hạn và kiểm soát truy cập cho Pod hoặc Container, giúp thực thi nguyên tắc least privilege (quyền hạn tối thiểu). Nó bao gồm các thuộc tính như UID/GID người dùng chạy process, Linux capabilities, SELinux/AppArmor, và chế độ privileged/unprivileged.​
-
-Cấp độ áp dụng
-Security Context có thể định nghĩa ở hai mức: Pod-level (áp dụng cho tất cả container trong Pod qua podSecurityContext) và Container-level (áp dụng riêng cho từng container qua securityContext, ghi đè Pod-level nếu xung đột).​
-Ví dụ YAML cơ bản:
+- Security Context trong Kubernetes là cơ chế định nghĩa các thiết lập quyền hạn và kiểm soát truy cập cho Pod hoặc Container, giúp thực thi nguyên tắc least privilege (quyền hạn tối thiểu).
+- Các thuộc tính Security Context có thể set: 
+  - runAsUser/runAsGroup/runAsNonRoot: Chỉ định UID hoặc buộc non-root (true/false).
+  - capabilities: Thêm/drop Linux capabilities (ví dụ: drop ALL để loại bỏ quyền thừa).
+  - seLinuxOptions
+  - Chế độ privileged/unprivileged. Mặc định container chạy ở chế độ `Unprivileged`, bị giới hạn capability Linux, không truy cập thẳng vào device của host và bị áp các cơ chế như cgroups, seccomp, AppArmor/SELinux, cho dù bên trong container có thể đang là user root. Còn `Privileged` là mode mà user root trong container được map với user root trên host, lúc này container gần như có toàn bộ quyền như một tiến trình root chạy trực tiếp trên host ( truy cập hầu hết device trong /dev, load module kernel, chỉnh sysctl, mount filesystem, can thiệp network host,...). Privileged chỉ nên dùng cho các workload đặc biệt như container quản lý hệ thống, cần thao tác trực tiếp kernel/device (ví dụ Docker-in-Docker, driver/hardware tooling). 
+- Security Context có thể định nghĩa ở hai mức: Pod-level (áp dụng cho tất cả container trong Pod) và Container-level (áp dụng riêng cho từng container, ghi đè Pod-level nếu xung đột).​
+- Ví dụ YAML cơ bản:
 
 ```
 spec:
+  volumes:
+    - name: vol
+      emptyDir: {}
   securityContext:
-    runAsUser: 1000  # Chạy với UID 1000 (non-root)
-    runAsGroup: 3000
-    fsGroup: 2000    # Gán group cho shared volumes
+    runAsUser: 1000 #Chạy với user id 1000 (non-root)
+    runAsGroup: #Chạy với main group id 3000
+    fsGroup: 2000 #Gán group cho shared volumes
+  containers:
+    - name: my-pod
+      image: busybox
+      command:
+        - sh
+        - -c
+        - sleep 1d
+      resources: {}
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true #Khi đặt là true, kubelet sẽ kiểm tra user chạy trong container và chỉ cho phép container start nếu UID khác 0. Nếu image được cấu hình để chạy bằng root (UID 0) thì Pod sẽ fail với error “image will run as root”
+        privileged: true #đặt container ở mode Privileged. Mặc định là false
 ```
-Điều này ngăn container chạy root, giảm rủi ro privilege escalation.​
-
-Các thuộc tính chính
-runAsUser/runAsNonRoot: Chỉ định UID hoặc buộc non-root (true/false).
-
-capabilities: Thêm/drop Linux capabilities (ví dụ: drop ALL để loại bỏ quyền thừa).
-
-readOnlyRootFilesystem: true để mount root FS chỉ đọc, hạn chế ghi file.
-
-seccompProfile/appArmorProfile: Áp dụng profile bảo mật hệ thống Linux.​
-
-Internal vs External
-Internal Security Context nằm trong Pod spec (UID, capabilities). External do node-level tools như SELinux thực thi bên ngoài. Sử dụng Pod Security Admission (PSA) thay PSP (deprecated) để enforce cluster-wide.​
-
-Best Practices
-Luôn chạy non-root: runAsNonRoot: true.
-
-Drop capabilities không cần: capabilities: { drop: ["ALL"] }.
-
-Kết hợp với NetworkPolicy và RBAC cho bảo mật toàn diện
+​
