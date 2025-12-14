@@ -637,44 +637,107 @@ spec:
 
 ## 17. Open policy agent (OPA)
 - Là một policy engine mã nguồn mở dùng để hiện thực “policy as code” cho nhiều hệ thống, trong đó Kubernetes là use case rất phổ biến. OPA dùng ngôn ngữ khai báo Rego để mô tả các rule cho phép/từ chối, sau đó đánh giá input dạng JSON (request, config…) và trả về quyết định cho hệ thống gọi nó.​
-- Mục đích của OPA là để hợp nhất việc thực thi policy (security, compliance, governance) cho nhiều thành phần: Kubernetes, microservices, API gateway, CI/CD pipeline, Terraform….​ Giúp enforce các rule chi tiết hơn so với cơ chế sẵn có như RBAC, ví dụ cấm privileged container, bắt buộc gắn label, không cho tạo Service type LoadBalancer ở namespace nào đó, v.v..​
-- Trong Kubernetes OPA thường chạy kèm với một thành phần tích hợp, ví dụ Gatekeeper hay kube-mgmt, để hook vào admission controller của API server.​ Cách hoạt động:
+- Mục đích của OPA là để hợp nhất việc thực thi policy (security, compliance, governance) cho nhiều thành phần: Kubernetes, microservices, API gateway, CI/CD pipeline, Terraform….​ Giúp enforce các rule chi tiết hơn so với cơ chế sẵn có như RBAC, ví dụ:
+  - cấm privileged container
+  - bắt buộc gắn label cụ thể
+  - không cho tạo Service type LoadBalancer ở namespace nào đó
+  - không cho deploy workload vào default namespace
+  - không cho sử dụng image từ các untrusted registry​
+- Trong Kubernetes OPA thường chạy kèm với một thành phần tích hợp, ví dụ OPA Gatekeeper hay kube-mgmt, để hook vào admission controller của API server.​ Luồng hoạt động:
   - Khi người dùng kubectl apply một manifest, API server gửi object đó đi qua chuỗi admission controller (built‑in + dynamic) trước khi ghi vào etcd.
   - OPA (thường thông qua Gatekeeper hoặc kube-mgmt) được triển khai như ValidatingAdmissionWebhook; API server gọi webhook này, gửi JSON của object sang OPA để đánh giá policy.​
   - Khi nhận request, OPA tính toán và trả về “allow/deny” kèm message, admission controller dùng kết quả này để chặn hoặc cho qua request.​
 
 ### 17.1 OPA Gatekeeper
-
-
-
-OPA gatekeeper dùng OPA để make it easier to use with k8s
-
-
-
-OPA gatekeeper dùng để install CDR trong cụm k8s. OPA gatekeeper cài CRD vào cụm k8s, giúp interact dễ dàng với OPA VD Gatekeeper tạo custom resource tên  RequiredLabels (để y/c các label cần sử dụng)
-
-OPA gatekeeper sử dụng 2 khái niệm là constraint template và constraint. 
-
-Trước tiên tạo constraint template để ... -> OPA Gatekeeper sẽ tạo ra CRD
-
-Sau đó tạo constraint với kind là CRD ở trên 
-
-
-- OPA Gatekeeper là một admission controller “bọc” OPA thành dạng Kubernetes‑native để bạn quản lý policy như resource trong cluster.​
-- Gatekeeper dùng OPA ở bên trong nhưng cung cấp thêm các CRD như ConstraintTemplate và Constraint để bạn khai báo policy bằng YAML, apply bằng GitOps giống mọi manifest khác. Nó triển khai validating admission webhook, nghĩa là mọi request tạo/sửa/xóa resource đi vào API server sẽ bị chặn lại và gửi sang Gatekeeper để kiểm tra policy trước khi được ghi vào etcd.​
-
-
-- ConstraintTemplate: định nghĩa “kiểu policy” (Rego + schema các tham số), ví dụ “cấm container chạy privileged”.​
-
-- Constraint: instance cụ thể của template, gắn vào nhóm resource/namespace nào, tham số cụ thể ra sao (list namespace được phép, registry được phép…).​
-
-Tính năng bổ sung: Gatekeeper có cơ chế audit định kỳ, quét toàn cluster để phát hiện resource hiện tại vi phạm constraint (không chỉ request mới), giúp bạn xem độ tuân thủ và dọn dẹp cấu hình cũ. Dự án này là CNCF project, được khuyến nghị làm cách chuẩn để dùng OPA cho Kubernetes admission thay vì tự viết webhook từ đầu.
-
-
-Để cài OPA Gatekeeper cần đảm bảo không có plugin nào enabled ngoài NodeRestriction (check ở /etc/kubernetes/manifest/kube-apiserver.yaml option --enabled-admission-plugin)
+- OPA Gatekeeper là một admission controller “bọc” OPA thành dạng Kubernetes‑native, giúp quản trị viên interact dễ dàng với OPA bằng file yaml, quản lý các policy như resource trong k8s cluster.​
+- Mặc định sau khi cài OPA Gatekeeper ta sẽ có các CRD trong cluster `configs.config.gatekeeper.sh`, `constraintpodstatuses.status.gatekeeper.sh`, `constrainttemplatepodstatuses.status.gatekeeper.sh`, `constrainttemplates.templates.gatekeeper.sh`. Trong đó:
+  - ConstraintTemplate để định nghĩa “kiểu policy” (Rego + schema các tham số), ví dụ “cấm container chạy privileged” ⭢  sau khi ta apply ConstraintTemplate thì OPA Gatekeeper sẽ tạo ra CRD được định nghĩa trong template
+  - Constraint: là instance cụ thể của ConstraintTemplate sử dụng CRD tạo ra từ ConstraintTemplate, gắn vào nhóm resource/namespace nào, tham số cụ thể ra sao (list namespace được phép, registry được phép…).
+- Tính năng bổ sung: Gatekeeper có cơ chế audit định kỳ, quét toàn cluster để phát hiện resource hiện tại vi phạm constraint (không chỉ request mới), giúp bạn xem độ tuân thủ và dọn dẹp cấu hình cũ.
+- Để cài OPA Gatekeeper cần đảm bảo không có plugin nào enabled ngoài NodeRestriction (check ở `/etc/kubernetes/manifest/kube-apiserver.yaml` option `--enabled-admission-plugin`)
 
 ValidatingWebhookConfiguration cho phép tạo admission plugin mà không cần phải register với API server (??)
 
 admission webhook là gì (giống admission controller). OPA gatekeeper tạo custom webhook -> mỗi khi pod được tạo ra đều phải pass qua webhook này
 
 Có 2 loại admission webhook là validate và mutate. OPA chỉ làm việc với validate webhook
+
+```
+apiVersion: templates.gatekeeper.sh/v1beta1
+kind: ConstraintTemplate
+metadata:
+  name: k8salwaysdeny
+spec:
+  crd:
+    spec:
+      names:
+        kind: K8sAlwaysDeny
+      validation:
+        # Schema for the `parameters` field
+        openAPIV3Schema: #đây là các thông tin để tạo CRD. Bất kỳ CRD đều cần các thông tin này
+          properties:
+            message:
+              type: string
+  targets:
+    - target: admission.k8s.gatekeeper.sh
+      rego: | #rego language là ngôn ngữ để tạo policy
+        package k8salwaysdeny
+
+        violation[{"msg": msg}] {
+          1 > 0 #có thể khai báo nhiều condition. Nếu tất cả condition đều true thì sẽ xem là violation, tức pod sẽ bị deny
+          msg := input.parameters.message
+        }
+```
+
+-> Sau khi ta apply ConstraintTemplate thì OPA sẽ tạo ra CRD K8sAlwaysDeny (define ở line 9)
+
+-> Từ đó ta có thể tạo resource với kind là K8sAlwaysDeny
+
+```
+apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: K8sAlwaysDeny
+metadata:
+  name: pod-always-deny
+spec:
+  match:
+    kinds:
+      - apiGroups: [""]
+        kinds: ["Pod"]
+  parameters:
+    message: "ACCESS DENIED!"
+```
+
+
+Lưu ý OPA chỉ deny/allow new pod chứ không remove violated pod
+
+
+
+
+
+- Admission webhook là một web service (HTTP callback) mà kube‑apiserver gọi tới trong giai đoạn admission để kiểm tra hoặc chỉnh sửa request trước khi object được lưu vào etcd.​
+- Admission webhook nhận một object AdmissionReview (chứa toàn bộ resource + metadata request), xử lý theo logic của bạn rồi trả về AdmissionReview response cho apiserver, trong đó cho biết request được phép hay bị từ chối. Có hai loại:​
+
+Mutating admission webhook: được gọi trước, có thể trả về JSONPatch để sửa object (ví dụ inject sidecar, set default field).​
+
+Validating admission webhook: được gọi sau, chỉ có quyền allow/deny (ví dụ enforce policy như Gatekeeper, Kyverno).​
+
+Liên hệ với OPA/Gatekeeper
+Khi dùng OPA Gatekeeper, bản thân Gatekeeper chạy như một admission webhook loại Validating; mỗi request tạo/sửa resource sẽ bị apiserver gửi sang cho Gatekeeper evaluate policy rồi mới quyết định lưu hay không. Điều này cho phép bạn mở rộng khả năng kiểm soát của Kubernetes mà không cần sửa code của apiserver.
+
+
+---
+
+
+g admission webhook là một dạng thực thi cụ thể của admission controller.
+
+Mối quan hệ
+“Admission controller” là khái niệm tổng quát: đó là bước xử lý trong kube‑apiserver, nơi các plugin được gọi để mutate/validate request trước khi ghi vào etcd.
+
+Có hai nhóm plugin: built‑in (viết sẵn trong code apiserver, ví dụ NamespaceLifecycle, ResourceQuota, PodSecurity…) và dynamic mà bạn tự khai báo.
+
+Admission webhook nằm ở đâu
+Admission webhook chính là dynamic admission controller được triển khai bên ngoài apiserver dưới dạng HTTP service; apiserver gọi nó như một plugin trong chuỗi admission.
+
+Cụ thể, hai plugin MutatingAdmissionWebhook và ValidatingAdmissionWebhook là built‑in “khung”, còn mỗi webhook (OPA Gatekeeper, Kyverno, custom webhook bạn viết) là một instance chạy ngoài cluster control‑plane, được cấu hình bằng MutatingWebhookConfiguration/ValidatingWebhookConfiguration.
+
+Tóm lại: mọi admission webhook đều là một phần của cơ chế admission controller, nhưng không phải mọi admission controller đều là webhook (vì còn rất nhiều plugin built‑in chạy nội bộ trong apiserver).
