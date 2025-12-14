@@ -644,7 +644,21 @@ spec:
   - Khi nhận request, OPA tính toán và trả về “allow/deny” kèm message, admission controller dùng kết quả này để chặn hoặc cho qua request.​
 
 ### 17.1 OPA Gatekeeper
-OPA gatekeeper dùng để install CDR trong cụm k8s. VD Gatekeeper tạo custom resource tên  RequiredLabels (để y/c các label cần sử dụng)
+
+
+
+OPA gatekeeper dùng OPA để make it easier to use with k8s
+
+
+
+OPA gatekeeper dùng để install CDR trong cụm k8s. OPA gatekeeper cài CRD vào cụm k8s, giúp interact dễ dàng với OPA VD Gatekeeper tạo custom resource tên  RequiredLabels (để y/c các label cần sử dụng)
+
+OPA gatekeeper sử dụng 2 khái niệm là constraint template và constraint. 
+
+Trước tiên tạo constraint template để ... -> OPA Gatekeeper sẽ tạo ra CRD
+
+Sau đó tạo constraint với kind là CRD ở trên 
+
 
 - OPA Gatekeeper là một admission controller “bọc” OPA thành dạng Kubernetes‑native để bạn quản lý policy như resource trong cluster.​
 - Gatekeeper dùng OPA ở bên trong nhưng cung cấp thêm các CRD như ConstraintTemplate và Constraint để bạn khai báo policy bằng YAML, apply bằng GitOps giống mọi manifest khác. Nó triển khai validating admission webhook, nghĩa là mọi request tạo/sửa/xóa resource đi vào API server sẽ bị chặn lại và gửi sang Gatekeeper để kiểm tra policy trước khi được ghi vào etcd.​
@@ -655,3 +669,12 @@ OPA gatekeeper dùng để install CDR trong cụm k8s. VD Gatekeeper tạo cust
 - Constraint: instance cụ thể của template, gắn vào nhóm resource/namespace nào, tham số cụ thể ra sao (list namespace được phép, registry được phép…).​
 
 Tính năng bổ sung: Gatekeeper có cơ chế audit định kỳ, quét toàn cluster để phát hiện resource hiện tại vi phạm constraint (không chỉ request mới), giúp bạn xem độ tuân thủ và dọn dẹp cấu hình cũ. Dự án này là CNCF project, được khuyến nghị làm cách chuẩn để dùng OPA cho Kubernetes admission thay vì tự viết webhook từ đầu.
+
+
+Để cài OPA Gatekeeper cần đảm bảo không có plugin nào enabled ngoài NodeRestriction (check ở /etc/kubernetes/manifest/kube-apiserver.yaml option --enabled-admission-plugin)
+
+ValidatingWebhookConfiguration cho phép tạo admission plugin mà không cần phải register với API server (??)
+
+admission webhook là gì (giống admission controller). OPA gatekeeper tạo custom webhook -> mỗi khi pod được tạo ra đều phải pass qua webhook này
+
+Có 2 loại admission webhook là validate và mutate. OPA chỉ làm việc với validate webhook
