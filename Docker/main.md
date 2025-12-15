@@ -170,3 +170,9 @@ Trick để exec vào filesystem của container trong trường hợp container
 - Tìm PID của process đang chạy trong container. VD `ps -aux | grep kube-apiserver`
 - truy cập vào filesystem bằng PID. VD `ls /proc/<PID>/root/`
 - Bonus: tìm 1 binary trong file system VD `find /proc/<PID>/root/ | grep kube-apiserver`
+
+---
+
+Khi process trong container chạy ở user root (UID 0 bên trong container) thì cũng sẽ chạy dưới quyền của user root trên host trong trường hợp container chạy rootful (Docker daemon hoặc Kubernetes kubelet chạy bằng root).​
+
+Trong Kubernetes, process root mặc định chạy UID 0 trên host trừ khi securityContext hoặc userNamespaces được cấu hình (alpha feature từ v1.25+). Luôn dùng non-root user/securityContext để giảm rủi ro nếu container bị compromise
