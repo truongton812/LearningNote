@@ -176,3 +176,102 @@ Trick để exec vào filesystem của container trong trường hợp container
 Khi process trong container chạy ở user root (UID 0 bên trong container) thì cũng sẽ chạy dưới quyền của user root trên host trong trường hợp container chạy rootful (Docker daemon hoặc Kubernetes kubelet chạy bằng root).​
 
 Trong Kubernetes, process root mặc định chạy UID 0 trên host trừ khi securityContext hoặc userNamespaces được cấu hình (alpha feature từ v1.25+). Luôn dùng non-root user/securityContext để giảm rủi ro nếu container bị compromise
+
+---
+
+Gitlab CI
+
+```
+build-job:
+  stage: build
+  image: docker:24.0.7
+  services:
+    - docker:24.0.7-dind
+  variables:
+    DOCKER_HOST: tcp://docker:2376
+    DOCKER_TLS_CERTDIR: "/certs"
+  before_script:
+    - docker info
+  script:
+    - aws ecr get-login-password --region ap-southeast-1 | docker login --username AWS --password-stdin 969674608812.dkr.ecr.ap-southeast-1.amazonaws.com
+    - docker build -t 969674608812.dkr.ecr.ap-southeast-1.amazonaws.com/truongton812:v1.0.0 .
+    - docker push 969674608812.dkr.ecr.ap-southeast-1.amazonaws.com/truongton812:v1.0.0
+  tags:
+    - docker
+```
+
+###### Dòng cấu hình: `services: - docker:dind` có nghĩa là trong job build-job này, GitLab runner sẽ chạy thêm một container “phụ” song song với container chính của job — container này cung cấp Docker-in-Docker (tức là chạy Docker daemon bên trong container), giúp pipeline có thể build và chạy Docker bên trong container.
+
+Cách hoạt động:
+- Job build-job được khai báo executor là container (image:docker và tags:docker)
+- Dòng services: - docker:24.0.7-dind tạo thêm một container chạy song song, trong đó có sẵn Docker daemon.
+- Biến DOCKER_HOST: "tcp://docker:2375" (trong variables) giúp container chính kết nối đến Docker daemon của container dind qua network nội bộ, để thực hiện build, tag, push image.
+
+Vì sao cần docker:dind: Khi GitLab Runner dùng executor kiểu Docker, container mặc định không có Docker daemon (nên không thể build image). docker:dind cung cấp môi trường Docker riêng cho pipeline đó. Nếu không khai báo container phụ thì container chính sẽ không thể build được và báo lỗi: `Cannot connect to the Docker daemon at tcp://docker:2375. Is the docker daemon running?`
+
+
+###### giải thích thêm sự khác biệt giữa việc dùng docker:dind và docker socket binding (mount /var/run/docker.sock)
+
+Docker-in-Docker (dind) và Docker socket binding là 2 cách phổ biến để chạy lệnh Docker trong GitLab CI/CD, nhưng khác nhau về kiến trúc và ưu nhược điểm.
+
+Docker-in-Docker (dind): Chạy Docker daemon riêng biệt bên trong container GitLab job.
+
+Ưu điểm:
+- Hoàn toàn cô lập: Mỗi job có Docker daemon riêng, không ảnh hưởng job khác.
+- An toàn hơn: Không chia sẻ quyền với host Docker daemon.
+
+Nhược điểm:
+- Chậm hơn: Mỗi build mất thời gian khởi tạo Docker daemon mới.
+- Không cache: Không tận dụng Docker layer cache của host.
+- Tốn tài nguyên: Cần --privileged mode, chạy 2 container/job.
+- Registry issues: Khó config private registry với self-signed certs.
+
+Docker Socket Binding: Mount socket /var/run/docker.sock từ host vào container job.
+
+Ưu điểm:
+- Nhanh hơn: Dùng trực tiếp Docker daemon của host, tận dụng cache layers.
+- Tiết kiệm tài nguyên: Chỉ 1 Docker daemon cho tất cả jobs.
+- Đơn giản: Không cần services, privileged mode.
+
+Nhược điểm:
+- Bảo mật kém: Container có quyền root trên host Docker daemon (có thể docker rm -f $(docker ps -aq) xóa hết container host).
+- Không cô lập: Các job có thể xung đột (port conflict, image name collision).
+- Phụ thuộc host: Chỉ hoạt động khi runner executor là Docker.
+
+---
+
+Executor trong GitLab CI: là cơ chế thực thi job được định nghĩa trong file config.toml của GitLab Runner. Nó quyết định môi trường nào sẽ chạy các lệnh script trong .gitlab-ci.yml.
+
+Executor giống như "driver" cho Runner: nhận job từ GitLab → chuẩn bị môi trường → chạy script → trả kết quả.
+
+Các loại Executor phổ biến
+1. Shell Executor
+```
+[ GitLab Runner ] → Chạy script trực tiếp trên host machine
+```
+
+Ưu điểm: Nhanh, đơn giản, tận dụng đầy đủ tài nguyên host.
+
+Nhược điểm: Không cô lập (job A ảnh hưởng job B), khó scale.
+
+Dùng khi: Deploy trực tiếp lên server (như server:deploy nếu dùng shell).
+
+2. Docker Executor (phổ biến nhất)
+```
+[ GitLab Runner ] → Tạo container Docker → Chạy job bên trong
+```
+
+Mỗi job chạy trong container riêng với image chỉ định (image: docker:latest).
+
+Ưu điểm: Cô lập tốt, dễ setup môi trường (AWS CLI, Docker sẵn trong image).
+
+Nhược điểm: Cần Docker daemon trên host runner.
+
+3. Kubernetes Executor
+```
+[ GitLab Runner ] → Tạo Pod Kubernetes → Chạy job
+```
+
+Ưu điểm: Scale tự động theo cluster K8s.
+
+Phù hợp môi trường cloud-native như EKS (AWS).
