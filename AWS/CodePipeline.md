@@ -45,6 +45,17 @@ cache:
 
 - Các tên phase như install, pre_build, build, post_build là quy ước chuẩn của AWS CodeBuild. AWS định nghĩa chính xác 4 phase này trong buildspec.yaml theo thứ tự thực thi cố định.​
 
+- Phase install có tác dụng cài đặt môi trường runtime (Python, Docker, Node.js...) và chạy các lệnh setup ban đầu trước khi build. Ví dụ:​
+
+```
+phases:
+  install:
+    runtime-versions:
+      python: 3.12
+      docker: 20
+```
+Chọn phiên bản runtime, quyết định image base AWS dùng: AWS tải đúng image chứa Python 3.12, Docker 20
+
 - artifacts định nghĩa file nào được lưu trữ vào S3 sau build để dùng cho pipeline tiếp theo (CodePipeline/ECS). Nếu không khai báo = không có artifact output
   - files: List file/folder cần lưu
 
