@@ -42,7 +42,7 @@ Các giá trị có thể nhận trong block là Provider/Resource/Variable/Outp
 
 Trong thư mục Terraform có thể có các file
 - *main.tf* : chứa tất cả resource cần tạo
-- *variables.tf* : Khai báo variable                         |
+- *variables.tf* : Khai báo variable                        
 - *outputs.tf* : chứa output từ resources                       
 - *provider.tf* : chứa thông tin provider (VD AWS, Azure, GCP,...) và credential để kết nối đến provider                        
 
