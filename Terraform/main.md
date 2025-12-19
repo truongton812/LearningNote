@@ -347,8 +347,7 @@ Terraform-project/
 
 - Chia nhỏ infrastructure thành các module reusable (vpc, compute, database). Mỗi module có 1 trách nhiệm duy nhất và module không nên gọi module khác trực tiếp
 - Cô Lập Môi Trường: Mỗi environment (dev/staging/prod) có backend riêng. Sử dụng Terraform.tfvars để override variables
-- File main.tf của từng module sẽ refer đến file variables.tf tương ứng trong cùng thư mục. Có thể override variable của module trực tiếp từ file main.tf của environment (hoặc trong main.tf của environment refer đến variables.tf của environment, rồi variables.tf lại refer đến terraform.tfvars)
-
+- File main.tf của từng module sẽ refer đến file variables.tf tương ứng trong cùng thư mục. Có thể override variable của module trực tiếp từ file main.tf của environment (hoặc trong main.tf của environment refer đến variables.tf của environment, rồi ta dungf terraform.tfvars override variables.tf)
 ## 5. Terraform state
 
 Workflow hoạt động của Terraform 
