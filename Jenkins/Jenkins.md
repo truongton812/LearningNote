@@ -51,71 +51,22 @@ Cấu trúc giao diện Credentials của Jenkins
 <img width="1637" height="568" alt="image" src="https://github.com/user-attachments/assets/0cf7b7de-8dce-4b4b-8256-e5a9a2a6d80f" />
 
 - Credential: là tất cả credential trong store `System`:
-   - Store
+   - Store: Tham chiếu đến `Store scoped to Jenkins` ở dưới
    - Domain: có 2 loại là global dùng chung cho mọi job và domain riêng (VD mag, IT project) để giới hạn credential cho từng nhóm job.
 ​   - ID: giá trị để tham chiếu trong Jenkinsfile (ví dụ gitlab-jenkins-token).
 
-- Stores scoped to Jenkins: chỗ lưu lớn nhất, mặc định là Jenkins (toàn server), ngoài ra có thể có store riêng cho folder/job hoặc plugin.
-​
+Như trong hình, credential `gitlab-jenkins-token` nằm ở `Store: System`, `Domain: IT project`
 
-Bên trong mỗi store có System và đôi khi có User; trong System thường có Global credentials (unrestricted) là “domain” mặc định để bạn thêm credential dùng chung nhiều job.
+- Stores scoped to Jenkins: chỗ lưu lớn nhất, có thể là System và đôi khi có User;
+  - Trong System luôn có domain mặc định là `Global credentials (unrestricted)` - là nơi lưu trữ credential dùng chung nhiều job. Khi bấm vào `Global credentials (unrestricted)` rồi Add Credentials, credential sẽ thuộc domain global
+  - Có thể tạo các domain khác như `mag`, `IT project`. Nếu bấm vào domain `IT project` rồi add thì credential chỉ visible cho các job được cấu hình là dùng domain IT project.
 
-Chỉ có 1 store là System, bên trong có 3 domain: (global), mag, IT project.
-
-Khi bạn bấm vào (global) rồi Add Credentials, credential sẽ thuộc domain global (dùng được mọi nơi). Nếu bấm vào IT project rồi add thì credential chỉ visible cho các job được cấu hình là dùng domain IT project.
-​
-
-2. Vì sao đôi khi không thấy credential để chọn?
-Trong hình, gitlab-jenkins-token nằm ở Store: System, Domain: IT project.
-​
-Một số lý do phổ biến khiến dropdown trong job không thấy được credential bạn vừa tạo:
-
-Job đó không dùng domain IT project mà đang dùng domain (global) nên nó không “nhìn” thấy credential trong domain khác.
-​
-
-Credential được tạo với Scope = System chứ không phải Global, nên chỉ Jenkins core dùng được, job không thấy; trong screenshot không nhìn được Scope, nhưng khi mở chi tiết credential bạn kiểm tra lại giúp.
-​
-
-Plugin/SCM bạn đang cấu hình chỉ accept một số loại credential (Kind) nhất định; nếu Kind không khớp (ví dụ tạo Secret text nhưng chỗ đó đang filter Username with password) thì dropdown sẽ ẩn credential đó.
-​
-
-Cách tạo mới credential : Vào: Manage Jenkins → Manage Credentials → System → (global) → Add Credentials.
-
-Nên Chọn Scope = Global trừ khi bạn có lý do bảo mật cụ thể.
-​
-
-
-==============================
-
-
-
-Scope:
-
-Global: dùng được cho mọi job/pipeline trong Jenkins (tiện nhưng kém an toàn).
-​
-
-System: chỉ Jenkins core dùng cho việc nội bộ như email agent, plugin; job bình thường sẽ không thấy các credential scope System.
-​
-​
-
-Sai Scope
-
-Bạn tạo credential với Scope = System, nhưng lại muốn dùng trong job/pipeline → dropdown trong job sẽ không liệt kê credential đó.
-​
-
-Sai Domain / Store
-
-Credential được tạo trong một folder/project store khác (hoặc domain khác), nên job ở chỗ khác sẽ không nhìn thấy.
-​
-
-Sai Kind (loại credential)
-
-Một số plugin chỉ chấp nhận loại nhất định; ví dụ Git (SCM) thường cần Username with password/SSH Username with private key hoặc Secret text token, nếu bạn tạo Secret file hay loại khác thì dropdown sẽ không hiện.
-​
-
-=====================================================
+- Cách tạo mới credential để dùng được mọi nơi : Vào: Manage Jenkins → Manage Credentials → System → (global) → Add Credentials. (Nên Chọn Scope = Global trừ khi bạn có lý do bảo mật cụ thể)​
+- Vì sao đôi khi không thấy credential trong job để chọn
+   - Không đúng domain: Job dùng domain này không thấy credential trong domain khác.
+​   - Không đúng scopre: credential được tạo với Scope = System chứ không phải Global, nên chỉ Jenkins core dùng được, job không thấy. Lưu ý muốn xem Scope của credential phải mở chi tiết credential lên
+​   - Plugin/SCM bạn đang cấu hình chỉ accept một số loại credential (Kind) nhất định; nếu Kind không khớp (ví dụ tạo Secret text nhưng chỗ đó đang filter Username with password) thì dropdown sẽ ẩn credential đó.
 ---
-
 
 ### Get the Output of a Shell Command in a Jenkins Pipeline
 
