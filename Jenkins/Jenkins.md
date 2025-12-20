@@ -1,3 +1,69 @@
+### Để GitLab tự động trigger build Jenkins khi push/merge, cần cấu hình job Jenkins nhận webhook rồi thêm webhook trong GitLab.
+​
+
+1. Chuẩn bị trên Jenkins
+Đảm bảo Jenkins đã truy cập được repo GitLab qua HTTPS + token (như bạn đã làm).
+​
+
+Cài plugin GitLab (và nếu cần cho freestyle job thì thêm GitLab Plugin / GitLab Hook).
+​
+
+Tạo job:
+
+Với Multibranch Pipeline: bạn đã có sẵn, chỉ cần bật trigger webhooks.
+
+Với Pipeline/Freestyle: tạo job, chọn SCM là Git → trỏ repo GitLab.
+​
+
+Bật nhận webhook trong job
+Vào cấu hình job Jenkins:
+
+Nếu dùng plugin GitLab: tick Build when a change is pushed to GitLab (hoặc “Build when a GitLab event occurs”).
+​
+​
+
+Jenkins sẽ hiển thị URL webhook, dạng:
+
+http(s)://<jenkins-host>/project/<job-name> hoặc
+
+http(s)://<jenkins-host>/gitlab-webhook/.
+​
+
+Nếu có reverse proxy (Nginx, Traefik…), bảo đảm Jenkins URL này truy cập được từ GitLab (internet/VPN).
+​
+
+2. Tạo webhook trong GitLab
+Vào project GitLab → Settings → Webhooks.
+​
+
+URL: dán URL nhận webhook của Jenkins ở trên, ví dụ:
+
+https://jenkins.example.com/project/IT-project hoặc https://jenkins.example.com/gitlab-webhook/.
+
+Secret token (nếu Jenkins yêu cầu): copy token từ cấu hình job Jenkins (hoặc Global GitLab config) và dán vào ô Secret Token trong GitLab.
+​
+
+Trigger events: chọn ít nhất
+
+Push events (khi dev push code),
+
+có thể thêm Merge request events nếu muốn build khi mở MR.
+​
+​
+
+Nhấn Add webhook, rồi bấm Test → Push events để GitLab gửi thử request; HTTP code 200 nghĩa là Jenkins nhận OK và job sẽ được trigger.
+​
+
+3. Riêng cho Multibranch Pipeline
+Trong Jenkins Multibranch job → Configure → tab Scan Multibranch Pipeline Triggers.
+
+Tick Scan by webhook hoặc Build when a change is pushed to GitLab (tùy plugin), Jenkins sẽ cung cấp một URL webhook riêng cho multibranch job; dùng URL đó khi tạo webhook ở GitLab như trên.
+​
+​
+
+Nếu bạn gửi thêm screenshot cấu hình job Jenkins
+
+
 ###
 
 gitlab webhook: có thể chọn event để trigger đến từ nhánh nào. Khi đó chỉ khi có sự thay đổi trên nhánh đấy thì gitlab mới gửi hook
