@@ -61,10 +61,10 @@ Tick Scan by webhook hoặc Build when a change is pushed to GitLab (tùy plugin
 ​
 ​
 
-Nếu bạn gửi thêm screenshot cấu hình job Jenkins
+---
 
 
-###
+
 
 gitlab webhook: có thể chọn event để trigger đến từ nhánh nào. Khi đó chỉ khi có sự thay đổi trên nhánh đấy thì gitlab mới gửi hook
 
