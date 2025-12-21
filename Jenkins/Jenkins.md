@@ -1,12 +1,18 @@
-### Cấu hình webhook để GitLab tự động trigger build Jenkins khi push/merge
+### Cấu hình để GitLab tự động trigger build Jenkins khi push/merge
 ​
-1. Chuẩn bị trên Jenkins
+Chuẩn bị trên Jenkins
 - Đảm bảo Jenkins đã truy cập được repo GitLab qua HTTPS + token (tạo token trên GitLab, sau đó thêm credentials trong Jenkins và sử dụng vào trong job/pipeline)
-​- Cài plugin GitLab ⭢ vào System ⭢ Cấu hình Gitlab connection
-- Nếu không cài được plugin thì có thể tạo webhook trong GitLab
-   - Vào project GitLab → Settings → Webhooks.
-​   - URL: dán URL nhận webhook của Jenkins ở trên, ví dụ: `https://jenkins.example.com/project/IT-project`
-   - Secret token (nếu Jenkins yêu cầu): copy token từ cấu hình job Jenkins (hoặc Global GitLab config) và dán vào ô Secret Token trong GitLab.
+​- Cài plugin GitLab (optional) ⭢ vào System ⭢ Cấu hình Gitlab connection. Lưu ý Gitlab plugin cho phép Jenkins dùng API GitLab để update status pipeline vào MR, post comment, lấy danh sách project/branch tự động, hay dùng GitLab Branch Source scan repo, không ảnh hưởng đến trigger build Jenkins tự động
+- Có 2 cách để Gitlab tự động trigger build Jenkins khi push/merge là Intergration và Webhook
+
+a. Cấu hình Intergration
+- Vào project Gitlab ⭢ Setting ⭢ Intergration ⭢ Nhập thông tin xác thực và Jenkins server
+
+b. Cấu hình webhook
+- Trong Jenkins ⭢ User ⭢ Tạo API token (nằm trong Configure hoặc Security tùy phiên bản jenkins) ⭢ Đây là Secret Token sử dụng ở dưới
+- Vào project GitLab → Settings → Webhooks.
+- Nhập thông URL của server Jenkins nhận webhook theo định dạng: `https://<username>:<token>@<jenkins_server>/project/<project_name>`
+- Có thể mask token đi bằng tùy chọn `Add URL masking`
 ​
 ​---
 
