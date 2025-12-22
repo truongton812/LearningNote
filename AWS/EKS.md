@@ -344,3 +344,126 @@ Outputs:
 Cách để pod tương tác với tài nguyên trên AWS
 - Open ID connect provider
 - Pod identity (mới và đơn giản hơn)
+
+
+
+Pod Identity (hay EKS Pod Identity) là tính năng AWS cho phép pods trong EKS cluster assume IAM roles trực tiếp mà không cần IAM Roles for Service Accounts (IRSA). Dưới đây là hướng dẫn chi tiết để pod truy xuất S3 bucket.
+​
+
+Yêu cầu tiên quyết
+EKS cluster version 1.30+ với Pod Identity Agent addon enabled.
+
+AWS CLI v2.15.0+, eksctl v0.166.0+.
+
+kubectl configured với cluster context.
+​
+
+bash
+# Kiểm tra Pod Identity Agent addon
+aws eks describe-addon --cluster-name <cluster-name> --addon-name pod-identity-agent --region <region>
+Bước 1: Tạo IAM Role cho Pod
+text
+# Terraform - IAM Role với Pod Identity trust policy
+resource "aws_iam_role" "s3_pod_role" {
+  name = "s3-pod-identity-role"
+  
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Action = "sts:AssumeRoleWithPodIdentity"
+      Effect = "Allow"
+      Principal = {
+        Federated = "arn:aws:eks:us-west-2::<account-id>:cluster/<cluster-name>"
+      }
+      Condition = {
+        StringEquals = {
+          "k8s.io/pod/namespace" = "default"
+          "k8s.io/pod/name"      = "my-s3-pod"
+        }
+      }
+    }]
+  })
+}
+
+# Attach S3 policy
+resource "aws_iam_role_policy_attachment" "s3_policy" {
+  role       = aws_iam_role.s3_pod_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess"
+}
+Bước 2: Tạo PodIdentityAssociation
+text
+# pod-identity-association.yaml
+apiVersion: podidentity.amazonaws.com/v1beta1
+kind: PodIdentityAssociation
+metadata:
+  name: s3-pod-association
+  namespace: default
+spec:
+  clusterName: <your-eks-cluster-name>
+  namespace: default
+  serviceAccount: my-s3-sa
+  roleArn: arn:aws:iam::<account-id>:role/s3-pod-identity-role
+bash
+kubectl apply -f pod-identity-association.yaml
+kubectl wait --for=condition=Established podidentityassociation/s3-pod-association
+Bước 3: Deploy Pod với ServiceAccount
+text
+# deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: s3-pod
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: s3-pod
+  template:
+    metadata:
+      labels:
+        app: s3-pod
+    spec:
+      serviceAccountName: my-s3-sa  # Phải match với PodIdentityAssociation
+      containers:
+      - name: app
+        image: amazon/aws-cli:latest
+        command: ["/bin/sh"]
+        args: ["-c", "while true; do aws s3 ls s3://my-bucket --region us-west-2; sleep 30; done"]
+bash
+# Tạo ServiceAccount trước
+kubectl create sa my-s3-sa
+
+kubectl apply -f deployment.yaml
+Bước 4: Verify quyền truy xuất
+bash
+# Kiểm tra pod logs
+kubectl logs -f deployment/s3-pod
+
+# Exec vào pod test
+kubectl exec -it deployment/s3-pod -- aws sts get-caller-identity
+kubectl exec -it deployment/s3-pod -- aws s3 ls s3://my-bucket
+
+##### Bảng so sánh Pod Identity vs IRSA
+
+| Tiêu chí              | Pod Identity (EKS)                  | IRSA (OIDC)                          |
+|-----------------------|-------------------------------------|--------------------------------------|
+| **Setup complexity**  | Đơn giản (PodIdentityAssociation)  | Phức tạp (OIDC Provider + annotation)|
+| **Performance**       | Nhanh (Webhook agent)              | Chậm (Token exchange qua OIDC)      |
+| **EKS version**       | 1.30+                              | Tất cả versions                     |
+| **Multiple roles/pod**| Hỗ trợ                             | Không hỗ trợ                        |
+| **Trust policy**      | `sts:AssumeRoleWithPodIdentity`    | `sts:AssumeRoleWithWebIdentity`     |
+| **Cost**              | Miễn phí                           | Miễn phí                            |
+| **Scalability**       | Tốt hơn (agent-based)              | Giới hạn token size                 |
+
+
+Troubleshooting phổ biến
+Lỗi "AccessDenied": Kiểm tra namespace/serviceAccount match chính xác trong condition.
+​
+
+Association không ready: Đợi PodIdentityAgent rollout hoàn tất.
+
+Role không assume được: Verify cluster ARN format đúng.
+​
+
+Pod Identity thay thế IRSA với hiệu suất tốt hơn và setup đơn giản hơn cho EKS workloads.
