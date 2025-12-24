@@ -350,19 +350,15 @@ Cách để pod tương tác với tài nguyên trên AWS
 Pod Identity (hay EKS Pod Identity) là tính năng AWS cho phép pods trong EKS cluster assume IAM roles trực tiếp mà không cần IAM Roles for Service Accounts (IRSA). Dưới đây là hướng dẫn chi tiết để pod truy xuất S3 bucket.
 ​
 
-Yêu cầu tiên quyết
-EKS cluster version 1.30+ với Pod Identity Agent addon enabled.
+Yêu cầu tiên quyết: EKS cluster version 1.30+ với Pod Identity Agent addon enabled.
 
-AWS CLI v2.15.0+, eksctl v0.166.0+.
-
-kubectl configured với cluster context.
-​
-
-bash
-# Kiểm tra Pod Identity Agent addon
+Kiểm tra Pod Identity Agent addon
+```
 aws eks describe-addon --cluster-name <cluster-name> --addon-name pod-identity-agent --region <region>
-Bước 1: Tạo IAM Role cho Pod
-text
+```
+
+#### Bước 1: Tạo IAM Role cho Pod
+```
 # Terraform - IAM Role với Pod Identity trust policy
 resource "aws_iam_role" "s3_pod_role" {
   name = "s3-pod-identity-role"
@@ -390,8 +386,10 @@ resource "aws_iam_role_policy_attachment" "s3_policy" {
   role       = aws_iam_role.s3_pod_role.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess"
 }
-Bước 2: Tạo PodIdentityAssociation
-text
+```
+
+#### Bước 2: Tạo PodIdentityAssociation
+```
 # pod-identity-association.yaml
 apiVersion: podidentity.amazonaws.com/v1beta1
 kind: PodIdentityAssociation
@@ -403,11 +401,14 @@ spec:
   namespace: default
   serviceAccount: my-s3-sa
   roleArn: arn:aws:iam::<account-id>:role/s3-pod-identity-role
-bash
-kubectl apply -f pod-identity-association.yaml
-kubectl wait --for=condition=Established podidentityassociation/s3-pod-association
-Bước 3: Deploy Pod với ServiceAccount
-text
+```
+
+#### Bước 3: Deploy Pod với ServiceAccount
+
+Tạo ServiceAccount: `kubectl create sa my-s3-sa`
+
+Deploy pod với service account vừa tạo
+```
 # deployment.yaml
 apiVersion: apps/v1
 kind: Deployment
@@ -430,19 +431,9 @@ spec:
         image: amazon/aws-cli:latest
         command: ["/bin/sh"]
         args: ["-c", "while true; do aws s3 ls s3://my-bucket --region us-west-2; sleep 30; done"]
-bash
-# Tạo ServiceAccount trước
-kubectl create sa my-s3-sa
+```
 
-kubectl apply -f deployment.yaml
-Bước 4: Verify quyền truy xuất
-bash
-# Kiểm tra pod logs
-kubectl logs -f deployment/s3-pod
 
-# Exec vào pod test
-kubectl exec -it deployment/s3-pod -- aws sts get-caller-identity
-kubectl exec -it deployment/s3-pod -- aws s3 ls s3://my-bucket
 
 ##### Bảng so sánh Pod Identity vs IRSA
 
@@ -457,13 +448,3 @@ kubectl exec -it deployment/s3-pod -- aws s3 ls s3://my-bucket
 | **Scalability**       | Tốt hơn (agent-based)              | Giới hạn token size                 |
 
 
-Troubleshooting phổ biến
-Lỗi "AccessDenied": Kiểm tra namespace/serviceAccount match chính xác trong condition.
-​
-
-Association không ready: Đợi PodIdentityAgent rollout hoàn tất.
-
-Role không assume được: Verify cluster ARN format đúng.
-​
-
-Pod Identity thay thế IRSA với hiệu suất tốt hơn và setup đơn giản hơn cho EKS workloads.
