@@ -184,3 +184,25 @@ http {
 
 }
 ```
+### 3. Tạo HTTPS cho website bằng certbot
+#### 1. Cài đặt Certbot
+```
+sudo apt update  
+sudo apt install certbot python3-certbot-nginx -y
+```
+
+Certbot sẽ lưu cert tại /etc/letsencrypt/live/ và tự động cấu hình Nginx.
+​
+#### 2. Lấy chứng chỉ và cấu hình HTTPS
+Chạy lệnh Certbot với plugin Nginx
+```
+sudo certbot --nginx -d <domain>
+```
+Nhập email, đồng ý terms.
+
+Chọn redirect HTTP sang HTTPS (khuyến nghị).
+Certbot tự thêm server block port 443, cập nhật config vào file cấu hình
+
+Lưu ý khi cài đặt:
+- Server cần mở port 80 để tạo challenge file tạm thời
+- Server block trong Nginx config phải có khai báo server_name trùng với <domain> trong câu lệnh certbot để certbot biết block nào cần modify, từ đó mới tự động chỉnh sửa và thêm SSL được
