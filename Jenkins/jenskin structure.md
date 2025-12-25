@@ -133,13 +133,11 @@ def double = """Hello ${name}"""  // Output: Hello Jenkins
 ```
 // ✅ ĐÚNG - Groovy expand trước
 sh """
-  echo "AMI prefix: ${env.AMI_NAME_PREFIX}"  # → "it-project-20251225"
-  aws ec2 create-image --name "${amiName}"   # Bash nhận giá trị thật
+  aws ec2 create-image --name "${amiName}"   # Bash nhận giá trị thật từ env amiName
 """
 
 // ❌ SAI - Bash nhận literal string  
 sh '''
-  echo "AMI prefix: ${env.AMI_NAME_PREFIX}"  # → "${env.AMI_NAME_PREFIX}"
-  aws ec2 create-image --name "${amiName}"   # Fail!
+  aws ec2 create-image --name "${amiName}"   # Fail do Bash nhận giá trị là chuỗi "amiName"
 '''
 ```
