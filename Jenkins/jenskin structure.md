@@ -141,3 +141,30 @@ sh '''
   aws ec2 create-image --name "${amiName}"   # Fail do Bash nhận giá trị là chuỗi "amiName"
 '''
 ```
+
+---
+
+### 3. Dấu backslash trong Jenkins
+- Dấu \ (backslash) trong Jenkins Pipeline dùng để escape ký tự $ của shell, ngăn Groovy xử lý nhầm thành biến của nó, do Groovy luôn interpolate (thay thế) tất cả ${...} bằng giá trị khai báo trong environment hoặc parameter trước khi gửi xuống shell. 
+- Để shell nhận giá trị từ chính shell thì cần escape bằng backslash để bảo vệ biến 
+- Ví dụ
+```
+pipeline {
+    agent any
+    environment {
+        JENKINS_VAR = "This var is from jenkins"
+    }
+    stages {
+        stage('backslash example') {
+            steps {
+                sh """
+                    BASH_VAR="this var is from bash"
+                    echo $BASH_VAR //❌ lỗi do Jenkins không tìm thấy BASH_VAR trong khai báo environment/parameter
+                    echo \$BASH_VAR //✅ lấy ra được "this var is from bash"
+                    echo $JENKINS_VAR //✅ lấy ra được "This var is from jenkins"
+                """
+            }
+        }
+    }
+}
+```​
