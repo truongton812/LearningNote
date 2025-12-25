@@ -41,17 +41,19 @@ env.NEW_AMI_ID = sh(script: 'aws ec2 describe-images ...', returnStdout: true)  
 
 Lưu ý:
 - env.VAR = ... chỉ được đặt trong script {}
-- Trong script {} chỉ nhận Groovy function calls hoặc Groovy logic, không nhận declarative steps. Do đó không được dùng `sh 'command'` mà phải dùng sh function `sh(script: '...', returnStdout: true)`. VD
+- Trong script {} khi sử dụng biểu thức Groovy hoặc cần lấy giá trị trả về thì không được dùng `sh 'command'` mà phải dùng sh function `sh(script: '...', returnStdout: true)`. VD (tham khảo thêm ở dưới)
 
 Cấu trúc các step trong 1 steps
 ```
 steps {
     sh 'ls'                           // ✅ Step syntax
     script { 
-      result = sh(script: 'ls', returnStdout: true)  //  ✅ OK! Function syntax
-      env.AMI_ID = sh(script: 'aws ec2 create-image ...', returnStdout: true).trim()  // ✅ OK!
+      result = sh(script: 'ls', returnStdout: true)  //  ✅ phải dùng dạng function do đây là biểu thức Groovy
+      env.AMI_ID = sh(script: 'aws ec2 create-image ...', returnStdout: true).trim()  // ✅ hải dùng dạng function do đây là biểu thức Groovy
       sh 'deploy-prod'                // Function call shorthand
-      sh 'aws ec2 ...'  // ❌ LỖI! script {} không nhận "steps"
+      sh "echo hello from sh"              // ✅ Hợp lệ
+      def out = sh(script: 'date', returnStdout: true).trim()  // ✅ Hợp lệ
+      def out = sh "echo hi"  // ❌ không hợp lệ
     }
     script {                // Script là "jailbreak" để chạy Groovy arbitrary code trong declarative pipeline!
       if (env.BRANCH_NAME == 'main') {
@@ -166,5 +168,54 @@ pipeline {
             }
         }
     }
+}​
+```
+
+---
+
+Cần nhớ:
+
+`sh` trong Jenkins là một step, vì vậy chỉ dùng được ở những chỗ Jenkins cho phép gọi steps. Ở một số chỗ, bạn phải gọi sh(...) như hàm Groovy chứ không viết kiểu DSL rút gọn.
+
+Trong Jenkins Pipeline có 2 cách viết `sh`, cả hai đều là gọi Jenkins step sh, chỉ khác syntax và nơi dùng:
+- Kiểu DSL (thường thấy trong Declarative) dùng khi không cần output: `sh "echo hello"`
+- Kiểu function (hàm của Groovy) thường thấy khi dùng trong biểu thức Groovy hoặc cần lấy giá trị trả về returnStdout, returnStatus: `sh(script: 'echo hello', returnStdout: true).trim()`
+
+
+
+Những nơi không dùng được dạng DSL, phải dùng dạng function
+- Trường hợp 1: bên trong biểu thức Groovy (gán biến, toán tử)
+```
+script {
+  // ❌ Sai: DSL không phải là expression Groovy
+  def out = sh "echo hello"    // Jenkins sẽ báo lỗi do Groovy coi sh "..." là một statement DSL, không phải expression để gán.
+
+  // ✅ Đúng: dùng sh(...) như function Groovy
+  def out = sh(script: 'echo hello', returnStdout: true).trim() // đây là gọi hàm trả về string, Groovy hiểu được
+  echo "OUT = ${out}"
 }
-```​
+```
+
+- Trường hợp 2: trong toán tử điều kiện / vòng lặp. Trong if, for, Groovy bắt buộc cần expression trả về value, nên phải dùng sh(...) dạng function với returnStatus hoặc returnStdout.
+```
+script {
+  // ❌ Sai
+  if (sh "test -f /tmp/file") {
+    echo "File exists"
+  }
+
+  // ✅ Đúng
+  if (sh(script: 'test -f /tmp/file', returnStatus: true) == 0) {
+    echo "File exists"
+  }
+
+  // ❌ Sai
+  for (i in sh "ls") { ... }
+
+  // ✅ Đúng
+  def files = sh(script: 'ls', returnStdout: true).trim().split('\n')
+  for (f in files) { echo f }
+}
+```
+
+
