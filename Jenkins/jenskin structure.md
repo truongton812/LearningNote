@@ -41,5 +41,34 @@ env.NEW_AMI_ID = sh(script: 'aws ec2 describe-images ...', returnStdout: true)  
 
 Lưu ý:
 - env.VAR = ... chỉ được đặt trong script {}
-- Trong script{} không được dùng sh mà phải dùng sh function (xem thêm đoạn chat ở dưới)
+- Trong script {} chỉ nhận Groovy function calls hoặc Groovy logic, không nhận declarative steps. Do đó không được dùng `sh 'command'` mà phải dùng sh function `sh(script: '...', returnStdout: true)`. VD
+
+Cấu trúc các step trong 1 steps
+```
+steps {
+    sh 'ls'                           // ✅ Step syntax
+    script { 
+      result = sh(script: 'ls', returnStdout: true)  //  ✅ OK! Function syntax
+      env.AMI_ID = sh(script: 'aws ec2 create-image ...', returnStdout: true).trim()  // ✅ OK!
+      sh 'deploy-prod'                // Function call shorthand
+      sh 'aws ec2 ...'  // ❌ LỖI! script {} không nhận "steps"
+    }
+    withAWS(credentials: 'terraform-user') {
+      script {                 // ✅ Wrap tất cả
+        sh 'aws ec2 create-image ...'
+        env.NEW_AMI_ID = sh(...)  // ✅ Groovy OK trong script {}
+      }
+      sshagent{} // ✅ Có thể đặt 1 plugin khác
+    }
+}
+```
+
+
+| Trong `script {}` | `sh 'command'` | `sh(script: '...')` |
+|-------------------|----------------|---------------------|
+| **Loại** | **Step** (declarative syntax) | **Function** (Groovy method) |
+| **Chạy trên** | Jenkins agent | Groovy sandbox |
+| **Return** | Void (chạy xong) | String/Int (capture output) |
+| **Syntax** | `steps { sh 'ls' }` | `result = sh(script: 'ls', returnStdout: true)` |
+
 - Trong plugin có thể dùng mọi step. VD như sh, script {}, withAWS {}, echo,....  hoàn toàn có thể đặt một with khác (kể cả withAWS{}, withCredentials{}, sshagent{}…) bên trong block withAWS{}/withCredentials{} 
