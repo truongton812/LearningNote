@@ -53,6 +53,13 @@ steps {
       sh 'deploy-prod'                // Function call shorthand
       sh 'aws ec2 ...'  // ❌ LỖI! script {} không nhận "steps"
     }
+    script {                // Script là "jailbreak" để chạy Groovy arbitrary code trong declarative pipeline!
+      if (env.BRANCH_NAME == 'main') {
+        withAWS { sh 'deploy-prod' }
+      } else {
+        sh 'deploy-staging'
+      }
+    }
     withAWS(credentials: 'terraform-user') {
       script {                 // ✅ Wrap tất cả
         sh 'aws ec2 create-image ...'
@@ -72,3 +79,19 @@ steps {
 | **Syntax** | `steps { sh 'ls' }` | `result = sh(script: 'ls', returnStdout: true)` |
 
 - Trong plugin có thể dùng mọi step. VD như sh, script {}, withAWS {}, echo,....  hoàn toàn có thể đặt một with khác (kể cả withAWS{}, withCredentials{}, sshagent{}…) bên trong block withAWS{}/withCredentials{} 
+- sh và script {} trong Jenkins Declarative Pipeline khác nhau hoàn toàn về mục đích và syntax được phép. Script{} trả về Groovy object
+
+```
+steps {
+  sh 'aws ec2 create-image ...'           // Shell command
+  sh(script: 'date', returnStdout: true)  // Lấy output
+  sh 'echo "Hello"'                       // Đơn giản
+  env.VAR = 'value'  // ❌ Lỗi! steps {} không nhận Groovy statements
+  script {
+    env.AMI_ID = sh(script: 'aws ec2 create-image ...', returnStdout: true).trim()
+    if (env.BRANCH_NAME == 'main') {
+      sh 'deploy-prod'
+    }
+    sh 'aws ...'  // ❌ Lỗi! script {} không nhận sh trực tiếp, phải dùng sh() function
+  }
+}
