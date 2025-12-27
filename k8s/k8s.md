@@ -1,3 +1,21 @@
+Cách để khai báo biến môi trường trong container
+```
+apiVersion: v1
+kind: Pod
+metadata:
+  name: my-secure-pod
+spec:
+  containers:
+    - name: my-secure-pod
+      image: bash
+      command: ['sh', '-c', 'curl http://my-service/auth?token=$TOKEN']
+      env:
+        - name: TOKEN
+          value: 12345678abcdefg
+```
+
+
+---
 Giải thích chi tiết sự khác nhau giữa các trường cấu hình etcd
 1. --advertise-client-urls
 Đây là địa chỉ mà node etcd sẽ thông báo cho các client (ví dụ: kube-apiserver, công cụ quản trị, hoặc các node khác) để kết nối tới node etcd này.
