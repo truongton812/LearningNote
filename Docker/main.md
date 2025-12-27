@@ -1,4 +1,10 @@
 
+So sánh container vs VM
+
+<img width="1092" height="511" alt="image" src="https://github.com/user-attachments/assets/91ea8dbe-9c5e-43e6-92b6-45fff57f050c" />
+
+
+
 
 `docker run --rm -v `pwd`:/app --workdir="/app" maven:3.5.3-jdk8-alpine mvn install -DskipTests=true`
 Lệnh này dùng để chạy một container Docker nhằm thực thi quá trình build một dự án Maven trong thư mục hiện tại của hệ điều hành host. Cụ thể:
