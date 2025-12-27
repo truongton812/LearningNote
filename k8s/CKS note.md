@@ -662,6 +662,11 @@ admission webhook là gì (giống admission controller). OPA gatekeeper tạo c
 
 Có 2 loại admission webhook là validate và mutate. OPA chỉ làm việc với validate webhook
 
+Luồng hoạt động là tạo template trước, sau đó tạo constraint từ template đấy
+
+<img width="2183" height="689" alt="image" src="https://github.com/user-attachments/assets/0be0bac1-bc12-423a-9959-13d87da1a4cc" />
+
+
 ```
 apiVersion: templates.gatekeeper.sh/v1beta1
 kind: ConstraintTemplate
@@ -689,13 +694,13 @@ spec:
         }
 ```
 
--> Sau khi ta apply ConstraintTemplate thì OPA sẽ tạo ra CRD K8sAlwaysDeny (define ở line 9)
+-> Sau khi ta apply ConstraintTemplate thì OPA sẽ tạo ra CRD K8sAlwaysDeny (define ở line 9), đồng thời ta có thể get được constrainttemplate tên là k8salwaysdeny
 
--> Từ đó ta có thể tạo resource với kind là K8sAlwaysDeny
+-> Từ đó ta có thể tạo constraint resource với kind là K8sAlwaysDeny
 
 ```
 apiVersion: constraints.gatekeeper.sh/v1beta1
-kind: K8sAlwaysDeny
+kind: K8sAlwaysDeny #tạo constraint resource với kind là K8sAlwaysDeny
 metadata:
   name: pod-always-deny
 spec:
@@ -706,11 +711,11 @@ spec:
   parameters:
     message: "ACCESS DENIED!"
 ```
-
+-> sau khi apply thì ta get được resource  K8sAlwaysDeny tên là pod-always-deny
 
 Lưu ý OPA chỉ deny/allow new pod chứ không remove violated pod
 
-
+**Tự làm require label**
 
 
 
@@ -727,8 +732,9 @@ Khi dùng OPA Gatekeeper, bản thân Gatekeeper chạy như một admission web
 
 ---
 
+(Tìm hiểu thêm về adumission controller)
 
-g admission webhook là một dạng thực thi cụ thể của admission controller.
+admission webhook là một dạng thực thi cụ thể của admission controller.
 
 Mối quan hệ
 “Admission controller” là khái niệm tổng quát: đó là bước xử lý trong kube‑apiserver, nơi các plugin được gọi để mutate/validate request trước khi ghi vào etcd.
@@ -736,8 +742,12 @@ Mối quan hệ
 Có hai nhóm plugin: built‑in (viết sẵn trong code apiserver, ví dụ NamespaceLifecycle, ResourceQuota, PodSecurity…) và dynamic mà bạn tự khai báo.
 
 Admission webhook nằm ở đâu
+
 Admission webhook chính là dynamic admission controller được triển khai bên ngoài apiserver dưới dạng HTTP service; apiserver gọi nó như một plugin trong chuỗi admission.
 
 Cụ thể, hai plugin MutatingAdmissionWebhook và ValidatingAdmissionWebhook là built‑in “khung”, còn mỗi webhook (OPA Gatekeeper, Kyverno, custom webhook bạn viết) là một instance chạy ngoài cluster control‑plane, được cấu hình bằng MutatingWebhookConfiguration/ValidatingWebhookConfiguration.
 
 Tóm lại: mọi admission webhook đều là một phần của cơ chế admission controller, nhưng không phải mọi admission controller đều là webhook (vì còn rất nhiều plugin built‑in chạy nội bộ trong apiserver).
+
+
+## 18. 
