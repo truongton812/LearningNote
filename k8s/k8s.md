@@ -1,3 +1,9 @@
+imagePullSecret là cách để tạo credential cho k8s pull image từ private registry (tìm hiểu thêm)
+Có thể gán vào container hoặc service account (cần xác minh lại)
+
+---
+
+
 Cách để khai báo biến môi trường trong container
 ```
 apiVersion: v1
