@@ -191,13 +191,24 @@ Resources:
 - Một số function thông dụng: Ref, GetAtt, FindInMap, ImportValue, Condition, Base64,...
 
 ### 1. Hàm Ref
-- Dùng để lấy giá trị của 1 resource hoặc parameter
-- VD: Ref của AWS::EC2::Instance là instance ID
+- Là hàm dùng để lấy giá trị của Parameter, Resource hoặc intrinsic function khác.
+  - Với Parameter: Ref trả về giá trị người dùng nhập khi tạo stack. Ví dụ: VpcId: !Ref MyVPCParameter → lấy giá trị từ parameter MyVPCParameter.
+  - Với Resource: Trả về physical ID (identifier chính) của resource đó. Ref láy ra thông tin khác nhau với mỗi resource (tham khảo docs). Ví dụ:
+    - AWS::EC2::VPC → Ref láy ra tên VPC
+    - AWS::EC2::Subnet → Ref láy ra subnet ID
+    - AWS::S3::Bucket → Ref láy ra tên bucket
+    - AWS::EC2::EIP → Ref láy ra IP address
+    - AWS::EC2::Instance → Ref láy ra instance ID
+- Ref luôn trả về scalar value (string, number), không phải object.
 - Do Ref lấy được giá trị của cả resource và parameter ⭢ logical ID của resource và parameter phải khác nhau
 
 ### 2. Hàm GetAtt
-- Dùng để lấy giá trị của thuộc tính cụ thể của một resource sau khi khởi tạo
-- VD
+- Dùng để lấy giá trị của thuộc tính cụ thể của một resource sau khi khởi tạo.
+- Ví dụ:
+  - Lấy ra private IP của EC2 instance: `!GetAtt MyEC2.PrivateIp`
+  - Lấy ra AZ của EC2 instance: `!GetAtt MyInstance.AvailabilityZone`
+  - Lấy ra ARN của S3 bucket: `!GetAtt MyBucket.Arn`
+- VD cụ thể
 ```
 Resources:
   EBSVolume:
@@ -213,21 +224,48 @@ Resources:
 
 ### 4. Hàm Select
 - Dùng để chọn một phần tử cụ thể trong một danh sách dựa trên vị trí index của phần tử đó.
-- Syntax: !Select [index, listOfItems]
-- Ví dụ 1: !Select [1, ["apple", "banana", "cherry"]] sẽ trả về banana vì đó là phần tử index 1.
-- Ví dụ 2: !Select [0 , !GetAZs ""] sẽ trả về  phần tử đầu tiên trong mảng các Availability Zones đó
+- Syntax: `!Select [index, listOfItems]`
+- Ví dụ 1: `!Select [1, ["apple", "banana", "cherry"]]` → trả về banana vì đó là phần tử index 1.
+- Ví dụ 2: `!Select [0 , !GetAZs ""]` → trả về  phần tử đầu tiên trong mảng các Availability Zones đó
 
 ### 5. Hàm Sub
 - Dùng để thay thế biến trong chuỗi bằng giá trị thực tế trong quá trình deploy.
-- Cú pháp: !Sub "chuỗi có ${variable}" . Trong đó ${variable} là biến sẽ được thay thế bằng giá trị tương ứng. Biến có thể là giá trị tham số, giá trị từ stack hoặc một tham số truyền vào.
-- Ví dụ !Sub "${AWS::StackName}-Subnet1" sẽ thay thế ${AWS::StackName} bằng tên stack hiện tại rồi nối thêm "-Subnet1".
+- Syntax: `!Sub "chuỗi có ${variable}"` . Trong đó ${variable} là biến sẽ được thay thế bằng giá trị tương ứng. Biến có thể là giá trị tham số, giá trị từ stack hoặc một tham số truyền vào.
+- Ví dụ `!Sub "${AWS::StackName}-Subnet1"` sẽ thay thế ${AWS::StackName} bằng tên stack hiện tại rồi nối thêm "-Subnet1".
 
 ### 6. Hàm Join
 -  Dùng để nối các giá trị chuỗi thành một chuỗi duy nhất, với một ký tự phân tách (delimiter) giữa các giá trị. Nếu phần phân tách là chuỗi rỗng, các chuỗi sẽ được nối liền nhau không có ký tự ngăn cách.
-- Cú pháp: !Join [ "delimiter", [ "value1", "value2", "value3" ] ]
-- Ví dụ:  !Join [ "-", [ !Ref NamePrefix, !Ref Env, !Ref AWS::Region ] ]
-
-### 7. Hàm GetAZs ""
+- Syntax: `!Join [ "delimiter", [ "value1", "value2", "value3" ] ]`
+- Ví dụ:  `!Join [ "-", [ !Ref NamePrefix, !Ref Env, !Ref AWS::Region ] ]`
+  
+### 7. Hàm Fn::ForEach
+- Dùng để tạo vòng lặp
+- Điều kiện:
+  - Khai báo Transform: AWS::LanguageExtensions ở đầu template.
+  - Deploy stack với --capabilities CAPABILITY_AUTO_EXPAND.
+- Syntax:
+```
+Fn::ForEach::TênLoop:
+  - Identifier          # Biến tạm (như i, SubnetSuffix)
+  - [Collection]        # Danh sách giá trị (array: [1,2] hoặc !Ref Parameter)
+  - Template fragment   # Đoạn code resource dùng ${Identifier}
+```
+- Ví dụ:
+```
+#Tạo 6 subnets + 6 associations + 2 NACLs
+Fn::ForEach::SubnetResources:
+  - Prefix      # "Transit", "Public"
+  - [Transit, Public]
+  - Nacl${Prefix}Subnet:    # Tạo 2 NACLs
+      Type: AWS::EC2::NetworkAcl
+    Fn::ForEach::LoopInner:  # Nested: tạo 3 subnets + associations mỗi nhóm
+      - Suffix
+      - [A, B, C]
+      - ${Prefix}Subnet${Suffix}:  # TransitSubnetA, PublicSubnetB...
+          Type: AWS::EC2::Subnet
+```
+CloudFormation sẽ lặp qua từng phần tử trong Collection, thay ${Identifier} bằng giá trị hiện tại để tạo resource riêng biệt.
+### 8. Hàm GetAZs ""
 - dùng để lấy danh sách các Availability Zones (AZs) của một vùng (region) cụ thể.
 - kết quả trả về một mảng các AZ theo thứ tự chữ cái
 - Cú pháp: !GetAZs "region" . Lưu ý nếu sử dụng chuỗi rỗng thay vì "region" thì sẽ lấy region hiện tại (tương tự dùng !GetAZs: !Ref AWS::Region )
