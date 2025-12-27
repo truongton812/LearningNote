@@ -750,5 +750,83 @@ Cụ thể, hai plugin MutatingAdmissionWebhook và ValidatingAdmissionWebhook l
 Tóm lại: mọi admission webhook đều là một phần của cơ chế admission controller, nhưng không phải mọi admission controller đều là webhook (vì còn rất nhiều plugin built‑in chạy nội bộ trong apiserver).
 
 
-## 18. Secure container runtime
-- Xóa các lệnh không cần thiết `rm -rf /bin/*`
+## 18. Secure image
+- Khi viết Dockerfile có thể xóa các lệnh không cần thiết `rm -rf /bin/*`
+- Dùng các tool như Clair/Trivy, đều là các công cụ mã nguồn mở dùng để scan lỗ hổng bảo mật (CVE) cho container image​
+
+### 18.1 Clair
+- Là engine phân tích lỗ hổng cho image OCI/Docker theo kiểu “service”, expose API để registry hoặc hệ thống khác gửi thông tin layer/image sang cho nó scan.
+- Tập trung vào static analysis, đối chiếu package trong image với nhiều nguồn database CVE (như distro DB, Red Hat DB) và trả về danh sách vulnerability chi tiết, severity, package ảnh hưởng.
+​- Thường được tích hợp phía sau các container registry như Harbor, Quay
+- Setup hơi phức tạp (cần DB riêng, service riêng) và scan chậm hơn, bù lại report khá chi tiết.
+​
+### 18.2 Trivy
+- Là tool scan “all-in-one” do Aqua Security phát triển, hỗ trợ scan container image, filesystem, Git repo, Kubernetes cluster, cloud resource, SBOM… cho cả lỗ hổng, misconfiguration và secrets.
+​- Thiết kế CLI đơn giản (trivy image, trivy fs, trivy k8s), update DB nhanh, scan tốc độ cao nên rất phù hợp nhúng vào CI/CD pipeline để fail build khi có CVE vượt ngưỡng.
+​- Ngoài image, Trivy còn có module kiểm tra IaC (Terraform, K8s YAML) và tạo/scan SBOM nên phạm vi rộng hơn hẳn so với Clair truyền thống
+- Ví dụ dùng Trivy để scan kube-apiserver image `docker run ghcr.io/aquasecurity/trivy:latest image k8s.gcr.io/kube-apiserver:v1.19.3`
+
+| Tiêu chí              | Clair                                   | Trivy                                               |
+|-----------------------|-----------------------------------------|-----------------------------------------------------|
+| Kiểu triển khai       | Service + API, cần DB riêng             | CLI/agent, có thể chạy standalone hoặc trong CI/CD  |
+| Phạm vi scan          | Chủ yếu container image                 | Image, filesystem, repo, K8s, cloud, IaC, SBOM      |
+| Tốc độ                | Thường chậm hơn                         | Nhanh, phù hợp pipeline                             |
+| Mức độ chi tiết       | Report lỗ hổng rất chi tiết             | Chi tiết tốt, thêm misconfig & secrets             |
+| Độ dễ dùng            | Setup phức tạp hơn                      | Cài và dùng rất đơn giản                            |
+| Tích hợp phổ biến     | Harbor, Quay, registry on‑prem          | CI/CD, Kubernetes, nhiều nền tảng khác              |
+
+
+## 19. Kubesec
+- Là một công cụ opensource chuyên phân tích lỗ hổng bảo mật các tệp cấu hình Kubernetes (như YAML manifests cho Pod, Deployment, Service).
+- Kubesec quét và đánh giá rủi ro bảo mật dựa trên các security best practices (chạy container với quyền root, sử dụng image không đáng tin cậy, thiếu giới hạn tài nguyên (CPU/memory), hoặc cấu hình network policy yếu,...), giúp phát hiện lỗ hổng trước khi triển khai.
+- Kubesec có thể chạy bằng
+  - File binary
+  - Docker container
+  - Kubectl plugin
+  - Admission Controller (kubesec-webhook) 
+- Ví dụ sử dụng kubesec dạng container để quét file pod.yaml: `docker run -i kubesec/kubesec:latest scan /dev/stdin < pod.yaml` -> trả về score và các advises
+
+## 20. Conftest OPA
+- Là một công cụ opensource thuộc dự án Open Policy Agent (OPA), dùng để kiểm tra và xác thực các tệp cấu hình có cấu trúc như YAML Kubernetes, Terraform, Dockerfiles hoặc JSON.
+- Conftest sử dụng ngôn ngữ Rego của OPA để viết các policy-as-code, giúp phát hiện vi phạm chính sách bảo mật, tuân thủ hoặc best practices trước khi triển khai. Nó chạy qua CLI với lệnh conftest test file.yaml, báo cáo pass/fail/warn kèm thông báo chi tiết, ví dụ kiểm tra container không chạy root hoặc thiếu resource limits.
+​- Cách sử dụng:
+  - Cài đặt qua `go install github.com/open-policy-agent/conftest@latest`, tạo thư mục policy với file Rego (như policy.rego), rồi chạy `conftest test -p policy/ deployment.yaml`
+  - Hoặc chạy bằng container `docker run --rm -v $(pwd):/project instrumenta/conftest test deploy.yml`​
+- Conftest khác Kubesec ở chỗ dựa vào các policy tự define bằng Rego, có thể xác thực đa định dạng (K8s, TF, Docker,...)
+- Ví dụ define rule kiểm tra securityContext, label và image trước khi triển khai:
+```
+package main
+
+deny[msg] {
+    input.kind == "Deployment"
+    not input.spec.template.spec.securityContext.runAsNonRoot == true
+    msg = "Containers must not run as root"
+}
+
+deny[msg] {
+    input.kind == "Deployment"
+    not input.spec.selector.matchLabels.app
+    msg = "Containers must provide app label for pod selectors"
+}
+
+denylist = [
+    "ubuntu"
+]
+
+deny[msg] {
+    input[i].Cmd == "from"
+    val := input[i].Value
+    contains(val[i], denylist[_])
+
+    msg = sprintf("unallowed image found %s", [val])
+}
+
+```
+
+## 21. Software supply chain secure
+- Là toàn bộ chuỗi “cung ứng” để tạo ra và phân phối một sản phẩm phần mềm: từ mã nguồn của bạn, thư viện open‑source, tool build, CI/CD, registry, đến hạ tầng chạy sản phẩm cho khách hàng.
+- Mỗi mắt xích trong chuỗi (thư viện bên thứ ba, pipeline, image registry, plugin…) đều có thể bị tấn công và trở thành cửa hậu đưa malware vào sản phẩm của bạn.
+​- Các vụ tấn công nổi tiếng như chèn mã độc vào thư viện npm/PyPI hay chiếm quyền build server đều là tấn công vào software supply chain, nên gần đây mới nổi lên các framework như SLSA, NIST SSDF, cùng kỹ thuật ký code, SBOM, scan dependency, ký/verify container image.
+- Trong Kubernetes, best practice là “pin” image bằng digest (SHA‑256 hash) thay vì chỉ dùng tag version, vì digest đảm bảo node luôn kéo đúng một binary image cụ thể, ngay cả khi tag bị đổi hoặc bị xoá trên registry.
+- Cách thực hiện: trong manifest K8s chỉ định image ở dạng `repo/app@sha256:...`​
+
