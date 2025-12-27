@@ -249,6 +249,8 @@ Fn::ForEach::TênLoop:
   - Identifier          # Biến tạm (như i, SubnetSuffix)
   - [Collection]        # Danh sách giá trị (array: [1,2] hoặc !Ref Parameter)
   - Template fragment   # Đoạn code resource dùng ${Identifier}
+
+# CloudFormation sẽ lặp qua từng phần tử trong Collection, thay ${Identifier} bằng giá trị hiện tại để tạo resource riêng biệt.
 ```
 - Ví dụ:
 ```
@@ -264,7 +266,6 @@ Fn::ForEach::SubnetResources:
       - ${Prefix}Subnet${Suffix}:  # TransitSubnetA, PublicSubnetB...
           Type: AWS::EC2::Subnet
 ```
-CloudFormation sẽ lặp qua từng phần tử trong Collection, thay ${Identifier} bằng giá trị hiện tại để tạo resource riêng biệt.
 ### 8. Hàm GetAZs ""
 - dùng để lấy danh sách các Availability Zones (AZs) của một vùng (region) cụ thể.
 - kết quả trả về một mảng các AZ theo thứ tự chữ cái
