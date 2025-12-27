@@ -750,4 +750,5 @@ Cụ thể, hai plugin MutatingAdmissionWebhook và ValidatingAdmissionWebhook l
 Tóm lại: mọi admission webhook đều là một phần của cơ chế admission controller, nhưng không phải mọi admission controller đều là webhook (vì còn rất nhiều plugin built‑in chạy nội bộ trong apiserver).
 
 
-## 18. 
+## 18. Secure container runtime
+- Xóa các lệnh không cần thiết `rm -rf /bin/*`
