@@ -435,7 +435,7 @@ Các bước dưới còn thiếu bước update repo, tìm lại trong vở
 - uncordon node (đứng trên master node)
 
 
-### 13.2 Cch giúp ứng dụng của bạn “sống sót” khi nâng cấp cluster Kubernetes hoặc hạ tầng bên dưới.​
+### 13.2 Cách giúp ứng dụng của bạn “sống sót” khi nâng cấp cluster Kubernetes hoặc hạ tầng bên dưới.​
 
 - Pod terminationGracePeriodSeconds / trạng thái Terminating: cho pod thời gian shutdown sạch sẽ trước khi bị kill.
 - Pod Lifecycle Events: các hook như preStop để chạy logic dọn dẹp / drain kết nối khi pod chuẩn bị bị terminate.
@@ -715,6 +715,31 @@ spec:
 
 Lưu ý OPA chỉ deny/allow new pod chứ không remove violated pod
 
+
+Rule để force phải dùng docker.io registry
+```
+apiversion: templates.gatekeeper.sh/v1beta1
+kind: ConstraintTemplate
+metadata:
+  name: k8strustedimages
+spec:
+  crd:
+    spec:
+      names:
+        kind: K8sTrustedImages
+  targets:
+    - target: admission.k8s.gatekeeper.sh
+      rego: |
+        package k8strustedimages
+
+        violation({"msg": msg}) := {
+            input.review.object.spec.containers
+        } | {
+            img := input.review.object.spec.containers[_].image
+            not startswith(img, "docker.io/")
+            msg := sprintf("img starts with 'docker.io/' not trusted image '%v'", [img])
+        }
+```
 **Tự làm require label**
 
 
@@ -827,6 +852,75 @@ deny[msg] {
 - Là toàn bộ chuỗi “cung ứng” để tạo ra và phân phối một sản phẩm phần mềm: từ mã nguồn của bạn, thư viện open‑source, tool build, CI/CD, registry, đến hạ tầng chạy sản phẩm cho khách hàng.
 - Mỗi mắt xích trong chuỗi (thư viện bên thứ ba, pipeline, image registry, plugin…) đều có thể bị tấn công và trở thành cửa hậu đưa malware vào sản phẩm của bạn.
 ​- Các vụ tấn công nổi tiếng như chèn mã độc vào thư viện npm/PyPI hay chiếm quyền build server đều là tấn công vào software supply chain, nên gần đây mới nổi lên các framework như SLSA, NIST SSDF, cùng kỹ thuật ký code, SBOM, scan dependency, ký/verify container image.
+
+### 21.1. Đảm bảo sử dụng đúng imagẻ
 - Trong Kubernetes, best practice là “pin” image bằng digest (SHA‑256 hash) thay vì chỉ dùng tag version, vì digest đảm bảo node luôn kéo đúng một binary image cụ thể, ngay cả khi tag bị đổi hoặc bị xoá trên registry.
 - Cách thực hiện: trong manifest K8s chỉ định image ở dạng `repo/app@sha256:...`​
 
+## 21.12. ImagePolicyWebhook
+- Là một admission controller tích hợp sẵn trong Kubernetes, dùng để kiểm tra và thực thi chính sách về container images trước khi Pod được tạo. Nó gọi một webhook server bên ngoài để validate images, từ chối những image không tuân thủ quy tắc như từ registry không tin cậy hoặc thiếu tag cụ thể.
+​- Cách hoạt động:
+  - Kubernetes API server nhận request tạo hoặc cập nhật Pod, nếu request pass Authentication/Authorization thì Admission chain chạy → ImagePolicyWebhook được gọi. Controller tạo một ImageReview object từ Pod manifest spec.containers[].image (extract tất cả container images), sau đó ImageReview được serialize thành JSON và POST qua HTTPS đến webhook endpoint (được config trong kubeconfig file của admission config)
+  - Webhook server nhận ImageReview, chạy logic kiểm tra (ví dụ: chỉ allow docker.io, hoặc whitelist registry). Nó trả về ImageReviewStatus với allowed: true/false + reason nếu deny. API server dựa vào đó để accept/reject Pod
+  - Nếu webhook không reachable, API server có thể fail closed (reject) hoặc fail open tùy cấu hình.
+​- Cấu hình cơ bản: Cần enable plugin trong kube-apiserver manifest: `--enable-admission-plugins=ImagePolicyWebhook` và chỉ định `--admission-control-config-file` trỏ đến file AdmissionConfiguration chứa kubeConfigFile cho webhook (lưu ý cần mount các file AdmissionConfiguration, kubeConfigFile, cert, key vào trong container thì mới sử dụng được). Tạo service webhook với TLS (CA bundle), ví dụ cho nginx-only policy.
+- ImageReview là native K8s mechanism - ít linh hoạt hơn nhưng lightweight. ImageReview deprecated dần, khuyến nghị dùng Gatekeeper/OPA cho production
+
+
+file admission_config định nghĩa AdmissionConfiguration
+```
+apiVersion: apiserver.config.k8s.io/v1
+kind: AdmissionConfiguration
+plugins:
+- name: ImagePolicyWebhook
+  configuration:
+    imagePolicy:
+      kubeConfigFile: /etc/kubernetes/admission/kubeconf
+      allowTTL: 50
+      denyTTL: 50
+      retryBackoff: 500
+      defaultAllow: false # control behavior của API server. Khi set là false thì nếu external webhook unreachable API server sẽ không tạo pod. Set là true thì nếu external webhook unreachable API server sẽ cho phép tạo pod
+```
+File kubeconf mà admission_config trỏ đến. File này dùng để lưu thông tin kết nối đến external webhook
+```
+apiVersion: v1
+kind: Config
+clusters: #clusters refers to the remote service
+- cluster:
+    certificate-authority: /etc/kubernetes/admission/external-cert.pem #CA dùng để verify remote service (external webhook)
+    server: https://external-service:1234/check-image  # URL của remote service. Phải dùng https
+  name: image-checker
+
+contexts:
+- name: image-checker-context
+  context:
+    cluster: image-checker
+    user: api-server
+
+current-context: image-checker-context
+
+users:
+- name: api-server
+  user:
+    client-certificate: /etc/kubernetes/admission/api-server-client.pem  # Cert cho admission controller
+    client-key: /etc/kubernetes/admission/api-server-client-key.pem     # Key match cert client
+```
+
+​
+ImageReview object do ImagePolicyWebhook Admission Controller tạo ra
+​
+```
+apiVersion: imagepolicy.k8s.io/v1alpha1
+kind: ImageReview
+spec:
+  containers:
+  - image: myrepo/myimage:v1
+  - image: myrepo/myimage@sha256:bebdb8f14cdc2a8db
+  annotations:
+    mycluster.image-policy.k8s.io/ticket-34: "break-glass"
+    namespace: "myspace"
+```
+
+
+​
+​
