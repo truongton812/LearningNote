@@ -218,6 +218,23 @@ Resources:
       AvailabilityZone: !GetAtt MyInstance.AvailabilityZone
 ```
 
+### 4. Hàm ImportValue
+- Dùng để tham chiếu giá trị export từ stack khác, tạo cross-stack references.
+- Cách hoạt động: Hàm ImportValue lấy export name từ Outputs section của stack cha và inject giá trị tương ứng vào stack hiện tại
+- Syntax: `!ImportValue "export-name"` hoặc `Fn::ImportValue: export-name`. Lưu ý với dynamic value (dùng Sub/Join) thì cần dùng cú pháp `Fn::ImportValue: export-name`
+- Ví dụ:
+  - `!ImportValue !Sub "${ParentStackName}-VPCId"`
+  - `Fn::ImportValue: !Join [":", [!Ref "ParentStackName", "VPCId"]]` 
+
+Lưu ý stack cha phải có Output tương ứng
+```
+Outputs:
+  VPCId:
+    Value: !Ref VPC
+    Export:
+      Name: !Sub "${AWS::StackName}-VPCId"
+```
+
 ### 3. Hàm Base64
 - Dùng để convert string thành base64, thường dùng để đưa data vào EC2 User data
 - User data log được lưu tại /var/log/cloud-init-output.log.
