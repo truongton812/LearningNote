@@ -770,3 +770,16 @@ Bước 7. Thực thi (nếu muốn)
 Sau khi kiểm tra và xác nhận đúng, bấm Execute change set để CloudFormation thực sự bắt đầu tạo stack.
 
 Nếu bạn không muốn triển khai, chỉ cần Delete change set — CloudFormation sẽ không tạo gì cả.
+
+## XX. Gắn default tag cho các resource trong stack
+- Có thể tạo default tag cho các resource được tạo từ AWS CloudFormation bằng cách thêm stack-level tags khi tạo hoặc update stack. Những tag này sẽ tự động được thêm vào resource, giúp tránh phải định nghĩa Tags riêng lẻ cho từng resource.
+​- Cách thêm stack-level tags
+  - Sử dụng AWS Console: Ở phần Tags (cuối trang trước Review), click Add tag và nhập Key/Value (ví dụ: Key: Environment, Value: Production).
+  - Sử dụng CLI: `aws cloudformation create-stack --stack-name MyStack --template-body file://template.yaml --tags file://tags.json`. File tags.json có dạng:
+```
+[
+  {"Key": "Environment", "Value": "Production"},
+  {"Key": "Owner", "Value": "DevOpsTeam"}
+]
+```
+
