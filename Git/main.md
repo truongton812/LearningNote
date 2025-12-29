@@ -1,4 +1,4 @@
-#GIT
+# GIT
 
 ## 1. Basic Concept
 
@@ -14,11 +14,13 @@ Khi sử dụng Git ta có các vùng:
 - Local repository: Lịch sử commit đã lưu vĩnh viễn trên local
 - Remote repository: Là git repository
 
-
-
 ---
-git diff → Xem thay đổi chưa stage (working vs staged)
-git diff --staged → Xem thay đổi đã stage (staged vs commit cuối)
+git diff hiển thị sự khác biệt (diff) giữa các trạng thái trong Git workflow.
+
+- git diff: so sánh Working Directory với Staging Area. Dùng để xem thay đổi chưa git add (màu đỏ trong git status)
+- git diff --staged hoặc git diff --cached → so sánh Staging Area với Last Commit. Dùng để xem những gì sắp commit (màu xanh trong git status)
+- git diff HEAD	→ so sánh Working Directory với Last Commit. Dùng để xem tất cả thay đổi từ commit cuối
+- git diff commit1 commit2	→ so sánh hai commit cụ thể
 
 ---
 Trong Git, HEAD﻿ là con trỏ tham chiếu đến commit hiện tại bạn đang làm việc (commit cuối cùng trên nhánh đang checkout). HEAD﻿ trong Git là một con trỏ đặc biệt thể hiện "vị trí hiện tại bạn đang đứng" trong repository, tức là nó tham chiếu đến:
