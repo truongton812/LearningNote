@@ -1,3 +1,26 @@
+#GIT
+
+## 1. Basic Concept
+
+<img width="1450" height="969" alt="image" src="https://github.com/user-attachments/assets/af3e5195-64fd-46fd-b96e-af6a46837030" />
+
+Khi sử dụng Git ta có các vùng:
+- Workspace (hay còn gọi là Working Directory): nơi chỉnh sửa code thực tế. File ở đây có thể:
+  - Untracked: file mới chưa được git theo dõi. Hiển thị màu đỏ khi `git status`
+  - Modified: là file đã được Git theo dõi (từng git add và commit trước đó) nhưng bị chỉnh sửa lại mà chưa git add lần nữa (tức thay đổi chưa Stage). Hiển thị màu đỏ khi `git status`
+- Staging Area: chứa những file được đưa vào bằng lệnh `git add` và sẵn sàng commit
+  - Chỉ những gì ở stage mới được commit
+  - Hiển thị màu xanh lá khi `git status`
+- Local repository: Lịch sử commit đã lưu vĩnh viễn trên local
+- Remote repository: Là git repository
+
+
+
+---
+git diff → Xem thay đổi chưa stage (working vs staged)
+git diff --staged → Xem thay đổi đã stage (staged vs commit cuối)
+
+---
 Trong Git, HEAD﻿ là con trỏ tham chiếu đến commit hiện tại bạn đang làm việc (commit cuối cùng trên nhánh đang checkout). HEAD﻿ trong Git là một con trỏ đặc biệt thể hiện "vị trí hiện tại bạn đang đứng" trong repository, tức là nó tham chiếu đến:
 
 - Một nhánh (branch) mà bạn đang làm việc, ví dụ như main, develop...
@@ -46,3 +69,37 @@ Ví dụ đơn giản:
 `git log --reverse --pretty=format:"%h %s" mybranch` -> Xác định hash của commit thứ 10 trong danh sách này (có thể đếm thứ tự bằng cách đếm trên màn hình hoặc dùng lệnh)
 
 `git checkout abc1234` -> chuyển sang commit đó 
+
+---
+
+#### Khi bạn đã `git commit` nhưng muốn bỏ commit, vẫn giữ thay đổi trong working tree để sửa/commit lại.
+
+- Xóa 1 commit gần nhất: `git reset --soft HEAD~1` ⭢ Lịch sử mất commit cuối cùng, code vẫn còn và đang ở trạng thái staged.
+​- Xóa nhiều commit (ví dụ 3 commit gần nhất): `git reset --soft HEAD~3`
+
+Nếu muốn bỏ stage (chỉ giữ code trong working directory): `git reset`
+
+#### Khi bạn đã `git commit` nhưng muốn xóa commit và xóa luôn code thay đổi (quay về trạng thái cũ)
+- Xóa commit cuối cùng và vứt luôn thay đổi: `git reset --hard HEAD~1`
+- Xóa toàn bộ commit local chưa push (vứt hết commit/thay đổi local, quay về đúng remote):
+```
+git fetch origin
+git reset --hard origin/branch-name
+```
+​
+---
+
+### Lỗi `[rejected] master -> master (non-fast-forward)`
+- Nguyên nhân là do nhánh master local của bạn đang đi sau nhánh master trên remote (remote master đã có thêm commit mới do ai đó push trước, hoặc bạn clone về lâu rồi không cập nhật), nên không được phép ghi đè lịch sử.
+- Đây là cơ chế để bảo vệ lịch sử của remote do local master của bạn không chứa các commit mới
+- Cách xử lý an toàn (nên dùng)
+```
+git pull --rebase origin master #lấy commit mới từ remote rồi đặt commit local của bạn lên trên lịch sử mới, giữ history đẹp.
+# giải conflict (nếu có), rồi:
+git push origin master
+```
+- Cách ép ghi đè remote (cẩn thận), chỉ dùng khi chắc chắn muốn xoá lịch sử trên remote và thay bằng lịch sử local:
+```
+git push --force origin master
+```
+Lưu ý cách này sẽ khiến các commit đang có trên remote mà bạn chưa pull bị mất, nên không dùng nếu còn người khác đang làm trên repo
