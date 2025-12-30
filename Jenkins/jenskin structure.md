@@ -99,6 +99,9 @@ steps {
 ## 2. Quote trong jenkins
 Trong jenkins, Single quotes dùng cho 1 dòng command đơn giản. Còn triple quotes cần khi multi-line script hoặc complex commands.
 ### 2.1 Single quotes
+
+Có sự khác nhau giữa double và single https://www.perplexity.ai/search/nhung-gi-duoc-phep-chay-trong-UmSSttrMTN.bmKuDGQmKWQ
+
 Ví dụ
 - sh 'echo hello'
 - sh 'echo $BUILD_NUMBER' ->  in ra build number trên jenkins. Nguyên nhân là do Jenkins tự động inject tất cả environment variables (BUILD_NUMBER, JOB_NAME, GIT_COMMIT...) vào global shell environment trước khi chạy sh step (có thể check bằng sh 'env'). Nếu ta mở một shell local bằng sh step thì sẽ thừa hưởng các Jenkins variable từ global shell. Các thay đổi tới variable đấy chỉ có hiệu lực trong local shell (tức step sh đang mở)
