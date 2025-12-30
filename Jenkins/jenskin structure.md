@@ -38,6 +38,7 @@ steps {
 Lưu ý:
 - `env.VAR = ...` chỉ được đặt trong `script {}` do đây là biểu thức Groovy
 - Trong `script {}` khi sử dụng biểu thức Groovy hoặc cần lấy giá trị trả về thì không được dùng `sh 'command'` mà phải dùng sh function `sh(script: '...', returnStdout: true)`. VD (tham khảo thêm ở dưới)
+- sh function `sh(script: '...', returnStdout: true)` có thể đặt trong hoặc ngoài `script{}`. Đặt ngoài `script{}` khi muốn lấy output của command (do sh thường không trả về output)
 
 Cấu trúc các step trong 1 steps
 ```
@@ -69,7 +70,7 @@ steps {
 ```
 
 
-| Trong `script {}` | `sh 'command'` | `sh(script: '...')` |
+|  | `sh 'command'` | `sh(script: '...')` |
 |-------------------|----------------|---------------------|
 | **Loại** | **Step** (declarative syntax) | **Function** (Groovy method) |
 | **Chạy trên** | Jenkins agent | Groovy sandbox |
@@ -90,7 +91,6 @@ steps {
     if (env.BRANCH_NAME == 'main') {
       sh 'deploy-prod'
     }
-    sh 'aws ...'  // ❌ Lỗi! script {} không nhận sh trực tiếp, phải dùng sh() function
   }
 }
 ```
