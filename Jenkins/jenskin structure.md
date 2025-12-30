@@ -19,7 +19,7 @@ pipeline {                          // Level 1: Root (bắt buộc)
 Trong `steps` là các `step`. Step có thể là
 - sh
 - script {}
-- plugin with...{} . VD withCredentials{}. Trong dấu ngoặc { ... }: plugin inject tạm thời các biến môi trường (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, …) cho các step bên trong. Sau dấu }: các biến đó bị xóa khỏi môi trường build, nên các lệnh phía sau không còn quyền / không thấy credential nữa.
+- plugin `with...{}` . VD `withCredentials{}`. Trong dấu ngoặc `{ ... }`: plugin inject tạm thời các biến môi trường (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, …) cho các step bên trong. Sau dấu }: các biến đó bị xóa khỏi môi trường build, nên các lệnh phía sau không còn quyền / không thấy credential nữa.
 
 VD1:
 ```
