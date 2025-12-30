@@ -99,39 +99,20 @@ steps {
 ## 2. Quote trong jenkins
 
 - Trong Jenkins khi gặp single quote và double quote thì Jenkins behaviour sẽ khác nhau khi interpolation (thay thế biến), cần đặc biệt cần lưu ý khi dùng với `sh` steps.
+- Dùng Double Quote khi cần Jenkins env/params, còn dùng Single quotes khi sử dụng pure shell scripts:
 - Lưu ý: Jenkins tự động inject tất cả environment variables (built-in environment như BUILD_NUMBER, JOB_NAME, GIT_COMMIT... và các custom environment) vào global shell environment trước khi chạy sh step (có thể check bằng sh 'env'). Nếu ta mở một shell local bằng sh step thì sẽ thừa hưởng các Jenkins variable từ global shell. Các thay đổi tới variable đấy chỉ có hiệu lực trong local shell (tức step sh đang mở)
 
 ### 2.1. Single quotes (' ')
 - String được coi là literal: Groovy không thay thế biến khi truyền cho Shell, Shell sẽ nhận đúng nội dung literal.
+- Nếu muốn dùng multi-line thì sử dụng triple single quotes (''' '''), khả năng thay thế biến tương tự single quotes
 ​- Ví dụ: `sh 'echo $BUILD_NUMBER'` → Shell nhận: `echo $BUILD_NUMBER` → Tìm trong env của shell, nếu có biến $BUILD_NUMBER thì in ra, nếu không sẽ null
 
 ### 2.2. Double Quotes (" ")
 - Groovy interpolate (thay thế) biến trước khi truyền cho shell, Shell nhận giá trị đã được thay thế
+- Nếu muốn dùng multi-line thì sử dụng triple double quotes (""" """), khả năng thay thế biến tương tự double quotes
 - Ví dụ
   - `sh "echo $BUILD_NUMBER"`           // Groovy → "echo 123" → Shell nhận: echo 123 → Output: 123
   - `sh "echo $env.my_var"` // Interpolate env vars
-
-
-
-- . Ví dụ:
-
-```
-// ✅ ĐÚNG - Groovy expand trước
-sh """
-  aws ec2 create-image --name "${amiName}"   # Bash nhận giá trị thật từ env amiName
-"""
-
-// ❌ SAI - Bash nhận literal string  
-sh '''
-  aws ec2 create-image --name "${amiName}"   # Fail do Bash nhận giá trị là chuỗi "amiName"
-'''
-```
-
-Đúng vậy, 'single quote' và '''triple single quotes''' hoàn toàn giống nhau về cách xử lý interpolation trong Groovy/Jenkins - KHÔNG interpolate biến (literal strings). Chỉ khác ở khả năng multi-line.
-​
-
-Tương tự, "double quote" và """triple double quotes""" giống nhau - CÓ interpolate biến Groovy trước khi truyền cho shell. Cũng chỉ khác multi-line.
-- Triple single quotes dùng cho 1 dòng command đơn giản. Còn triple double quotes cần khi multi-line script hoặc complex commands.
 
 ---
 
