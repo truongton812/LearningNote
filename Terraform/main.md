@@ -609,6 +609,56 @@ resource {
 - Chỉ định nhà cung cấp dịch vụ (provider) cụ thể áp dụng cho tài nguyên/module, hữu ích khi dùng nhiều provider hoặc nhiều cấu hình provider.
 
 
+## 8. Terraform resource references
+
+Resource được tạo bằng Terraform chỉ thuộc về 1 trong 3 type, tùy thuộc vào cách khai báo resource:
+
+### 8.1 Object
+- Là type của single instance, truy cập thuộc tính bằng cách gọi <resource>.<attribute>
+- Ví dụ khi tạo VPC thì type trả về là object có dạng { key = value }
+```
+resource "aws_vpc" "main" {
+  cidr_block = "10.0.0.0/16"
+}
+# aws_vpc.main trả về 1 object có dạng { id = string, arn = string, ... }
+# Truy cập: aws_vpc.main.id → string
+```
+
+### 8.2. Tuple(object) hoặc list(object)
+- Là type khi sử dụng `count = N`
+- Ví dụ khi tạo 2 subnet thì type trả về là tuple có dạng [ {subnet-1}, {subnet-2} ]
+```
+resource "aws_subnet" "public" {
+  count = 2
+  cidr_block = "10.0.${count.index}.0/24"
+}
+# aws_subnet.public → tuple có dạng [ {subnet-1}, {subnet-2} ]
+# Truy cập: aws_subnet.public[0].id → string
+# values(aws_subnet.public)[*].id → ["subnet1", "subnet2"]
+```
+3. for_each = set/map → map(key_type => object)
+text
+resource "aws_subnet" "public" {
+  for_each = toset(["10.0.1.0/24", "10.0.2.0/24"])
+  cidr_block = each.value
+}
+# aws_subnet.public → map(string => object)
+# Truy cập: aws_subnet.public["10.0.1.0/24"].id → string
+# values(aws_subnet.public)[*].id → ["subnet1", "subnet2"]
+Type Constraints đầy đủ
+Iterator	Type	Key Type	Index Syntax	Attribute Syntax
+None	object({...})	N/A	N/A	resource.attr
+count	tuple(object)	N/A	resource[0]	resource[0].attr
+for_each(set)	map(string => object)	string	resource["key"]	resource["key"].attr
+for_each(map)	map(key_type => object)	number/string	resource["key"]	resource["key"].attr
+Terraform Functions để convert
+text
+resource (for_each) → map(object)
+↓ values()
+list(object)
+↓ [*].id  
+list(string)
+KHÔNG có type khác. Luôn là một trong 3 loại trên. Rule này áp dụng cho tất cả providers (AWS, GCP, Azure...).
 
 ## 8. Version constraint
 
