@@ -633,32 +633,97 @@ resource "aws_subnet" "public" {
   cidr_block = "10.0.${count.index}.0/24"
 }
 # aws_subnet.public → tuple có dạng [ {subnet-1}, {subnet-2} ]
-# Truy cập: aws_subnet.public[0].id → string
-# values(aws_subnet.public)[*].id → ["subnet1", "subnet2"]
+# Truy cập để lấy thông tin id của subnet-1: aws_subnet.public[0].id → string
+# Lấy id của tất cả subnet: values(aws_subnet.public)[*].id → ["subnet1", "subnet2"]
 ```
-3. for_each = set/map → map(key_type => object)
-text
+
+### 8.3. Map
+- Là type khi sử dụng `for_each`
+- Ví dụ khi tạo 2 subnet thì type trả về là map có dạng {key1={ }, key2={ }}
+```
+resource "aws_subnet" "public" {
+  for_each = toset(["10.0.1.0/24", "10.0.2.0/24"])
+  vpc_id = aws_vpc.main.id
+  cidr_block = each.value
+}
+# aws_subnet.public → map có dạng {"10.0.1.0/24"={ }, "10.0.2.0/24"={ }}
+# Truy cập để lấy thông tin id của subnet-1: aws_subnet.public["10.0.1.0/24"].id → string
+# Lấy id của tất cả subnet: values(aws_subnet.public)[*].id → ["subnet1", "subnet2"]
+```
+
+So sánh giữa 3 type:
+| Iterator       | Type                  | Key Type     | Index Syntax     | Attribute Syntax            |
+|----------------|-----------------------|--------------|------------------|-----------------------------|
+| None           | `object({...})`       | N/A          | N/A              | `resource.attr`             |
+| `count`        | `tuple(object)`       | N/A          | `resource[0]`    | `resource[0].attr`          |
+| `for_each(set)`| `map(string => object)`| `string`    | `resource["key"]`| `resource["key"].attr`      |
+| `for_each(map)`| `map(key_type => object)`| `number/string`| `resource["key"]`| `resource["key"].attr`   |
+
+### 8.4. Convert từ map thành list
+- Khi làm việc với resource references, thường cần phải convert giữa map → list → primitive để sử dụng trong các argument khác.
+- Conversion Pipeline chuẩn
+```
+Resource (for_each)    → map(object)
+         | 
+         ↓ values()
+list(object)           → [obj1, obj2, obj3]
+         |  
+         ↓ [*].attr  
+list(string)           → ["id1", "id2", "id3"]
+```
+- Chi tiết các bước và các function dùng để chuyển đổi từ map sang list:
+  - values(map): là hàm để chuyển từ map sang list (lấy tất cả values, bỏ keys)
+  - [*].attribute (Splat Operator): dùng để lấy attribute cụ thể từ tất cả objects
+  - concat(list1, list2): là hàm để gộp nhiều lists. VD:
+```
+concat(
+  values(aws_subnet.public)[*].id,
+  values(aws_subnet.private)[*].id)
+→ ["pub1", "pub2", "priv1", "priv2"]
+```
+
+#### Ví dụ thực tế đầy đủ
+```
+# Resource với for_each → map(string => object)
 resource "aws_subnet" "public" {
   for_each = toset(["10.0.1.0/24", "10.0.2.0/24"])
   cidr_block = each.value
 }
-# aws_subnet.public → map(string => object)
-# Truy cập: aws_subnet.public["10.0.1.0/24"].id → string
-# values(aws_subnet.public)[*].id → ["subnet1", "subnet2"]
-Type Constraints đầy đủ
-Iterator	Type	Key Type	Index Syntax	Attribute Syntax
-None	object({...})	N/A	N/A	resource.attr
-count	tuple(object)	N/A	resource[0]	resource[0].attr
-for_each(set)	map(string => object)	string	resource["key"]	resource["key"].attr
-for_each(map)	map(key_type => object)	number/string	resource["key"]	resource["key"].attr
-Terraform Functions để convert
-text
-resource (for_each) → map(object)
-↓ values()
-list(object)
-↓ [*].id  
-list(string)
-KHÔNG có type khác. Luôn là một trong 3 loại trên. Rule này áp dụng cho tất cả providers (AWS, GCP, Azure...).
+
+# Convert để dùng trong EKS
+locals {
+  public_subnet_ids  = values(aws_subnet.public)[*].id      # ["subnet-abc", "subnet-def"]
+  private_subnet_ids = values(aws_subnet.private)[*].id     # ["subnet-xyz", "subnet-uvw"]
+  all_subnets        = concat(local.public_subnet_ids, local.private_subnet_ids)
+}
+
+resource "aws_eks_cluster" "main" {
+  vpc_config {
+    subnet_ids = local.all_subnets  # Dùng được rồi!
+  }
+}
+```
+#### Các functions bổ sung hữu ích
+- keys(map): dùng để lấy tất cả các key của map, output là list(string)
+- length(collection): dùng để đếm số lượng của collection, output là number
+- tolist/toset: dùng để chuyển đổi giữa set và list
+- tomap(object): dùng để chuyển đổi object thành map
+
+#### Debug type bằng type()
+```
+output "debug_types" {
+  value = {
+    raw_resource  = type(aws_subnet.public)
+    after_values  = type(values(aws_subnet.public))
+    after_splat   = type(values(aws_subnet.public)[*].id)
+  }
+}
+# Kết quả:
+# raw_resource = "map(object({...}))"
+# after_values = "list(object({...}))" 
+# after_splat  = "list(string)"
+```
+​
 
 ## 8. Version constraint
 
