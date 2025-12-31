@@ -136,3 +136,14 @@ Trên Linux/Unix, một process chạy với UID 0 (root) về nguyên tắc là
 Nếu chỉ nhìn ở mức phân quyền UNIX truyền thống, process chạy dưới root có thể thực hiện mọi lệnh quản trị và phá hỏng hoặc chiếm quyền toàn bộ hệ thống. Tuy nhiên nhiều hệ thống hiện đại dùng thêm cơ chế như Linux capabilities, SELinux, AppArmor, seccomp, namespaces (container) để “chia nhỏ” hoặc giới hạn quyền của root.
 
 Ví dụ: trong container, process là root nhưng chỉ là “root trong namespace đó”; nó vẫn bị giới hạn bởi kernel và policy của host, nên không nhất thiết làm được tất cả mọi thứ trên host.
+
+##### 13. SSH key
+Có thể ssh vào 1 máy remote bằng key:
+- Tạo private/public key: Dùng ssh-keygen -t rsa trên máy local (client) để sinh cặp khóa.
+​- Dán public key vào authorized_keys: Copy nội dung file id_rsa.pub (hoặc tương tự) vào ~/.ssh/authorized_keys trên máy remote (server), đảm bảo quyền 600/644.
+​- Dùng private key để truy cập: SSH bằng lệnh ssh -i ~/.ssh/id_rsa user@remote-host hoặc cấu hình tự động trong ~/.ssh/config.
+​
+Lưu ý bổ sung: Cần kích hoạt PubkeyAuthentication yes trong /etc/ssh/sshd_config trên server và restart SSH service để đảm bảo hoạt động
+
+Lưu ý không thể làm ngược lại (đặt private key ở máy local còn public key ở máy remote) do SSH authentication yêu cầu private key luôn ở client (máy local) và public key ở server (máy remote). Private key phải bí mật, chỉ client giữ. Server chỉ lưu public key để verify, không bao giờ expose private key.
+
