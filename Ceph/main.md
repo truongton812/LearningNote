@@ -14,3 +14,20 @@ Ceph Metadata Server (MDS): MDS chỉ cần cho CephFS (file system), quản lý
 Ceph Manager (MGR):MGR thu thập metrics, cung cấp dashboard web, REST API, orchestrator (cephadm) tự động deploy daemon. Ít nhất 2 MGR cho HA, tích hợp Prometheus exporter
 
 
+Bootstrap Host (Host 1)
+Khởi động cluster, chạy 3 container: Ceph Monitor (MON daemon) quản lý trạng thái cluster và heartbeat, Ceph Manager (MGR daemon) giám sát metrics/cân bằng, Ceph CLI/Dashboard để quản trị qua giao diện.
+​
+
+Host 2-3 (Monitor/Manager Node)
+Chạy Ceph Monitor và Ceph Manager dự phòng (HA quorum), Node exporter cho Prometheus monitor. Không lưu dữ liệu, chỉ điều phối.
+​
+
+Host 4 (OSD Node)
+Ceph OSD daemon (3 container = 3 OSD) lưu dữ liệu thực tế, xử lý replication/recovery. Node exporter export metrics node. Đây là storage backend thực.
+​
+
+Ceph Orchestrator
+Thành phần quản lý tập trung, chạy trên bootstrap host, điều phối deploy/scale các daemon qua SSH/API tới các host khác mà không cần cài đặt thủ công. Phù hợp Kubernetes (Rook operator) hoặc ceph-ansible.
+​
+
+Kiến trúc này tách rõ control plane (Monitor/Manager) từ data plane (OSD), giống pod control-plane vs worker nodes trên K8s bạn quản lý.
