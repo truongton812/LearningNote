@@ -144,3 +144,22 @@ Cách cung cấp ceph cho cụm promox
 - B2: tạo user có quyền sử dụng pool (bước này đồng thời sinh ra key)
 - B3: copy key vào máy promox cần dùng ceph
 - B4: Trong trang quản lý của promox tạo storage dạng RBD trỏ đến pool ở trên, monitor(s) là list các ceph nodes có cài mon
+
+Tìm hiểu giao thức RBD
+
+Ngoài RBD, Ceph còn có ba “cổng” chính để client kết nối:
+
+1. CephFS (Ceph File System)
+Cung cấp giao thức filesystem POSIX (mount như NFS/EXT4) qua kernel client hoặc FUSE.
+
+Phù hợp chia sẻ file/directory cho app, web server, Hadoop, container…
+
+2. RADOS Gateway (RGW – Object Storage)
+Expose Ceph như object storage với REST API tương thích Amazon S3 và OpenStack Swift.
+
+Dùng cho app cần S3/Swift API (microservice, backup, MinIO-like use case).
+
+3. Native librados / libcephfs APIs
+Ứng dụng có thể gọi librados (C/C++/Java/Python/…​) để truy cập trực tiếp layer RADOS, bỏ qua RBD/RGW/FS.
+
+Dùng khi cần tối ưu performance, custom protocol, hoặc build service tầng trên (VD: tự viết object service).
