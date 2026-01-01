@@ -101,3 +101,15 @@ Tất cả mọi câu lệnh trên đều có thể thực thi trên giao diện
 Cách ceph hoạt động
 - Khi object được lưu vào sẽ được lưu làm 3 bản copy trên 3 node (check lại thông tin)
 - Tìm hiểu về broadcast recovery trong ceph làm cho truy cập ceph chậm và cách xử lý bằng CRUSH map
+
+---
+### CRUSH rule
+- CRUSH rule trong Ceph là tập luật xác định cách dữ liệu được đặt lên các OSD trong toàn bộ cluster, dựa trên cây CRUSH (host, rack, datacenter, class hdd/ssd, v.v.).
+- CRUSH (Controlled Replication Under Scalable Hashing) là thuật toán tính toán vị trí lưu PG/object, tránh phải có central metadata server.
+​- CRUSH rule là “policy” nói cho CRUSH biết cần chọn OSD nào, ở failure domain nào, bao nhiêu replica/chunk.
+​- Ví dụ dùng thực tế:
+  - Bạn có thể tạo một rule cho pool replicated 3 bản sao, yêu cầu mỗi bản nằm trên host khác nhau và chỉ dùng class ssd: ceph osd crush rule create-replicated fast default host ssd.
+​  - Hoặc rule cho pool erasure-coded, chọn OSD trải đều trên nhiều rack, dùng chế độ indep để xử lý khi OSD bị down.
+​- Áp dụng cho pool:
+  - Mỗi pool Ceph sẽ gán với một CRUSH rule; rule này quyết định placement và chiến lược replication/erasure coding của toàn bộ PG trong pool đó.
+​  - Thay đổi rule (hoặc gán rule khác cho pool) sẽ làm Ceph remap lại PG để đáp ứng chính sách mới, ví dụ dàn lại dữ liệu sang SSD hoặc sang DC khác
