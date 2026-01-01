@@ -113,3 +113,34 @@ Cách ceph hoạt động
 ​- Áp dụng cho pool:
   - Mỗi pool Ceph sẽ gán với một CRUSH rule; rule này quyết định placement và chiến lược replication/erasure coding của toàn bộ PG trong pool đó.
 ​  - Thay đổi rule (hoặc gán rule khác cho pool) sẽ làm Ceph remap lại PG để đáp ứng chính sách mới, ví dụ dàn lại dữ liệu sang SSD hoặc sang DC khác
+
+Cách thực sử dụng CRUSH rule:
+- tạo pool (theo hướng dẫn ở trên): `ceph osd pool create pool-hdd 64 64`
+- `ceph osd crush rule ls`: list ra các crush rule
+- `ceph osd crush tree --show-shadow`: show cây crush tree
+- `ceph osd crush rule create-replicated hdd-rule default host hdd`: tạo crush rule . Cú pháp tổng quát `ceph osd crush rule create-replicated <NAME> <ROOT> <FAILURE_DOMAIN> <CLASS>`
+  - Trong đó: hdd-rule:  tên của CRUSH rule (name) – tức là label mà sau này bạn dùng khi tạo/gán pool: --crush-rule hdd-rule, sau này sẽ gán cho pool (ví dụ khi tạo pool: --crush-rule hdd-rule). default: CRUSH root, thường là bucket root mặc định chứa toàn bộ host/OSD (root default trong crush map). 
+  - Giải thích từng tham số (theo cú pháp ceph osd crush rule create-replicated NAME ROOT FAILURE_DOMAIN CLASS).
+    - hdd-rule (NAME): Tên của CRUSH rule, sau này gán cho pool (ví dụ khi ceph osd pool create ... crush_rule=hdd-rule).
+​    - default (ROOT): Root của cây CRUSH, thường là bucket “default” chứa toàn bộ host/OSD trong cluster.
+​    - host (FAILURE_DOMAIN): Failure domain; mỗi replica sẽ được đặt trên host khác nhau để tránh mất dữ liệu nếu một node chết.
+​    - hdd (CLASS): Device class mục tiêu; rule này chỉ chọn các OSD được gắn class hdd (không dùng SSD/NVMe).
+​
+
+Ý nghĩa thực tế: sau khi tạo rule này và gán cho một pool, mọi PG/replica của pool đó sẽ nằm trên các OSD HDD, trải đều trên nhiều host khác nhau, phù hợp làm pool “cold/slow storage” tách riêng với pool SSD.
+
+Trong Ceph, failure domain là một “vùng lỗi” – tức một nhóm tài nguyên mà nếu hỏng thì có thể mất/mất kết nối toàn bộ nhóm đó cùng lúc (ví dụ 1 disk, 1 host, 1 rack, 1 room,…). Ceph dùng failure domain để đảm bảo các bản replica/erasure-chunk của cùng một dữ liệu không nằm trong cùng một vùng lỗi. Ví dụ chọn failure domain là host tức là mỗi replica sẽ nằm trên host vật lý khác nhau; nếu chọn rack thì các replica sẽ nằm ở nhiều rack khác nhau để chịu được sự cố mất cả một rack. Trong CRUSH map, hierarchy có các bucket như osd → host → rack → room → datacenter, và rule sẽ nói “hãy đặt replica trải trên failure domain X”. Khi thiết kế, chọn failure domain càng lớn (rack/room/DC) thì độ bền dữ liệu càng cao nhưng cần nhiều tài nguyên hơn để phân tán
+- `ceph osd pool set pool-hdd crush_rule hdd-rule`: gán pool vào crush rule
+- `ceph osd pool get pool-hdd crush_rule` : kiểm tra xem pool gắn với crush rule nào
+
+<img width="808" height="493" alt="image" src="https://github.com/user-attachments/assets/87cde9c2-5372-41f4-936f-5f739ebc4141" />
+
+Kết quả dữ liệu luôn được lưu vào ổ hdd trên 3 node khác nhau (khác với ví dụ trước là dữ liệu có lưu ở ssd) nếu dùng pool pool-hdd
+
+---
+
+Cách cung cấp ceph cho cụm promox
+- B1: tạo pool
+- B2: tạo user có quyền sử dụng pool (bước này đồng thời sinh ra key)
+- B3: copy key vào máy promox cần dùng ceph
+- B4: Trong trang quản lý của promox tạo storage dạng RBD trỏ đến pool ở trên, monitor(s) là list các ceph nodes có cài mon
