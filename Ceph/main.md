@@ -16,9 +16,9 @@
 Ceph bao gồm các daemon hoạt động phân tán trên nhiều node:
 - Monitors (MON): MON duy trì cluster map (bản đồ trạng thái cụm) chứa thông tin về trạng thái cụm. Trong 1 cụm Ceph thường có 3-5 MON để HA cho nhau. Các MON sử dụng thuật toán đồng thuận Paxos để nhất quán cluster map. 
 Cluster map được lưu dưới dạng key-value trong DB store (như RocksDB). Client và các daemon khác truy vấn cluster map để định vị dữ liệu
-- Object Storage Daemon (OSD): OSD quản lý lưu trữ dữ liệu thực tế trên đĩa, thực hiện replication, erasure coding, rebalancing và tự phục hồi lỗi.
-- Ceph Manager (MGR): MGR cung cấp dịch vụ giám sát, orchestration, dashboard web và plugin quản lý cụm.
-​- Metadata Server (MDS): MDS quản lý metadata cho CephFS (file system), ánh xạ thư mục và tên file vào objects trong RADOS.
+- Object Storage Daemon (OSD): OSD ánh xạ đến disk để lưu trữ dữ liệu(1 OSD = 1 disk), xử lý read/write, replication/recovery, heartbeat với MON/MGR. Số lượng OSD quyết định capacity/performance, dùng erasure coding tiết kiệm dung lượng.
+- Ceph Manager (MGR): MGR thu thập metrics, cung cấp dashboard web, REST API, orchestrator (cephadm) tự động deploy daemon. MGR giám sát và vận hành cluster (MON chỉ lưu giữ thông tin, còn MGR mới là thành phần thực thi). Ít nhất 2 MGR cho HA, tích hợp Prometheus exporter. Khi tương tác với dashboard web đồng nghĩa với tương tác với MGR
+​- Metadata Server (MDS): MDS chỉ cần cho CephFS (file system), quản lý metadata (inode, directory, permission), cache để tránh tải OSD. Không dùng CephFS (object/block) thì không cần deploy MDS.
 - RADOS Gateway (RGW): RGW cung cấp giao diện object storage tương thích S3/Swift, cho phép truy cập RESTful vào RADOS.
 
 #### 1.2.2. Kiến trúc phân lớp
@@ -28,18 +28,16 @@ Ceph cluster có 2 plane là control plane và data plane
 ​
 Luồng hoạt động: Client lấy cluster map từ control plane (MON), sau đó dùng CRUSH tính toán vị trí dữ liệu trên data plane (OSD). 
 
-<img width="1401" height="1080" alt="image" src="https://github.com/user-attachments/assets/3343686d-63c1-4dbe-b4ff-831ed2735575" />​
+Cách Ceph phân bổ daemon
+<img width="1520" height="881" alt="image" src="https://github.com/user-attachments/assets/0a3091dd-bf43-49d1-a800-50298c18e1f8" />
 
-Ceph Monitor (MON): MON lưu thông tin của cluster (bản đồ OSD, MDS, RGW), quản lý các node nào available/unavailable, quản lý quorum (ít nhất 3 MON cho HA), quản lý xác thực daemon/client, giám sát hoạt động của OSD. Chúng đồng bộ qua Paxos, client query MON để biết vị trí dữ liệu.
+Trong cụm Ceph các daemons được phân bổ để đảm bảo high availability (HA), tránh single point of failure và tuân thủ quy tắc quorum cho MON/MGR, với OSD chạy trên tất cả node để cân bằng tải dữ liệu. 
+Ví dụ cluster Ceph với 5 nodes:
+- Triển khai 3 hoặc 5 MON trên các node để đạt quorum
+- 2-3 MGR để đảm bảo cho redundancy, vì MGR hỗ trợ dashboard và orchestration.
+​- OSD được phân bổ đều trên tất cả các node, mỗi node chạy nhiều OSD tương ứng số disk
 ​
-
-Ceph OSD Daemon: OSD ánh xạ đến disk để lưu trữ dữ liệu(1 OSD = 1 disk), xử lý read/write, replication/recovery, heartbeat với MON/MGR. Số lượng OSD quyết định capacity/performance, dùng erasure coding tiết kiệm dung lượng.
 ​
-
-Ceph Metadata Server (MDS): MDS chỉ cần cho CephFS (file system), quản lý metadata (inode, directory, permission), cache để tránh tải OSD. Không dùng CephFS (object/block) thì không deploy MDS.
-​
-
-Ceph Manager (MGR):MGR thu thập metrics, cung cấp dashboard web, REST API, orchestrator (cephadm) tự động deploy daemon. MGR giám sát và vận hành cluster (MON chỉ lưu giữ thông tin, còn MGR mới là thành phần thực thi). Ít nhất 2 MGR cho HA, tích hợp Prometheus exporter. Khi tương tác với dashboard web đồng nghĩa với tương tác với MGR
 
 ---
 Bootstrap Host (Host 1)
