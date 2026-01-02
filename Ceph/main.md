@@ -90,6 +90,24 @@ object_store: bluestore
 
 ### Tạo rule / pool
 - Pool là gì
+
+```
+ pool là “vùng lưu trữ logic” dùng để nhóm và quản lý các object, giống như một namespace hoặc project riêng trong cluster.
+​
+
+Pool là gì
+- Mỗi pool là một tập hợp logic các object; khi client ghi dữ liệu, object luôn gắn với một pool cụ thể (ví dụ rbd, cephfs_data, cephfs_metadata).
+​- Một pool được chia nhỏ thành nhiều Placement Group (PG); mỗi PG lại được CRUSH map lên các OSD, nên dữ liệu của một pool vẫn được phân tán trên toàn cluster.
+​
+Các thuộc tính quan trọng của pool
+- Kiểu bảo vệ dữ liệu: replicated (số replica) hoặc erasure-coded; giá trị này quyết định cách Ceph nhân bản/chia nhỏ dữ liệu.
+- Số lượng PG: tham số pg_num, pgp_num ảnh hưởng tới mức độ phân tán và cân bằng load của pool; mỗi PG chỉ thuộc duy nhất một pool.
+- CRUSH rule: mỗi pool gắn với một CRUSH rule để xác định dữ liệu trong pool đặt ở class nào (hdd/ssd) và failure domain (osd/host/rack).​
+
+Tác dụng thực tế
+- Tách workload: ví dụ một pool HDD cho backup, một pool SSD cho VM/RBD, một pool khác cho CephFS metadata.
+- Kiểm soát policy: có thể set quota, compression, replication size, min_size… theo từng pool, thay vì áp dụng toàn cluster
+```
 - Khi tạo cluster mặc định có pool .mgr
 - `ceph osd pool ls`: liệt kê các pool
 - `ceph osd crush class ls`: liệt kê loại disk là hdd hay sdd
@@ -120,11 +138,12 @@ Cách ceph hoạt động
 - Ví dụ dùng thực tế:
   - Bạn có thể tạo một rule cho pool replicated 3 bản sao, yêu cầu mỗi bản nằm trên host khác nhau và chỉ dùng class ssd: ceph osd crush rule create-replicated fast default host ssd.
   - Hoặc rule cho pool erasure-coded, chọn OSD trải đều trên nhiều rack, dùng chế độ indep để xử lý khi OSD bị down.
-​- Áp dụng cho pool:
+  
+- Áp dụng cho pool:
   - Mỗi pool Ceph sẽ gán với một CRUSH rule; rule này quyết định placement và chiến lược replication/erasure coding của toàn bộ PG trong pool đó.
   - Thay đổi rule (hoặc gán rule khác cho pool) sẽ làm Ceph remap lại PG để đáp ứng chính sách mới, ví dụ dàn lại dữ liệu sang SSD hoặc sang DC khác
 
-Cách thực sử dụng CRUSH rule:
+Cách thức sử dụng CRUSH rule:
 - tạo pool (theo hướng dẫn ở trên): `ceph osd pool create pool-hdd 64 64`
 - `ceph osd crush rule ls`: list ra các crush rule
 - `ceph osd crush tree --show-shadow`: show cây crush tree
@@ -212,3 +231,21 @@ So sánh các loại Ceph storage
 | Block (RBD) | Truy cập raw block device qua CSI driver (như Rook-Ceph), ReadWriteOnce, high IOPS/low latency | Có, khuyến nghị | Database cần hiệu suất cao, ghi ngẫu nhiên nhanh; tích hợp trực tiếp với k8s PV/PVC.[web:11][web:12][web:16] |
 | File (CephFS) | POSIX filesystem, hỗ trợ ReadWriteMany, chia sẻ multi-pod | Không lý tưởng | Tốt cho shared files/home directories, nhưng overhead cao hơn cho DB workload.[web:13][web:16] |
 | Object (RGW/S3) | Object-based qua API (S3/Swift), không mount như filesystem | Không | Dùng cho backups/blobs, không hỗ trợ modify thường xuyên như DB.[web:14][web:16] |
+
+
+--
+
+Object
+
+Trong Ceph, object là đơn vị dữ liệu nhỏ nhất mà cluster lưu trữ và quản lý, giống “file” nhưng ở mức hệ thống phân tán.
+​
+
+Đặc điểm của object
+- Mỗi object có: dữ liệu (payload), tên object (object id) và metadata đi kèm.
+- Object không nằm trực tiếp trên OSD riêng lẻ mà thuộc về một Placement Group (PG), rồi PG đó được CRUSH map tới nhiều OSD khác nhau.
+​
+
+Quan hệ với pool, RBD, CephFS, RGW
+- Khi bạn ghi dữ liệu vào pool (qua RBD, CephFS hoặc S3/RGW), Ceph sẽ chia dữ liệu thành nhiều object.
+- Ví dụ một image RBD 10 GB có thể gồm hàng nghìn object kích thước 4 MB; Ceph quản lý replication/erasure coding trên từng object này giữa các OSD.
+
