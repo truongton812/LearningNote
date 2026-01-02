@@ -1,3 +1,22 @@
+# CEPH
+
+## 1. Giới thiệu
+
+> Ceph là **distributed storage** mã nguồn mở, cho phép lưu trữ mọi dạng dữ liệu object, file, block. Ceph được thiết kế để mở rộng theo chiều ngang, chịu lỗi cao và loại bỏ điểm lỗi đơn
+
+### 1.1. Cách Ceph hoạt động
+- Tất cả dữ liệu – object (như ảnh/video), block (dữ liệu thô cho DB/VM), file (POSIX như thư mục) – đều được phân mảnh thành object nhỏ trong RADOS pool, sau đó Ceph tự động replicate và phân bổ qua CRUSH map. Bạn chỉ cần chọn interface đúng: RGW cho object, RBD cho block, CephFS cho file, mà không cần cluster riêng.
+​
+
+Ví dụ thực tế
+Lưu file log: Mount CephFS như NFS.
+
+Lưu DB data: Attach RBD như EBS volume trên k8s.
+
+Lưu backup S3: Upload qua RGW API.
+
+### 1.2 Các thành phần chính của Ceph
+
 Ceph có 4 thành phần daemon chính: MON, OSD, MDS, MGR, tạo thành control plane và data plane phân tán.
 
 <img width="1401" height="1080" alt="image" src="https://github.com/user-attachments/assets/3343686d-63c1-4dbe-b4ff-831ed2735575" />​
