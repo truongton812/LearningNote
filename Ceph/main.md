@@ -22,23 +22,19 @@ Cluster map được lưu dưới dạng key-value trong DB store (như RocksDB)
 - RADOS Gateway (RGW): RGW cung cấp giao diện object storage tương thích S3/Swift, cho phép truy cập RESTful vào RADOS.
 
 #### 1.2.2. Kiến trúc phân lớp
-Ceph cluster có 2 plane là control plane và data plane
+##### Ceph cluster có 2 plane là control plane và data plane
 - Control plane bao gồm Ceph Monitors (MON) và Managers (MGR), chịu trách nhiệm duy trì cluster map (gồm mon map, OSD map, PG map, MDS map, CRUSH map). MONs không xử lý dữ liệu mà chỉ quản lý trạng thái toàn cục
 - Data plane chủ yếu là OSD Daemons, xử lý lưu trữ objects thực tế trên đĩa, replication/erasure coding, rebalancing và phục hồi dữ liệu theo CRUSH algorithm mà client sử dụng trực tiếp để định vị PGs (placement groups). Client tương tác thẳng với primary OSD mà không qua gateway trung tâm, tăng hiệu suất. MDS/RGW giúp mở rộng data plane cho file/object services
 ​
 Luồng hoạt động: Client lấy cluster map từ control plane (MON), sau đó dùng CRUSH tính toán vị trí dữ liệu trên data plane (OSD). 
 
-Cách Ceph phân bổ daemon
+##### Cách Ceph phân bổ daemon
 <img width="1520" height="881" alt="image" src="https://github.com/user-attachments/assets/0a3091dd-bf43-49d1-a800-50298c18e1f8" />
-
 Trong cụm Ceph các daemons được phân bổ để đảm bảo high availability (HA), tránh single point of failure và tuân thủ quy tắc quorum cho MON/MGR, với OSD chạy trên tất cả node để cân bằng tải dữ liệu. 
 Ví dụ cluster Ceph với 5 nodes:
 - Triển khai 3 hoặc 5 MON trên các node để đạt quorum
 - 2-3 MGR để đảm bảo cho redundancy, vì MGR hỗ trợ dashboard và orchestration.
-​- OSD được phân bổ đều trên tất cả các node, mỗi node chạy nhiều OSD tương ứng số disk
-​
-​
-
+- OSD được phân bổ đều trên tất cả các node, mỗi node chạy nhiều OSD tương ứng số disk
 ---
 Bootstrap Host (Host 1)
 Khởi động cluster, chạy 3 container: Ceph Monitor (MON daemon) quản lý trạng thái cluster và heartbeat, Ceph Manager (MGR daemon) giám sát metrics/cân bằng, Ceph CLI/Dashboard để quản trị qua giao diện.
