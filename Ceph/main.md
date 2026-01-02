@@ -163,3 +163,14 @@ Dùng cho app cần S3/Swift API (microservice, backup, MinIO-like use case).
 Ứng dụng có thể gọi librados (C/C++/Java/Python/…​) để truy cập trực tiếp layer RADOS, bỏ qua RBD/RGW/FS.
 
 Dùng khi cần tối ưu performance, custom protocol, hoặc build service tầng trên (VD: tự viết object service).
+
+---
+
+Ceph object gateway - Rados gateway (RGW)
+
+Các bước:
+- Add label rgw cho host muốn triển khai rgw trong cụm
+- Triển khai rgw lên 2 host: `ceph orch apply rgw myrgw --placement="2 <hostname1> <hostname2>" --port=7480` 
+- Kiểm tra lại bằng `ceph orch ps | grep rgw` và `ceph orch ls rgw`
+- `radosgw-admin zone get`
+- `ceph osd pool ls | grep rgw`
