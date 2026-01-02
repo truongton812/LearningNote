@@ -115,8 +115,9 @@ Cách ceph hoạt động
 ### CRUSH rule
 - CRUSH rule trong Ceph là tập luật xác định cách dữ liệu được đặt lên các OSD trong toàn bộ cluster, dựa trên cây CRUSH (host, rack, datacenter, class hdd/ssd, v.v.).
 - CRUSH (Controlled Replication Under Scalable Hashing) là thuật toán tính toán vị trí lưu PG/object, tránh phải có central metadata server.
-​- CRUSH rule là “policy” nói cho CRUSH biết cần chọn OSD nào, ở failure domain nào, bao nhiêu replica/chunk.
-​- Ví dụ dùng thực tế:
+​- CRUSH rule là “policy” nói cho CRUSH biết cần chọn OSD nào, ở failure domain nào, bao nhiêu replica/chunk
+
+- Ví dụ dùng thực tế:
   - Bạn có thể tạo một rule cho pool replicated 3 bản sao, yêu cầu mỗi bản nằm trên host khác nhau và chỉ dùng class ssd: ceph osd crush rule create-replicated fast default host ssd.
   - Hoặc rule cho pool erasure-coded, chọn OSD trải đều trên nhiều rack, dùng chế độ indep để xử lý khi OSD bị down.
 ​- Áp dụng cho pool:
