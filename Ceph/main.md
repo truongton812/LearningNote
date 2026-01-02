@@ -2,22 +2,31 @@
 
 ## 1. Giới thiệu
 
-> Ceph là **distributed storage** mã nguồn mở, cho phép lưu trữ mọi dạng dữ liệu object, file, block. Ceph được thiết kế để mở rộng theo chiều ngang, chịu lỗi cao và loại bỏ điểm lỗi đơn
+> Ceph là **distributed storage** mã nguồn mở, cho phép lưu trữ mọi dạng dữ liệu object (như ảnh/video), block (dữ liệu thô cho DB/VM), file (POSIX như thư mục). Ceph được thiết kế để mở rộng theo chiều ngang, chịu lỗi cao và loại bỏ điểm lỗi đơn
 
 ### 1.1. Cách Ceph hoạt động
-- Tất cả dữ liệu – object (như ảnh/video), block (dữ liệu thô cho DB/VM), file (POSIX như thư mục) – đều được phân mảnh thành object nhỏ trong RADOS pool, sau đó Ceph tự động replicate và phân bổ qua CRUSH map. Bạn chỉ cần chọn interface đúng: RGW cho object, RBD cho block, CephFS cho file, mà không cần cluster riêng.
+- Tất cả dữ liệu đều được phân mảnh thành object nhỏ (mặc định là 4Mb) trong RADOS pool, sau đó Ceph tự động replicate và tự động phân bổ dữ liệu trên các OSD bằng thuật toán CRUSH. Người dùng chỉ cần chọn interface đúng để sử dụng: RGW cho object, RBD cho block, CephFS cho file​
+- Ví dụ thực tế:
+  - Lưu file log: Mount CephFS như NFS.
+  - Lưu DB data: Attach RBD như EBS volume trên k8s.
+  - Lưu backup S3: Upload qua RGW API.
+
+### 1.2 Kiến trúc 1 cụm Ceph
+#### 1.2.1. Các thành phần chính của Ceph:
+Ceph bao gồm các daemon hoạt động phân tán trên nhiều node:
+- Monitors (MON): MON duy trì cluster map (bản đồ trạng thái cụm) chứa thông tin về trạng thái cụm. Trong 1 cụm Ceph thường có 3-5 MON để HA cho nhau. Các MON sử dụng thuật toán đồng thuận Paxos để nhất quán cluster map. 
+Cluster map được lưu dưới dạng key-value trong DB store (như RocksDB). Client và các daemon khác truy vấn cluster map để định vị dữ liệu
+- Object Storage Daemon (OSD): OSD quản lý lưu trữ dữ liệu thực tế trên đĩa, thực hiện replication, erasure coding, rebalancing và tự phục hồi lỗi.
+- Ceph Manager (MGR): MGR cung cấp dịch vụ giám sát, orchestration, dashboard web và plugin quản lý cụm.
+​- Metadata Server (MDS): MDS quản lý metadata cho CephFS (file system), ánh xạ thư mục và tên file vào objects trong RADOS.
+- RADOS Gateway (RGW): RGW cung cấp giao diện object storage tương thích S3/Swift, cho phép truy cập RESTful vào RADOS.
+
+#### 1.2.2. Kiến trúc phân lớp
+Ceph cluster có 2 plane là control plane và data plane
+- Control plane bao gồm Ceph Monitors (MON) và Managers (MGR), chịu trách nhiệm duy trì cluster map (gồm mon map, OSD map, PG map, MDS map, CRUSH map). MONs không xử lý dữ liệu mà chỉ quản lý trạng thái toàn cục
+- Data plane chủ yếu là OSD Daemons, xử lý lưu trữ objects thực tế trên đĩa, replication/erasure coding, rebalancing và phục hồi dữ liệu theo CRUSH algorithm mà client sử dụng trực tiếp để định vị PGs (placement groups). Client tương tác thẳng với primary OSD mà không qua gateway trung tâm, tăng hiệu suất. MDS/RGW giúp mở rộng data plane cho file/object services
 ​
-
-Ví dụ thực tế
-Lưu file log: Mount CephFS như NFS.
-
-Lưu DB data: Attach RBD như EBS volume trên k8s.
-
-Lưu backup S3: Upload qua RGW API.
-
-### 1.2 Các thành phần chính của Ceph
-
-Ceph có 4 thành phần daemon chính: MON, OSD, MDS, MGR, tạo thành control plane và data plane phân tán.
+Luồng hoạt động: Client lấy cluster map từ control plane (MON), sau đó dùng CRUSH tính toán vị trí dữ liệu trên data plane (OSD). 
 
 <img width="1401" height="1080" alt="image" src="https://github.com/user-attachments/assets/3343686d-63c1-4dbe-b4ff-831ed2735575" />​
 
@@ -193,3 +202,19 @@ Các bước:
 - Kiểm tra lại bằng `ceph orch ps | grep rgw` và `ceph orch ls rgw`
 - `radosgw-admin zone get`
 - `ceph osd pool ls | grep rgw`
+
+---
+Để lưu trữ dữ liệu database trên Kubernetes (k8s), sử dụng Ceph Block storage (RBD - RADOS Block Device) là lựa chọn tối ưu nhất vì nó cung cấp hiệu suất cao, độ trễ thấp và truy cập raw block phù hợp với workload transactional của database như PostgreSQL, MySQL hoặc MongoDB.
+​
+Triển khai trên k8s
+
+Sử dụng Rook operator để deploy Ceph cluster trên k8s, sau đó tạo StorageClass cho RBD provisioner (ví dụ: rook-ceph-block). PVC sẽ map RBD image làm block device, mount vào pod database với volumeMode: Block hoặc Filesystem. Điều này tận dụng tự động scale và replication của Ceph, phù hợp với môi trường DevOps AWS/K8s của bạn
+
+
+So sánh các loại Ceph storage
+
+| Loại storage | Đặc điểm chính | Phù hợp cho database? | Lý do |
+|--------------|----------------|-----------------------|-------|
+| Block (RBD) | Truy cập raw block device qua CSI driver (như Rook-Ceph), ReadWriteOnce, high IOPS/low latency | Có, khuyến nghị | Database cần hiệu suất cao, ghi ngẫu nhiên nhanh; tích hợp trực tiếp với k8s PV/PVC.[web:11][web:12][web:16] |
+| File (CephFS) | POSIX filesystem, hỗ trợ ReadWriteMany, chia sẻ multi-pod | Không lý tưởng | Tốt cho shared files/home directories, nhưng overhead cao hơn cho DB workload.[web:13][web:16] |
+| Object (RGW/S3) | Object-based qua API (S3/Swift), không mount như filesystem | Không | Dùng cho backups/blobs, không hỗ trợ modify thường xuyên như DB.[web:14][web:16] |
