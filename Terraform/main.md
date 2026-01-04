@@ -1417,3 +1417,27 @@ The keys are returned in lexicographical order, ensuring that the result will be
   "d",
 ]
 ```
+
+#### 3. concat
+concat takes two or more lists and combines them into a single list.
+
+```
+> concat(["a", ""], ["b", "c"])
+[
+  "a",
+  "",
+  "b",
+  "c",
+]
+ 
+# Can do multiple lists of mixed types, arguments can also be empty lists
+concat([], [1, "a"], [[3], "c"])
+[
+  1,
+  "a",
+  [
+    3,
+  ],
+  "c",
+]
+```
