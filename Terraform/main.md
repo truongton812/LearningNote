@@ -1386,3 +1386,34 @@ debug_public_subnet_ids = [
   "subnet-0bda880977c130bbf",
 ]
 ```
+---
+
+### Các function phổ biến trong Terraform
+Tham khảo thêm: https://developer.hashicorp.com/terraform/language/functions
+#### 1. Value
+values takes a map and returns a list containing the values of the elements in that map.
+
+The values are returned in lexicographical order by their corresponding keys, so the values will be returned in the same order as their keys would be returned from keys.
+
+```
+> values({a=3, c=2, d=1})
+[
+  3,
+  2,
+  1,
+]
+```
+
+#### 2. key
+keys takes a map and returns a list containing the keys from that map.
+
+The keys are returned in lexicographical order, ensuring that the result will be identical as long as the keys in the map don't change.
+
+```
+> keys({a=1, c=2, d=3})
+[
+  "a",
+  "c",
+  "d",
+]
+```
