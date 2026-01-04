@@ -109,3 +109,108 @@ Kết quả: 1 lệnh duy nhất, chỉ fail nếu lệnh cuối fail
 ​
 
 Kinh nghiệm: Luôn dùng - cho setup env để đảm bảo từng bước thành công trước khi chạy tiếp
+
+---
+
+Các trường before_script, variables, tags, rules, và artifacts là những trường phổ biến nhất ngoài services và id_tokens trong GitLab CI/CD.
+​
+
+before_script & after_script
+- before_script: Chạy trước script chính (setup env, install tools)
+- after_script: Chạy sau script (cleanup, notifications)
+
+```
+before_script:
+  - apk add aws-cli docker    # Install tools
+script:
+  - aws sts get-caller-identity
+after_script:
+  - docker system prune -f    # Cleanup
+```
+
+variables
+- Global/job vars override mặc định, inject env vars
+- Secrets từ GitLab CI/CD variables (protected/masked)
+
+```
+variables:
+  AWS_REGION: "ap-northeast-1"
+  DOCKER_IMAGE: "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHA"
+```
+
+tags & needs
+- tags: Chọn GitLab Runner cụ thể (docker, kubernetes executor)
+- needs: Chạy parallel/thuộc jobs khác (bỏ stage dependency)
+
+```
+build:
+  tags:
+    - docker-runner           # Chọn runner có Docker dind
+deploy:
+  needs: [build]              # Chạy ngay sau build, không đợi stage
+```
+
+rules & artifacts
+- rules: Điều kiện chạy job (if branch, changes files)
+- artifacts: Lưu file giữa jobs/stages (Docker images, reports)
+```
+rules:
+  - if: $CI_COMMIT_BRANCH == "main"
+artifacts:
+  paths:
+    - dist/
+  expire_in: 1 week
+```
+
+
+---
+Giải thích rõ hơn về before_script
+
+before_script chạy luôn luôn trước script, thường dùng để chạy các lệnh setup môi trường trước script chính, giúp install tools, config auth, hoặc load env vars.
+
+Cách sử dụng cơ bản, có 2 cách:
+- Đặt ở global (default cho tất cả jobs)
+- Đặt trong mỗi job
+
+```
+default:
+  before_script:
+    - apk update               # Global setup
+
+job:
+  before_script:
+    - echo "Job-specific setup"
+  script:
+    - echo "Main task"
+```
+
+Lưu ý nếu define cả global và trong job thì before_script của job sẽ ghi đè global (không merge). Ví dụ
+```
+default:
+  before_script:
+    - apk add --no-cache jq    # Global: jq cho tất cả jobs
+
+deploy-ecr:
+  image: docker:stable
+  before_script:              # Override: AWS + Docker specific
+    - apk add --no-cache aws-cli docker-cli
+    - aws configure set region ap-northeast-1
+  script:
+    - aws sts get-caller-identity
+    - docker build .
+
+test-unit:
+  before_script: []           # Skip global, chỉ Python test
+  image: python:3.12
+  script:
+    - pip install -r requirements.txt
+    - pytest
+```
+
+Để kế thừa (merge) global thì dùng !reference (từ GitLab 13.7+)
+```
+deploy-ecr:
+  before_script:
+    - !reference [.default, before_script]  # Kế thừa global
+    - apk add aws-cli                      # Thêm custom
+```
