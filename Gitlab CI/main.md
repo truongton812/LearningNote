@@ -1,3 +1,11 @@
+
+GitLab chỉ đọc file .gitlab-ci.yml ở root directory làm config chính. Pipeline chỉ trigger (được tạo) khi GitLab detect file .gitlab-ci.yml (hoặc tương đương) ở root directory của repo. File ở subdirectory không tự động trigger pipeline
+
+Nếu ở root không có file .gitlab-ci.yml mà chỉ tạo .gitlab-ci.yml trong subdirectory thì khi push thay đổi code trong thư mục đó: pipeline KHÔNG trigger.
+​Nguyên nhân là do GitLab quét root → không thấy config → coi repo không có CI/CD → bỏ qua push, không tạo pipeline.
+​File subdirectory không được tự động đọc như config chính; chỉ dùng qua include hoặc child pipelines từ root
+
+
 Mẫu gitlab-ci.yaml
 ```
 stages:
