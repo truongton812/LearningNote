@@ -386,3 +386,41 @@ Nếu bạn chỉ định tag: linux và image: nginx trong GitLab CI, thì:
 ​- Nếu runner dùng executor là shell, job sẽ chạy trực tiếp trên host mà không qua container, và việc chỉ định tag chỉ giúp chọn runner phù hợp. Nếu runner dùng executor là shell mà bạn chỉ định image trong file .gitlab-ci.yml, thì runner sẽ bỏ qua phần image và job vẫn sẽ chạy trực tiếp trên host (máy chủ), không chạy trong container Docker.
 
 Nếu bạn viết GitLab CI mà không chỉ định tags trong job, thì job đó sẽ có thể được chạy bởi bất kỳ runner nào có sẵn và không bị giới hạn bởi tag cụ thể nào​
+
+
+---
+
+Khối default trong GitLab CI 
+
+Dùng để áp dụng mặc định cho toàn bộ pipeline. Các tùy chọn phổ biến bao gồm:
+
+- image: Chỉ định Docker image mặc định cho các job.
+​- tags: Chỉ định runner tags mặc định.
+- before_script: Các lệnh chạy trước mỗi job.
+- after_script: Các lệnh chạy sau mỗi job.
+- cache: Cấu hình cache mặc định.
+- artifacts: Cấu hình artifact mặc định.
+- retry: Cấu hình số lần retry khi job thất bại.
+- timeout: Thời gian timeout mặc định cho job.
+- interruptible: Cho phép hủy job khi có pipeline mới.​
+
+Ví dụ:
+```
+default:
+  image: alpine:latest
+  tags:
+    - docker
+  before_script:
+    - echo "Setting up environment"
+  after_script:
+    - echo "Cleaning up"
+  cache:
+    paths:
+      - vendor/
+  artifacts:
+    paths:
+      - build/
+  retry: 2
+  timeout: 10 minutes
+  interruptible: true
+```
