@@ -364,3 +364,25 @@ deploy-ecr:
     - !reference [.default, before_script]  # Kế thừa global
     - apk add aws-cli                      # Thêm custom
 ```
+---
+
+Giải thích về tag và image 
+
+"Tag" trong GitLab CI dùng để chỉ định runner nào sẽ xử lý job cụ thể. Ví dụ: nếu bạn đặt tags: [docker], job sẽ chỉ chạy trên runner nào có tag "docker".
+​
+"Image" là hình ảnh Docker mà job sẽ chạy trên đó. Trong file .gitlab-ci.yml, bạn khai báo image: ubuntu:20.04 để chỉ định môi trường chạy job. Đây là nơi chứa các công cụ, thư viện cần thiết để thực thi các bước trong pipeline.
+​
+
+Ví dụ:
+
+Nếu bạn chỉ định tag: linux và image: nginx trong GitLab CI, thì:
+- tag: linux nghĩa là job sẽ chỉ chạy trên các GitLab runner nào được gắn tag là "linux" (tức là runner đó được cấu hình để xử lý các job cần môi trường Linux).
+- image: nginx nghĩa là job sẽ chạy trong một container Docker sử dụng image nginx làm môi trường thực thi, tức là các bước trong job sẽ được thực hiện bên trong một container nginx
+
+
+**nếu chỉ định tag nhưng không chỉ định image trong GitLab CI, thì job sẽ được chạy trên host (máy chủ cài runner) chứ không phải trong container Docker, nhưng điều này chỉ xảy ra nếu runner được cấu hình dùng executor là shell.**
+​
+- Nếu runner dùng executor là docker, thì job luôn chạy trong container, và nếu không chỉ định image, runner sẽ dùng image mặc định được cấu hình trong file config.toml hoặc image mặc định của GitLab (thường là một image cơ bản như alpine).
+​- Nếu runner dùng executor là shell, job sẽ chạy trực tiếp trên host mà không qua container, và việc chỉ định tag chỉ giúp chọn runner phù hợp. Nếu runner dùng executor là shell mà bạn chỉ định image trong file .gitlab-ci.yml, thì runner sẽ bỏ qua phần image và job vẫn sẽ chạy trực tiếp trên host (máy chủ), không chạy trong container Docker.
+
+​
