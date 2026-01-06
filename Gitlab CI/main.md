@@ -63,6 +63,148 @@ GitLab CI tự động áp dụng 3 stages mặc định build, test, deploy n�
 
 
 ---
+### 1. SCOPE CỦA VARIABLES
+
+các biến trong GitLab CI không tự động persist giữa các job/stage. Đặc điểmL
+- Mỗi job chạy trong container/environment riêng biệt, nên biến chỉ có scope cục bộ. Mỗi job luôn chạy trong container riêng biệt, bất kể có cùng stage. Cùng stage chỉ có nghĩa chạy song song.
+
+- Mỗi script (VD before_script, script, after_script) chạy trong 1 shell mới
+
+
+Scope của biến
+
+1. Predefined Variables (Toàn cục)
+
+Các biến built-in như $CI_COMMIT_SHA, $CI_JOB_NAME, $CI_PIPELINE_ID available cho tất cả job trong pipeline.
+​
+
+2. Variables trong .gitlab-ci.yml
+```
+variables:                    # Scope: TOÀN BỘ PIPELINE (mọi job)
+  GLOBAL_VAR: "global"
+
+job1:
+  variables:                  # Scope: CHỈ job1
+    LOCAL_VAR: "local"
+  script:
+    - echo $GLOBAL_VAR      # OK
+    - echo $LOCAL_VAR       # OK
+```
+
+3. Script Variables (Cục bộ nhất)
+```
+script:
+  - export MY_VAR="hello"    # Chỉ trong script của job này, không truyền sang job khác hoặc script khác (như before_script, after_script)
+MY_VAR chỉ tồn tại trong job đó, không truyền sang job khác.
+```
+
+### 2. Cách persist biến giữa các job
+
+#### 2.1 Dùng .env artifacts - Best practice:
+
+`reports: dotenv` tự động load biến từ file .env vào environment của job sau
+
+Cách hoạt động dotenv artifacts
+```
+Job A tạo file → artifacts lưu trữ → Job B download → GitLab parse .env → inject biến
+```
+
+Cú pháp
+```
+build-job:
+  stage: build
+  script:
+    - echo "DB_URL=postgres://user:pass@localhost" > app.env
+    - echo "BUILD_TIME=$(date)" >> app.env
+  artifacts:
+    reports:                    # reports là key bắt buộc
+      dotenv: app.env           # Tên file tùy ý (.env, build.env...)
+
+```
+Job sau tự động có biến:
+```
+deploy-job:
+  stage: deploy
+  needs: ["build-job"]          # Quan trọng: phải needs để nhận artifacts
+  script:
+    - echo "Connecting to $DB_URL"     # ✅ Có sẵn
+    - echo "Built at $BUILD_TIME"      # ✅ Có sẵn
+```
+**Ví dụ**
+```
+build:
+  script:
+    - echo "APP_VERSION=1.2.3" > build.env
+  artifacts:
+    reports:
+      dotenv: build.env     # Job sau nhận $APP_VERSION
+
+deploy:
+  needs: ["build"]
+  script:
+    - echo "Version: $APP_VERSION"  # Có sẵn!
+```
+
+Quy tắc quan trọng
+
+1. File phải format: KEY=value (không quotes)
+2. Chỉ 1 dotenv file per job
+3. Phải dùng `needs: ["job-producer"]` 
+
+
+##### Ví dụ dùng 1 dynamic file cho toàn bộ workflow
+```
+variables:
+  ENV_FILE: "pipeline.env"
+
+generate-config:
+  script:
+    - apk add jq  # Alpine example
+    - |
+      cat > $ENV_FILE << EOF
+      APP_VERSION=$(cat package.json | jq -r .version)
+      GIT_COMMIT=$CI_COMMIT_SHORT_SHA
+      BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+      EOF
+  artifacts:
+    reports:
+      dotenv: $ENV_FILE  # Dynamic filename OK!
+
+docker-build:
+  needs: ["generate-config"]
+  script:
+    - docker build --build-arg VERSION=$APP_VERSION .
+```
+
+### 3. Cách persist biến giữa các scriptt
+1. File-based
+```
+script:
+  - export MY_VAR="hello"
+  - echo "$MY_VAR" > /tmp/myvar.env
+  
+after_script:
+  - export MY_VAR=$(cat /tmp/myvar.env)
+  - echo "After: $MY_VAR"  # ✅ OK: hello
+```
+2. YAML variables (Static values) - Định nghĩa ở đầu job
+```
+variables:
+  MY_VAR: "hello"           # Có sẵn ở tất cả: before/script/after
+
+after_script:
+  - echo "After: $MY_VAR"   # ✅ OK
+```
+3. dotenv artifacts (cách này persist giữa các job luôn - tham khảo mục 2)
+```
+script:
+  - echo "MY_VAR=hello" > vars.env
+artifacts:
+  reports:
+    dotenv: vars.env
+```
+
+---
 Trường services dùng để khai báo các service containers chạy cùng job chính (main container từ image)
 
 Mỗi service có network riêng, job chính tự động connect qua Docker network (localhost)
