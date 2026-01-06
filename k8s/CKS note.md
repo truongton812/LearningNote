@@ -924,3 +924,17 @@ spec:
 
 ​
 ​
+---
+
+## 22. Runtime security - Behavior analytics at host and container level
+
+<img width="1341" height="740" alt="image" src="https://github.com/user-attachments/assets/bbb8a9fd-c142-41ef-b78d-6c761b0c2cbc" />
+
+(hỏi thêm chatgpt về ý nghĩa của ảnh này)
+
+Kernal tương tác với hardware
+
+Syscall interface cung cấp giao diện để tương tác với kernal (vd getpid() hoặc reboot())
+
+Những ai gọi được syscall: ứng dụng gọi trực tiếp hoặc thông qua library (đỡ phải reinvent the wheel)
+
