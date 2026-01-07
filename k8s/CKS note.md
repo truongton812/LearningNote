@@ -932,9 +932,33 @@ spec:
 
 (hỏi thêm chatgpt về ý nghĩa của ảnh này)
 
-Kernal tương tác với hardware
+- Kernal tương tác với hardware
+- Syscall interface cung cấp giao diện để tương tác với kernal (vd getpid(), reboot(), kill(), mkdir(),...)
 
-Syscall interface cung cấp giao diện để tương tác với kernal (vd getpid() hoặc reboot())
+Những ai gọi được syscall: ứng dụng gọi trực tiếp hoặc thông qua library (đỡ phải reinvent the wheel). Lưu ý process trong container cũng có thể gọi được syscall
 
-Những ai gọi được syscall: ứng dụng gọi trực tiếp hoặc thông qua library (đỡ phải reinvent the wheel)
+Để bắt log process gọi syscall ta có thể dùng strace. Strace còn có thể log và hiển thị signal mà process nhận được (log and display signals received by a process ??)
 
+Ví dụ: 
+
+Lệnh `strace ls` để theo dõi và ghi lại tất cả các system call  mà lệnh ls thực hiện khi chạy. Bạn sẽ thấy output dạng:
+
+```
+execve("/bin/ls", ["ls"], 0x7ffd...) = 0
+openat(AT_FDCWD, ".", O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_DIRECTORY) = 3
+getdents64(3, /* 8 entries */, 2048) = 200
+write(1, "file1  file2\n", 12) = 12
+```
+Mỗi dòng thể hiện system call, đối số và kết quả trả về.
+​
+
+Các tùy chọn hữu ích
+
+strace -e trace=file ls: Chỉ theo dõi system call liên quan file.
+​
+
+strace -c ls: Thống kê số lần gọi và thời gian của từng system call.
+​
+
+strace -o trace.log ls: Lưu output vào file để phân tích sau.
+​
