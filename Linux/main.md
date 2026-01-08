@@ -51,7 +51,28 @@ git remote get-url <github_repo_name> | grep -o "\/[a-zA-Z0-9_\-]\+\.git" | sed 
 
 `curl https://secure-ingress.com:31047/service2 --resolve secure-ingress.com:31047:34.105.246.184` -> gọi đến IP 34.105.246.184 bằng domain secure-ingress.com:31047
 
-### Thêm ổ vào server
+### Giải thích về storage trong linux
+Các khái niệm
+
+1. Ổ đĩa (Disk): Là thiết bị lưu trữ vật lý hoặc ảo (ví dụ: SSD, HDD, ổ đĩa ảo trong cloud). Có thể chia thành nhiều phân vùng và mỗi phân vùng có thể được định dạng, gắn kết (mount) để sử dụng.
+​
+2. Phân vùng (Partition): Là một vùng logic được chia ra từ một ổ đĩa vật lý hoặc ảo, giúp tổ chức dữ liệu theo mục đích (hệ điều hành, dữ liệu, boot, EFI...). Mỗi phân vùng có thể được định dạng thành hệ thống tập tin (filesystem) riêng biệt và mount vào một thư mục.
+​
+3. Volume: Volume là một đơn vị lưu trữ logic, có thể là một phân vùng hoặc một tập hợp các phân vùng (như trong LVM). Volume được mount vào một thư mục để sử dụng dữ liệu bên trong nó.
+​
+4. Thư mục (Directory): Là một cấu trúc logic trong hệ thống tập tin, dùng để tổ chức các file và thư mục con. Thư mục không phải là thiết bị lưu trữ, mà là nơi lưu trữ và quản lý dữ liệu trên hệ thống tập tin đã được mount từ volume hoặc phân vùng.
+
+Lưu ý khi nói đến mount trong Linux, thực chất là mount phân vùng (partition)/volume vào một thư mục, chứ không phải mount trực tiếp cả ổ đĩa
+
+Các lệnh làm việc:
+
+- Lệnh `df -h`: liệt kê ra danh sách các phân vùng/volume/tmpfs ***ĐÃ ĐƯỢC MOUNT** đã được mount (tức đã gắn vào thư mục), bao gồm dung lượng và điểm mount tương ứng.
+
+- Lệnh `lsblk`: Liệt kê ra các ổ đĩa (block device) và các phân vùng của ổ đĩa hiện có trên hệ thống, bao gồm cả những phân vùng chưa được mount. Nếu hệ thống sử dụng LVM (Logical Volume Manager), lsblk cũng sẽ hiển thị các logical volume (volume logic) được tạo ra từ các phân vùng hoặc ổ đĩa.
+​
+- `fdisk -l`: Tương tự lệnh lsblk nhưng chi tiết hơn
+
+#### Thêm ổ vào server
 
 Để thêm ổ sdb vào LVM hiện tại trên ổ sda (Volume Group ubuntu-vg), bạn có thể thực hiện theo các bước dưới đây:
 
