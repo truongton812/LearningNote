@@ -168,3 +168,5 @@ Lưu ý bổ sung: Cần kích hoạt PubkeyAuthentication yes trong /etc/ssh/ss
 
 Lưu ý không thể làm ngược lại (đặt private key ở máy local còn public key ở máy remote) do SSH authentication yêu cầu private key luôn ở client (máy local) và public key ở server (máy remote). Private key phải bí mật, chỉ client giữ. Server chỉ lưu public key để verify, không bao giờ expose private key.
 
+##### 14. Lệnh để xem log ứng dụng systemd
+`journalctl --since "2026-01-10 05:30" | grep -E "varnish|systemctl|Stopping varnish"`
