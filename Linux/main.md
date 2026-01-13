@@ -170,3 +170,31 @@ Lưu ý không thể làm ngược lại (đặt private key ở máy local còn
 
 ##### 14. Lệnh để xem log ứng dụng systemd
 `journalctl --since "2026-01-10 05:30" | grep -E "varnish|systemctl|Stopping varnish"`
+
+##### 15. Các loại pipe
+```
+Phân biệt ;, &&, ||, | trong command Linux
+Hiểu rõ các toán tử giúp viết lệnh shell chính xác, tối ưu hơn:
+🔹 ; – Chạy lệnh tuần tự
+→ Lệnh thứ hai luôn chạy, bất kể lệnh đầu thành công hay thất bại
+Ví dụ:
+cmd1 ; cmd2
+🔹 && – Chạy khi lệnh trước thành công
+→ Lệnh thứ hai chỉ chạy nếu lệnh đầu thành công (exit code = 0)
+Ví dụ:
+cmd1 && cmd2
+🔹 || – Chạy khi lệnh trước thất bại
+→ Lệnh thứ hai chỉ chạy nếu lệnh đầu lỗi (exit code ≠ 0)
+Ví dụ:
+cmd1 || cmd2
+🔹 | – Pipe (chuyển output làm input)
+→ Kết quả đầu ra của lệnh đầu được truyền làm đầu vào cho lệnh sau
+Ví dụ:
+cat file.txt | grep "error"
+Tóm tắt nhanh:
+; → chạy tiếp bất kể thành công hay lỗi
+&& → chỉ chạy tiếp khi lệnh trước thành công
+|| → chỉ chạy tiếp khi lệnh trước lỗi
+| → dùng để nối đầu ra và đầu vào giữa các lệnh
+💡 Dùng chính xác các toán tử này sẽ giúp bạn làm chủ terminal hiệu quả hơn!
+```
