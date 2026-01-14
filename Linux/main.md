@@ -200,3 +200,30 @@ Tóm tắt nhanh:
 ```
 ##### 16. List ra các systemd service đang chạy
 `systemctl list-units --type=service --state=running`
+
+##### 17. Top command
+- Load avarage: trung bình tải trong 1 phút, 5 phút và 15 phút gần nhất. Nếu CPU có 1 core mà trung bình tải là 1 nghĩa là đang dùng hết 100% của 1 core đấy. Nếu hệ thống có 4 cores thì max sẽ là 4. Lưu ý Load cao không có nghĩa CPU usage luôn cao, vì có thể do nhiều tiến trình đang chờ I/O (ví dụ: ổ cứng chậm, mạng nghẽn)
+
+- Tasks: 123 total,   1 running, 122 sleeping,   0 stopped,   0 zombie. Trong đó
+  - total: tổng số process + thread đang tồn tại trên hệ thống (123).
+  - running: số process/thread đang được CPU xử lý ngay lúc này (1).
+  - sleeping: số process/thread đang ngủ (chờ I/O, timer, signal, v.v.) (122).
+  - stopped: process bị tạm dừng (ví dụ: do SIGSTOP) (0).
+  - zombie: process đã chết nhưng chưa được parent thu dọn (0), cách dễ nhất để thu dọn là reboot lại server. Dùng shift + V để xem các child process của parent process
+​
+Vì sao chỉ có 1 running dù có nhiều app?
+
+Nguyên nhân là do CPU chỉ có thể thực thi 1 process/thread tại 1 thời điểm trên 1 core (trên máy nhiều core thì mỗi core 1 cái). Các ứng dụng khác (trình duyệt, editor, server, v.v.) phần lớn thời gian là sleeping (đang chờ người dùng thao tác, chờ mạng, chờ ổ đĩa, chờ timer). Khi bạn thao tác (gõ phím, click chuột, request mạng), hệ thống sẽ đánh thức process đó → nó chuyển sang trạng thái running trong 1 khoảng thời gian rất ngắn, rồi lại quay về sleeping.
+
+- %Cpu(s):  5.3 us,  2.2 sy,  0.0 ni, 90.9 id,  0.0 wa,  0.0 hi,  1.5 si,  0.0 st. Trong đó
+  - us là userspace. Các ứng dụng như nginx, httpd, word, excel,... là chạy ở user space. Thông số ở đây nghĩa là %CPU các ứng dụng ở user space đang chiếm
+  - sy là kernal space
+  - 0.0 ni là nineness (priority - tìm hiểu thêm). Đại khái là độ ưu tiên CPU dành cho 1 ứng dụng, ta có thể cấu hình
+  - id là idle: khoảng tgian CPU idle (ở đây là 90%) - nên chú ý đến chỉ số này. Nếu cao là tốt (ko áp dụng với cloud do sẽ tốn tiền)
+  - wa là waiting: khoảng tgian 1 task đang chờ (?) - chỉ số này cao thì xấu
+
+- Ở phần dưới là danh sách các process đang chạy, trường CPU/Mem là resource sử dụng, trường TIME là thời gian thực tế mà ứng dụng sử dụng CPU
+- Để sắp xếp theo process theo % CPU đang sử dụng thì dùng shift + P
+- Để sắp xếp theo process theo % RAM đang sử dụng thì dùng shift + M
+- Nhấn K để kill process
+- Nhấn D để đổi refresh interval của top
