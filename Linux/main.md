@@ -198,3 +198,5 @@ Tóm tắt nhanh:
 | → dùng để nối đầu ra và đầu vào giữa các lệnh
 💡 Dùng chính xác các toán tử này sẽ giúp bạn làm chủ terminal hiệu quả hơn!
 ```
+##### 16. List ra các systemd service đang chạy
+`systemctl list-units --type=service --state=running`
