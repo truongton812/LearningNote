@@ -952,13 +952,73 @@ write(1, "file1  file2\n", 12) = 12
 Mỗi dòng thể hiện system call, đối số và kết quả trả về.
 ​
 
-Các tùy chọn hữu ích
+Các tùy chọn hữu ích:
+- strace -e trace=file ls: Chỉ theo dõi system call liên quan file.
+- strace -c ls: Thống kê số lần gọi và thời gian của từng system call.
+- strace -o trace.log ls: Lưu output vào file để phân tích sau.
+- -v : verbose
+- -f : follow
+- -cw : đếm và phân loại syscall
+- -p : tìm theo PID
+- -P : tìm theo path
 
-strace -e trace=file ls: Chỉ theo dõi system call liên quan file.
+## 23. Proc directory
+Thư mục /proc trong Linux là một filesystem ảo (procfs) cung cấp thông tin thời gian thực về hệ thống, kernel, processes và tài nguyên phần cứng. Nó không lưu trữ dữ liệu trên đĩa mà được kernel tạo ra động khi truy cập, giúp quản trị viên và ứng dụng dễ dàng theo dõi trạng thái hệ thống. Thư mục /proc có thể xem là interface để giao tiếp với kernal Các file trong /proc thường có kích thước 0 byte nhưng chứa dữ liệu văn bản dễ đọc khi dùng lệnh như cat.
 ​
 
-strace -c ls: Thống kê số lần gọi và thời gian của từng system call.
+Các file hệ thống chính
+- /proc/cpuinfo: Hiển thị thông tin CPU như model, tốc độ, cores.
+- /proc/meminfo: Chi tiết bộ nhớ RAM, swap đang sử dụng.
+- /proc/version: Phiên bản kernel, compiler GCC và distro.
+- /proc/mounts: Danh sách các mount point hiện tại.
+- /proc/modules: Các kernel modules đã load.
 ​
 
-strace -o trace.log ls: Lưu output vào file để phân tích sau.
-​
+Thông tin processes
+- Các thư mục con dạng /proc/<PID> (PID là ID tiến trình) chứa dữ liệu cụ thể của process đó. Ví dụ:
+  - /proc/<PID>/cmdline: Đối số dòng lệnh khởi chạy process.
+  - /proc/<PID>/status: Trạng thái process như memory, CPU usage, UID/GID.
+  - /proc/<PID>/stat: Thống kê chi tiết về CPU time, faults.
+
+Ví dụ sử dụng /proc để đọc secret lưu trong etcd:
+- Tìm PID của etc (container bản chất vẫn là process và có PID). Lưu ý nếu là pod thường thì phải tìm PID ở trên host của pod đấy
+- Bonus: dùng lệnh `strace -p <PID>` để xem các syscall mà 1 process gọi. Thêm option -cw để đếm và phân loại
+- Truy cập /proc/<PID>. Trong thư mục này sẽ có các thư mục
+  - exe: là symbolic links tới file thực thi etcd
+  - fd: chứa các symbolic links (symlinks) đại diện cho tất cả các file descriptors (FD) mà process đang mở. Mỗi symlink có tên là số nguyên (như 0, 1, 2, ...) và trỏ đến file thực tế, socket, pipe hoặc tài nguyên I/O khác mà process đang sử dụng. VD FD 0: stdin (chuẩn input, thường từ bàn phím), FD 1: stdout (chuẩn output, thường ra màn hình), FD 2: stderr (chuẩn error output). File mà link tới /var/lib/etcd/member/snap/db sẽ chứa các secret trong etcd
+  - environ là file chứa các env (biến môi trường)
+ 
+## 24. Falco
+- Là công cụ giám sát bảo mật runtime mã nguồn mở dành cho Linux, container và Kubernetes. Nó phát hiện hành vi bất thường bằng cách theo dõi syscall kernel, file access và network events dựa trên rules tùy chỉnh​
+- Rules mặc định phát hiện threat phổ biến: unauthorized shell, outbound connection lạ, privilege escalation. Khi Falco phát hiện rule vi phạm (ví dụ: shell spawn trong container, ghi vào file trong /etc, chạy lệnh liên quan đến package management trong container), nó gửi alert qua stdout, syslog hoặc tích hợp Prometheus/SIEM.
+- Cấu hình của Falco nằm trong /etc/falco/falco.yaml
+- Log của Falco nằm trong /var/log/syslog
+​- Ví dụ rule detect shell in container:
+```
+- rule: Detect shell in container
+  desc: Alert on shell spawn in container
+  condition: container and proc.name in (bash, sh)
+  output: Shell spawned in container=%container.name (proc=%proc.name)
+  priority: WARNING
+```
+- Các audit rule của Falco nằm trong /etc/falco/k8s_audit_rules.yaml:
+  - create sensitive mount pod: là rule để detect pod có volume được mount từ sensitive directory của host (VD /proc)
+  - sensitive_vol_mount là macro (giống như condition). Condition này sẽ bằng true khi 1 trong những sensitive path của node được mount vào trong pod
+  - falco_sensitive_mount_images là macro để kiểm tra xem image có phải từ các nguồn trust không
+
+- Hands-on: Thay đổi output của Falco (Thay đổi ở /etc/falco/falco_rules.local.yaml để override file rule gốc) thành TIME,USER_NAME,CONTAINER_NAME,CONTAINER_ID
+```
+- rule: Detect shell in container
+  desc: Alert on shell spawn in container
+  condition: container and proc.name in (bash, sh)
+  output: >
+    %evt.time,%user.name,%container.name,%container.id
+  priority: WARNING
+```
+
+
+
+Readiness vs Liveness:
+- Readiness fail thì pod ở trạng thái NotReady và Service ko forward traffic đến. Tuy nhiên container vẫn chạy bình thuồng
+- Liveness fail thì container sẽ bị restart
+​​
