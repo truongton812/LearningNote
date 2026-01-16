@@ -15,6 +15,25 @@ Khi sử dụng Git ta có các vùng:
 - Remote repository: Là git repository
 
 ---
+### Làm việc với Git repository
+- Để kéo repository trên Git về local thì:
+  - Dùng lệnh git clone nếu chưa có bản sao local. Git clone không yêu cầu git init trước khi clone Git repo về local do lệnh git clone tự động khởi tạo repository (tương đương git init) và tải toàn bộ code, lịch sử commit từ remote về, setup remote origin, và checkout branch mặc định (thường main hoặc master). Tránh git init trước clone vì sẽ tạo repo rỗng chồng chéo, gây lỗi khi clone vào thư mục đã init.
+  - Dùng lệnh git pull nếu đã clone trước đó. 
+- Dùng git init chỉ khi tạo repo mới hoàn toàn từ thư mục trống, chưa có remote. Sau git init, bạn phải tự git remote add origin <url> và git add/commit/push để kết nối remote.​
+
+​
+
+Kiểm tra thay đổi local: git status. Nếu có unstaged changes, commit (git add . && git commit -m "WIP") hoặc stash (git stash).
+​
+
+Kéo thay đổi mới: git pull origin main (thay main bằng branch của bạn, dùng --rebase nếu muốn lịch sử sạch: git pull --rebase origin main).
+​
+
+Push thay đổi local nếu cần: git push origin main.
+​
+---
+
+
 git diff hiển thị sự khác biệt (diff) giữa các trạng thái trong Git workflow.
 
 - git diff: so sánh Working Directory với Staging Area. Dùng để xem thay đổi chưa git add (màu đỏ trong git status)
@@ -23,10 +42,15 @@ git diff hiển thị sự khác biệt (diff) giữa các trạng thái trong G
 - git diff commit1 commit2	→ so sánh hai commit cụ thể
 
 ---
-Trong Git, HEAD﻿ là con trỏ tham chiếu đến commit hiện tại bạn đang làm việc (commit cuối cùng trên nhánh đang checkout). HEAD﻿ trong Git là một con trỏ đặc biệt thể hiện "vị trí hiện tại bạn đang đứng" trong repository, tức là nó tham chiếu đến:
+Trong Git, HEAD﻿ là con trỏ tham chiếu đến commit hiện tại bạn đang làm việc (thường là commit mới nhất của branch đang checkout). HEAD là một khái niệm tồn tại trên cả local và remote. 
+- HEAD local: HEAD trỏ vào branch hiện tại (ví dụ main, develop) và commit mới nhất hoặc trỏ vào branch hiện tại và một commit cụ thể nếu đang ở trạng thái detached HEAD. Có thể xem HEAD hiện tại bằng lệnh `git log --oneline --decorate -1`
+  - Khi tạo commit mới: HEAD tự động cập nhật sang commit mới nhất của branch đó.
+  - Khi checkout một commit cụ thể (không phải branch): HEAD trỏ trực tiếp vào commit đó → trạng thái detached HEAD.
+​- HEAD remote: HEAD remote (origin/HEAD) là một con trỏ mềm trỏ đến branch mặc định của remote, tồn tại cả trên server và trên local repo, thường trỏ vào branch mặc định (ví dụ origin/main), cho biết branch nào được coi là “mặc định” khi clone. HEAD trên remote (thường là origin/HEAD) không trỏ trực tiếp vào một commit cụ thể như HEAD local, mà nó trỏ vào một branch mặc định của remote (ví dụ origin/main), và branch đó mới là thứ trỏ vào commit cụ thể. Mỗi branch remote (ví dụ origin/main, origin/develop) là một con trỏ trỏ vào commit cụ thể (commit SHA) trên remote. Khi có commit mới được push lên origin/main, con trỏ origin/main sẽ được cập nhật sang commit mới nhất, còn origin/HEAD vẫn chỉ trỏ đến origin/main (nếu main vẫn là branch mặc định). Bạn có thể xem HEAD của remote bằng lệnh `git remote show origin`. Ví dụ:
+  - origin/HEAD → trỏ đến origin/main (branch mặc định).
+  - origin/main → trỏ đến commit SHA cụ thể (ví dụ a1b2c3d...).
+​​
 
-- Một nhánh (branch) mà bạn đang làm việc, ví dụ như main, develop...
-- Một commit cụ thể trên nhánh đó — thường là commit mới nhất (cuối cùng) trên nhánh bạn đang checkout.
 
 Nói cách khác, HEAD﻿ là sự kết hợp của nhánh và commit, đại diện cho commit cuối cùng hiện tại trên nhánh đang thao tác. 
 
@@ -74,6 +98,46 @@ Ví dụ đơn giản:
 
 ---
 
+Nếu đã git add + git commit nhưng chưa push lên origin, rồi chạy git pull từ remote về thì có thể bị lỗi, tùy vào tình huống cụ thể.
+​
+- Trường hợp không bị lỗi (fast-forward): Nếu remote branch chỉ có thêm commit ở phía trước (không sửa file nào mà local đã commit), Git sẽ tự động “fast-forward” khi chạy lệnh `git pull origin main`, Git chỉ cập nhật con trỏ nhánh local lên commit mới nhất của remote, không tạo merge commit, và commit local vẫn giữ nguyên, không bị lỗi.
+​- Trường hợp có thể bị lỗi (cần merge/rebase): Nếu remote có commit sửa những file mà local đã commit (cùng file, cùng dòng), thì:
+  - Với git pull (mặc định dùng merge): Git sẽ tự động tạo một merge commit để kết hợp lịch sử local và remote → Không bị lỗi, nhưng sẽ có thêm một commit merge trong lịch sử.
+  - Với git pull --rebase origin main Git sẽ tạm lưu commit local chưa push, áp dụng commit mới từ remote và replay commit local lên trên → Lịch sử sạch hơn, nhưng nếu có conflict thì sẽ báo conflict và yêu cầu giải quyết.
+​- Trường hợp bị lỗi nghiêm trọng: Git sẽ từ chối pull nếu:
+  - Có unstaged changes (file đã sửa nhưng chưa git add)
+  - Có uncommitted changes (file đã git add nhưng chưa git commit).
+Lỗi thường thấy:
+```
+error: cannot pull with rebase: You have unstaged changes.
+error: Please commit or stash them.
+```
+
+→ Phải commit/stash trước rồi mới git pull được.
+​
+
+Workflow an toàn là:
+```
+# 1. Commit/stash local changes trước
+git add .
+git commit -m "WIP: save local changes"
+
+# 2. Pull với rebase để giữ lịch sử sạch
+git pull --rebase origin main
+
+# 3. Nếu có conflict: sửa, git add, git rebase --continue
+# 4. Sau đó mới push
+git push origin main
+```
+
+Nếu chỉ muốn lấy code mới mà không muốn merge/rebase ngay, có thể dùng:
+```
+git fetch origin    # chỉ tải code mới, không thay đổi nhánh hiện tại
+git diff origin/main  # xem khác biệt trước khi merge/rebase
+```
+​
+---
+
 #### Khi bạn đã `git commit` nhưng muốn bỏ commit, vẫn giữ thay đổi trong working tree để sửa/commit lại.
 
 - Xóa 1 commit gần nhất: `git reset --soft HEAD~1` ⭢ Lịch sử mất commit cuối cùng, code vẫn còn và đang ở trạng thái staged.
@@ -105,3 +169,30 @@ git push origin master
 git push --force origin master
 ```
 Lưu ý cách này sẽ khiến các commit đang có trên remote mà bạn chưa pull bị mất, nên không dùng nếu còn người khác đang làm trên repo
+
+
+---
+
+Git rebase là lệnh dùng để tái sắp xếp lịch sử commit, di chuyển các commit từ nhánh hiện tại lên đầu nhánh mục tiêu, tạo lịch sử tuyến tính sạch sẽ thay vì merge commit.
+​
+
+Cách hoạt động
+Git tìm commit chung gần nhất giữa hai nhánh, tạm lưu commit của nhánh hiện tại, áp dụng commit từ nhánh mục tiêu, rồi replay commit tạm lưu lên trên. Kết quả: lịch sử commit thẳng hàng, không có merge commit thừa.
+​
+
+Lệnh cơ bản
+Chuyển sang nhánh cần rebase: git checkout feature.
+​
+
+Rebase lên nhánh khác: git rebase main (hoặc git pull --rebase origin main như bạn từng dùng).
+​
+
+Nếu conflict: sửa file, git add, rồi git rebase --continue; hủy bằng git rebase --abort.
+​
+
+So với git merge
+Merge: tạo commit mới kết hợp hai nhánh, giữ lịch sử phân nhánh (dễ theo dõi nhưng lộn xộn).
+​
+
+Rebase: lịch sử sạch, lý tưởng cho feature branch trước push shared branch, nhưng thay đổi commit hash (không rebase public branch).
+​
