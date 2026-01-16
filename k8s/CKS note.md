@@ -933,7 +933,17 @@ spec:
 (hỏi thêm chatgpt về ý nghĩa của ảnh này)
 
 - Kernal tương tác với hardware
-- Syscall interface cung cấp giao diện để tương tác với kernal (vd getpid(), reboot(), kill(), mkdir(),...)
+- Syscall interface cung cấp giao diện để tương tác với kernal (vd getpid(), reboot(), kill(), mkdir(),fork(), wait(), init(),...)
+
+Lưu ý: Command và syscall là khác nhau về bản chất.
+
+VD Lệnh mkdir và system call mkdir()
+- System call mkdir(): Là một hàm hệ thống trong C, được dùng trực tiếp trong chương trình để tạo thư mục. Khi gọi mkdir(), chương trình sẽ gửi yêu cầu đến kernel để tạo thư mục theo đường dẫn và quyền được chỉ định. Nó không có giao diện người dùng, mà được dùng trực tiếp trong code (ví dụ: mkdir("/path/to/dir", 0755)).
+​- Lệnh mkdir: Là một tiện ích dòng lệnh để tạo thư mục từ terminal. Lệnh này sẽ gọi đến system call mkdir() ở tầng dưới để thực hiện việc tạo thư mục, đồng thời hỗ trợ thêm các tùy chọn như -p (tạo thư mục cha nếu cần) hoặc -m (đặt quyền). Khi gọi lệnh mkdir với các tùy chọn như -p hoặc -v, thì hệ thống sẽ xử lý các tùy chọn này ở tầng lệnh, chứ không phải syscall mkdir() trực tiếp xử lý. Cụ thể:
+  - Tùy chọn -p: Lệnh mkdir sẽ tự động kiểm tra và tạo tất cả các thư mục cha cần thiết trước khi gọi syscall mkdir() cho từng thư mục, từ thư mục gốc đến thư mục cuối cùng. Nếu không có -p, syscall mkdir() chỉ tạo thư mục con nếu thư mục cha đã tồn tại, nếu không sẽ báo lỗi.
+​  - Tùy chọn -v: Lệnh mkdir sẽ hiển thị thông báo chi tiết cho mỗi thư mục được tạo thành công, nhưng syscall mkdir() không có chức năng này. Việc hiển thị thông tin này được thực hiện bởi lệnh, không phải syscall.
+​
+
 
 Những ai gọi được syscall: ứng dụng gọi trực tiếp hoặc thông qua library (đỡ phải reinvent the wheel). Lưu ý process trong container cũng có thể gọi được syscall
 
