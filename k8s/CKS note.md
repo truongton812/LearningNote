@@ -1026,7 +1026,7 @@ Ví dụ sử dụng /proc để đọc secret lưu trong etcd:
   priority: WARNING
 ```
 
-
+## 24. Đảm bảo container là immutable trong lifecycle
 
 Readiness vs Liveness:
 - Readiness fail thì pod ở trạng thái NotReady và Service ko forward traffic đến. Tuy nhiên container vẫn chạy bình thuồng
