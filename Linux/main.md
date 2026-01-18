@@ -223,6 +223,10 @@ Nguyên nhân là do CPU chỉ có thể thực thi 1 process/thread tại 1 th�
   - wa là waiting: khoảng tgian 1 task đang chờ (?) - chỉ số này cao thì xấu
 
 - Ở phần dưới là danh sách các process đang chạy, trường CPU/Mem là resource sử dụng, trường TIME là thời gian thực tế mà ứng dụng sử dụng CPU
+
+##### 18. Grep
+- grep -v "pattern" : loại bỏ dòng có <pattern> khỏi kết quả search
+- khi ở trong thư mục cũng có thể dùng grep
 - Để sắp xếp theo process theo % CPU đang sử dụng thì dùng shift + P
 - Để sắp xếp theo process theo % RAM đang sử dụng thì dùng shift + M
 - Nhấn K để kill process
