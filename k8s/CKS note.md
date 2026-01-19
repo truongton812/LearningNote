@@ -867,7 +867,9 @@ deny[msg] {
 - ImageReview là native K8s mechanism - ít linh hoạt hơn nhưng lightweight. ImageReview deprecated dần, khuyến nghị dùng Gatekeeper/OPA cho production
 
 
-file admission_config định nghĩa AdmissionConfiguration
+Handson:
+- Đổi cấu hình của kube-apiserver: thêm `--enable-admission-plugins=ImagePolicyWebhook`
+- Tạo file admission_config định nghĩa AdmissionConfiguration (cần phải mount file này vào trong kube-apiserver)
 ```
 apiVersion: apiserver.config.k8s.io/v1
 kind: AdmissionConfiguration
@@ -881,7 +883,7 @@ plugins:
       retryBackoff: 500
       defaultAllow: false # control behavior của API server. Khi set là false thì nếu external webhook unreachable API server sẽ không tạo pod. Set là true thì nếu external webhook unreachable API server sẽ cho phép tạo pod
 ```
-File kubeconf mà admission_config trỏ đến. File này dùng để lưu thông tin kết nối đến external webhook
+- Tạo file kubeconf mà admission_config trỏ đến. File này dùng để lưu thông tin kết nối đến external webhook (cần phải mount file này vào trong kube-apiserver)
 ```
 apiVersion: v1
 kind: Config
