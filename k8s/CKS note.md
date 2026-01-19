@@ -608,6 +608,8 @@ AppArmor là một cơ chế bảo mật dựa trên kernel Linux, cho phép đ�
 ​
 AppArmor: Định nghĩa policy để giới hạn quyền truy cập của ứng dụng hoặc container đến tài nguyên hệ thống (file, network, process). AppArmor hoạt động trên cùng kernel với host và không tạo môi trường cô lập riêng biệt, chỉ giới hạn hành vi của ứng dụng.
 
+AppArmor được cài đặt sẵn trên Ubuntu
+
 ### 14.5. seccomp
 seccomp (secure computing mode) là một cơ chế lọc system call của Linux. Nó cho phép giới hạn các system call mà một tiến trình hoặc container có thể thực hiện, từ đó giảm bề mặt tấn công. seccomp thường được dùng kết hợp với các cơ chế khác như AppArmor hoặc SELinux để tăng cường bảo mật. seccomp hoạt động trực tiếp trên kernel, không tạo môi trường cô lập riêng biệt như VM hay sandbox kernel.
 
