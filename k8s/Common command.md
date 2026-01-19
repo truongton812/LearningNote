@@ -42,3 +42,5 @@ Restart pod
 5. Trong mỗi container/pod đều có các biến môi trường lưu thông tin về cụm K8s (VD host, port,...), in ra bằng lệnh env
 
 6. Check log của static pod (VD apiserver, scheduler, coredns...) xem ở var/log/pods
+
+7. Trong thư mục /var/log/pods có chứa log của các static pod
