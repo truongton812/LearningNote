@@ -868,8 +868,8 @@ deny[msg] {
 
 
 Handson:
-- Đổi cấu hình của kube-apiserver: thêm `--enable-admission-plugins=ImagePolicyWebhook`
-- Tạo file admission_config định nghĩa AdmissionConfiguration (cần phải mount file này vào trong kube-apiserver)
+- Đổi cấu hình của kube-apiserver: thêm `--enable-admission-plugins=ImagePolicyWebhook` và `adminsion-control-config-file=<path/to/admission/file>`
+- Tạo file admission_config định nghĩa AdmissionConfiguration (cần phải mount file này vào trong kube-apiserver ở đường dẫn `path/to/admission/file`)
 ```
 apiVersion: apiserver.config.k8s.io/v1
 kind: AdmissionConfiguration
@@ -889,7 +889,7 @@ apiVersion: v1
 kind: Config
 clusters: #clusters refers to the remote service
 - cluster:
-    certificate-authority: /etc/kubernetes/admission/external-cert.pem #CA dùng để verify remote service (external webhook)
+    certificate-authority: /etc/kubernetes/admission/external-cert.pem #CA dùng để verify remote service (external webhook), cần phải mount file này vào trong kube-apiserver
     server: https://external-service:1234/check-image  # URL của remote service. Phải dùng https
   name: image-checker
 
@@ -904,8 +904,8 @@ current-context: image-checker-context
 users:
 - name: api-server
   user:
-    client-certificate: /etc/kubernetes/admission/api-server-client.pem  # Cert cho admission controller
-    client-key: /etc/kubernetes/admission/api-server-client-key.pem     # Key match cert client
+    client-certificate: /etc/kubernetes/admission/api-server-client.pem  # Cert để cho webhook admission controller giao tiếp với api server, cần phải mount file này vào trong kube-apiserver
+    client-key: /etc/kubernetes/admission/api-server-client-key.pem     # Key match cert client, cần phải mount file này vào trong kube-apiserver
 ```
 
 ​
@@ -1029,6 +1029,37 @@ Ví dụ sử dụng /proc để đọc secret lưu trong etcd:
 ```
 
 ## 24. Đảm bảo container là immutable trong lifecycle
+Khái niệm cơ bản
+- Mutable container: là container có thể thay đổi nội dung (thêm, xóa, sửa config, env,...) mà không cần tạo ra một container mới.
+​- Immutable container là container image được build một lần, deploy nhiều lần, và không bao giờ thay đổi nội dung sau khi chạy. Khi cần cập nhật (patch, config mới) thì cần build image mới, deploy instance mới, rồi xóa instance cũ – đảm bảo mọi container luôn ở trạng thái "known good". Lợi ích: dễ rollback (chỉ switch traffic về phiên bản cũ), tránh configuration drift, và tăng bảo mật vì không thể inject malicious process vào container đang chạy và khi có vấn đề chỉ cần restart lại container để remove các malicious processes
+
+Cách để tạo immutable container:
+- Tạo từ container image: xóa bash/shell, set read-only cho filesystem, chỉ chạy container với non-root user
+- ghi đè command của process trong container. VD thay vì command là `nginx` thì ta dùng `chmod a-w -R / && nginx` (chỉ cho read-only vào filesystem)
+- sử dụng securityContext và PodSecurityPolices để áp dụng read-only filesystem. Nếu muốn write vào 1 số directories cụ thể thì dùng emptyDir. VD
+```
+spec:
+  containers:
+  - image: httpd
+    name: immutable
+    securityContext:
+      readOnlyRootFilesystem: true
+    volumeMounts:
+    - mountPath: /usr/local/apache2/logs #nếu không mount như thế này thì process sẽ không có quyền ghi vào /usr
+      name: cache-volume
+  dnsPolicy: ClusterFirst
+  restartPolicy: Always
+  volumes:
+  - name: cache-volume
+    emptyDir: {}
+```
+- Sử dụng startupProbe, VD để xóa bash hoặc make read-only filesystem trước khi container khởi chạy
+- Thay đổi logic sang init container. VD init container khởi chạy và ghi dữ liệu vào volume, sau đó mới mount volume vào container chính theo kiểu read-only -> container chỉ có quyền đọc vào volume
+
+
+
+
+​
 
 Readiness vs Liveness:
 - Readiness fail thì pod ở trạng thái NotReady và Service ko forward traffic đến. Tuy nhiên container vẫn chạy bình thuồng
