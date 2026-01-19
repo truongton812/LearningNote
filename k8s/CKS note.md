@@ -515,7 +515,9 @@ Về cơ bản container chỉ là các process được cô lập bằng namesp
 
 System call có thể coi như là API mà kernal cung cấp để process có thể giao tiếp với kernal
 
-Để bảo vệ kernal, ta có thể thêm 1 lớp sandbox ở giữa. Sandbox là một môi trường cô lập (hay "hộp cát") được sử dụng để chạy phần mềm, ứng dụng hoặc mã đáng ngờ mà không ảnh hưởng đến hệ thống chính, thường áp dụng trong bảo mật máy tính. Sanbox trong trường hợp này có thể xem là 1 lớp bảo mật để hạn chế tấn công. sandbox container runtime cung cấp lớp cách ly bảo mật cao hơn so với runc truyền thống, ngăn chặn container truy cập trực tiếp kernel host để giảm rủi ro escape
+Để bảo vệ kernal có 2 hướng:
+### Hướng 1: Cô lập môi trường thực thi
+- Cô lập môi trường thực thi bằng cách thêm 1 lớp sandbox ở giữa. Sandbox là một môi trường cô lập (hay "hộp cát") được sử dụng để chạy phần mềm, ứng dụng hoặc mã đáng ngờ mà không ảnh hưởng đến hệ thống chính, thường áp dụng trong bảo mật máy tính. Sanbox trong trường hợp này có thể xem là 1 lớp bảo mật để hạn chế tấn công. sandbox container runtime cung cấp lớp cách ly bảo mật cao hơn so với runc truyền thống, ngăn chặn container truy cập trực tiếp kernel host để giảm rủi ro escape
 <img width="1135" height="488" alt="image" src="https://github.com/user-attachments/assets/fbf25a53-32fd-4731-bafe-db6b8678628f" />
 
 - Khi sử dụng sandbox, container process không thể gọi trực tiếp syscall mà phải thông qua lớp sandbox -> ta có thể kiểm soát syscall thông qua lớp sandbox
@@ -525,6 +527,14 @@ System call có thể coi như là API mà kernal cung cấp để process có t
   - không còn có thể trực tiếp truy cập hardware do lớp sandbox đã chặn
 
 Kubelet tại 1 thời điểm chỉ có thể chạy 1 container runtime (VD containerd, dockershim, cri-o...). Ta có thể cấu hình bằng `kubelet --container-runtime --container-runtime-endpoint`
+
+Kata Containers và gVisor là giải pháp cô lập môi trường thực thi (isolation), tạo môi trường riêng biệt để chạy ứng dụng, giảm khả năng ảnh hưởng giữa các container và host.
+
+### Hướng 2: kiểm soát truy cập và hạn chế hành vi (access control & restriction).
+AppArmor và seccomp là giải pháp để kiểm soát truy cập và hạn chế hành vi (access control & restriction).​
+
+Kiểm soát truy cập và hạn chế hành vi (AppArmor, seccomp): Giới hạn hành vi của ứng dụng hoặc container trên cùng một hệ thống, không tạo môi trường cô lập nhưng giúp giảm rủi ro tấn công từ bên trong.
+
 
 ### 14.1 Kata container
 - Là 1 loại sandbox giúp chạy container trong 1 máy ảo riêng (Firecracker/QEMU) để tăng bảo mật hardware isolation.​
@@ -596,40 +606,12 @@ Lưu ý trên worker node cần phải cài đặt gVisor/Kata và cấu hình c
 ### 14.4. AppArmor
 AppArmor là một cơ chế bảo mật dựa trên kernel Linux, cho phép định nghĩa các policy chi tiết để giới hạn quyền truy cập của ứng dụng hoặc container vào hệ thống. AppArmor sử dụng các profile để chỉ định ứng dụng được phép làm gì, ví dụ như truy cập file, network hay các tài nguyên hệ thống. AppArmor hoạt động trên cùng một kernel với host và không tạo môi trường cô lập riêng biệt.
 ​
+AppArmor: Định nghĩa policy để giới hạn quyền truy cập của ứng dụng hoặc container đến tài nguyên hệ thống (file, network, process). AppArmor hoạt động trên cùng kernel với host và không tạo môi trường cô lập riêng biệt, chỉ giới hạn hành vi của ứng dụng.
 
 ### 14.5. seccomp
 seccomp (secure computing mode) là một cơ chế lọc system call của Linux. Nó cho phép giới hạn các system call mà một tiến trình hoặc container có thể thực hiện, từ đó giảm bề mặt tấn công. seccomp thường được dùng kết hợp với các cơ chế khác như AppArmor hoặc SELinux để tăng cường bảo mật. seccomp hoạt động trực tiếp trên kernel, không tạo môi trường cô lập riêng biệt như VM hay sandbox kernel.
 
-
-
-Kata Containers và gVisor là giải pháp cô lập môi trường thực thi (isolation), trong khi AppArmor và seccomp thuộc nhóm kiểm soát truy cập và hạn chế hành vi (access control & restriction).
-
-Nhóm cô lập môi trường thực thi: Kata và gVisor
-Kata Containers: Sử dụng máy ảo nhẹ (VM) để chạy mỗi container, tạo ra môi trường cô lập phần cứng giữa các container và host. Mục tiêu là ngăn chặn hoàn toàn việc truy cập vào hệ thống host, phù hợp với môi trường yêu cầu bảo mật cao như multi-tenant hoặc xử lý dữ liệu nhạy cảm.
-​
-
-gVisor: Cung cấp sandbox bằng cách bắt và xử lý system call ở user space, không cần VM. gVisor tạo ra một lớp cô lập giữa ứng dụng và kernel, giúp giảm bề mặt tấn công nhưng không mạnh bằng VM.
-​
-
-Nhóm kiểm soát truy cập và hạn chế hành vi: AppArmor và seccomp
-AppArmor: Định nghĩa policy để giới hạn quyền truy cập của ứng dụng hoặc container đến tài nguyên hệ thống (file, network, process). AppArmor hoạt động trên cùng kernel với host và không tạo môi trường cô lập riêng biệt, chỉ giới hạn hành vi của ứng dụng.
-​
-
 seccomp: Lọc và giới hạn các system call mà một tiến trình hoặc container có thể thực hiện, từ đó giảm khả năng tấn công thông qua các lỗ hổng kernel. seccomp hoạt động ở mức kernel, không tạo môi trường cô lập mà chỉ giới hạn hành vi.
-​
-
-Tóm tắt phân nhóm
-Cô lập môi trường thực thi (Kata, gVisor): Tạo môi trường riêng biệt để chạy ứng dụng, giảm khả năng ảnh hưởng giữa các container và host.
-​
-
-Kiểm soát truy cập và hạn chế hành vi (AppArmor, seccomp): Giới hạn hành vi của ứng dụng hoặc container trên cùng một hệ thống, không tạo môi trường cô lập nhưng giúp giảm rủi ro tấn công từ bên trong.
-​
-
-
-
-
-
-
 
 ## 15. Security context
 - Security Context trong Kubernetes là cơ chế định nghĩa các thiết lập quyền hạn và kiểm soát truy cập cho Pod hoặc Container, giúp thực thi nguyên tắc least privilege (quyền hạn tối thiểu).
