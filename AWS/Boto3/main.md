@@ -1,3 +1,5 @@
+https://docs.google.com/document/d/103CadDRznUzqfriz7jC2cOY4Lfx6EzEQi-Xyw_n8tJw/edit?tab=t.0
+
 Boto3 là SDK (Software Development Kit) chính thức của AWS dành cho Python, giúp tương tác với các dịch vụ AWS như EC2, S3, DynamoDB, Lambda, v.v. thông qua code Python.
 
 Boto3 cũng là thư viện nền phía sau aws-cli — khi dùng lệnh aws s3 cp ... hay aws ec2 describe-instances, thực ra đang dùng boto3 để gọi API.​
@@ -7,7 +9,8 @@ Cách dùng cơ bản
 import boto3
 
 # Cấu hình region và credentials (thường để trong AWS config/credentials)
-s3_client = boto3.client('s3', region_name='ap-southeast-1') #boto3.client('s3) làm hàm để tạo a client object cho Amazon S3, sau đó client object được gán vào biến s3_client. Ta có thể dùng biến s3_client để gọi các S3 method, VD s3_client.list_buckets()
+s3_client = boto3.client('s3', region_name='ap-southeast-1') #boto3.client('s3) làm hàm để tạo a client object cho Amazon S3,
+#sau đó client object được gán vào biến s3_client. Ta có thể dùng biến s3_client để gọi các S3 method, VD s3_client.list_buckets()
 
 
 # Liệt kê các bucket
@@ -67,3 +70,6 @@ for obj in bucket.objects.all():  # Tự động paginate
 ​
 
 Lưu ý: Hoàn toàn có thể dùng cả 2 cùng lúc trong một script (ví dụ: dùng resource để thao tác với Bucket, dùng client để upload multipart với chi tiết hơn).
+
+
+
