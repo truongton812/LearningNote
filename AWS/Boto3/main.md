@@ -7,7 +7,8 @@ Cách dùng cơ bản
 import boto3
 
 # Cấu hình region và credentials (thường để trong AWS config/credentials)
-s3_client = boto3.client('s3', region_name='ap-southeast-1')
+s3_client = boto3.client('s3', region_name='ap-southeast-1') #boto3.client('s3) làm hàm để tạo a client object cho Amazon S3, sau đó client object được gán vào biến s3_client. Ta có thể dùng biến s3_client để gọi các S3 method, VD s3_client.list_buckets()
+
 
 # Liệt kê các bucket
 response = s3_client.list_buckets()
@@ -20,6 +21,7 @@ s3_client.create_bucket(
     CreateBucketConfiguration={'LocationConstraint': 'ap-southeast-1'}
 )
 ```
+
 
 Trong boto3, có 2 cách để tương tác với AWS service là client và resource. Client là mức thấp (low-level) còn resource là mức cao (high-level) và mang tính object-oriented hơn.
 ​
@@ -65,6 +67,3 @@ for obj in bucket.objects.all():  # Tự động paginate
 ​
 
 Lưu ý: Hoàn toàn có thể dùng cả 2 cùng lúc trong một script (ví dụ: dùng resource để thao tác với Bucket, dùng client để upload multipart với chi tiết hơn).
-​
-
-Nếu cần ví dụ cụ thể với một service nào (ví dụ: S3, DynamoDB, EC2), có thể mình demo code chi tiết cho cả client và resource để so sánh rõ hơn.
