@@ -424,3 +424,41 @@ default:
   timeout: 10 minutes
   interruptible: true
 ```
+
+---
+
+Executor trong GitLab CI: là cơ chế thực thi job được định nghĩa trong file config.toml của GitLab Runner. Nó quyết định môi trường nào sẽ chạy các lệnh script trong .gitlab-ci.yml.
+
+Executor giống như "driver" cho Runner: nhận job từ GitLab → chuẩn bị môi trường → chạy script → trả kết quả.
+
+Các loại Executor phổ biến
+1. Shell Executor
+```
+[ GitLab Runner ] → Chạy script trực tiếp trên host machine
+```
+
+Ưu điểm: Nhanh, đơn giản, tận dụng đầy đủ tài nguyên host.
+
+Nhược điểm: Không cô lập (job A ảnh hưởng job B), khó scale.
+
+Dùng khi: Deploy trực tiếp lên server (như server:deploy nếu dùng shell).
+
+2. Docker Executor (phổ biến nhất)
+```
+[ GitLab Runner ] → Tạo container Docker → Chạy job bên trong
+```
+
+Mỗi job chạy trong container riêng với image chỉ định (image: docker:latest).
+
+Ưu điểm: Cô lập tốt, dễ setup môi trường (AWS CLI, Docker sẵn trong image).
+
+Nhược điểm: Cần Docker daemon trên host runner.
+
+3. Kubernetes Executor
+```
+[ GitLab Runner ] → Tạo Pod Kubernetes → Chạy job
+```
+
+Ưu điểm: Scale tự động theo cluster K8s.
+
+Phù hợp môi trường cloud-native như EKS (AWS).
