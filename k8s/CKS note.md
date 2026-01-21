@@ -25,10 +25,14 @@ Lưu ý
 - crictl là cli cho cri-compatible container runtime. Ta có thể dùng crictl để tương tác với docker/podman/containerd tùy ý, chỉ cần config runtime endpoint trong /etc/crictl.yaml
 
 ## 4. Network policy
+- Trong Kubernetes, mặc định mọi Pod đều có thể truy cập mọi Pod
+- Để kiểm soát traffic giữa các Pod trong cluster thì cần sử dụng Network Policy. Network policy trong Kubernetes là một resource gắn với namespace, dùng để định nghĩa các quy tắc kiểm soát traffic, hoạt động như một firewall ở tầng IP/port (OSI layer 3–4) cho các Pod.
+- Network Policy dùng label để chọn nhóm Pod chịu tác động (qua podSelector), và định nghĩa các rule ingress (traffic vào) và egress (traffic ra) nào được phép. - Nếu 1 Pod được áp nhiều network policy thì sẽ là union của tất cả các network policy áp lên
+- Trong 1 Network Policy, các rule được xử lý theo thứ tự và rule đầu tiên đã chặn rồi thì rule sau không có tác dụng.
+- Lưu ý Policy chỉ có hiệu lực nếu CNI (ví dụ Calico, Cilium, Weave Net) hỗ trợ NetworkPolicy; nếu không, policy chỉ là một object trong API server chứ không kiểm soát được traffic (VD Flannel)
 
-Network policy là namespaced resource
 
-- Network policy cho phép tất cả Pod trong default namespace  giao tiếp bình thường
+### 4.1. Network policy cho phép tất cả Pod trong default namespace giao tiếp bình thường (mặc định)
 ```
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -39,7 +43,8 @@ spec:
   podSelector: {}
   policyTypes: []
 ```
-- Network policy kiểm soát inbound traffic (ingress) của tất cả các Pod trong namespace default. Tuy nhiên, vì trong trường này không có quy tắc cụ thể nào trong phần ingress: (không định nghĩa rule cho phép hoặc từ chối traffic nào), Kubernetes mặc định sẽ chặn toàn bộ lưu lượng vào các Pod này
+
+### 4.2. Network policy chặn inbound vào Pod
 ```
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -51,7 +56,8 @@ spec:
   policyTypes:
   - Ingress
 ```
-- Network policy cô lập hoàn toàn các Pod trong default namespace, chặn cả outbound và inbound traffic. Lưu ý trong thực tế ta sẽ dùng default network policy là deny all như thế này, sau đó tạo các allow ingress và egress để đảm bảo bảo mật. Tuy nhiên deny all sẽ chặn cả DNS traffic (port 53) nên nếu muốn sử dụng service name trong cụm thì cần allow port 53
+
+### 4.3. Network policy chặn inbound và ountbound traffic (cô lập hoàn toàn), chỉ cho phép TCP/UDP port 53
 ```
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -72,12 +78,15 @@ spec:
       protocol: UDP
 
 ```
+- Trong thực tế production sẽ dùng default network policy là deny all, sau đó tạo các allow ingress và egress để đảm bảo bảo mật.
+- Cần allow DNS traffic (port 53) để có thể sử dụng Service name
 
-- Nếu 1 pod được áp nhiều network policy thì sẽ là union của tất cả các network policy áp lên
+### 4.4. Network policy cụ thể
+- Network policy này áp lên pod có label là `id=frontend` trong namespace default, không kiểm soát inbound traffic (do không define Ingress), chỉ kiểm soát outbound traffic theo rule:
+  - cho phép kết nối đến port 80 của các Pod ở namespace có label `id=ns1` (lưu ý là chỉ cho phép khi **destination port** = 80/TCP trên Pod đích, còn source port của Pod frontend có thể là bất kỳ port nào. Ví dụ Pod frontend gọi curl http://backend-ns1-service:80 → Được phép)
+  - cho phép kết nối đến tất cả các Pod có label `id=backend` ở namespace `default`
+- Lưu ý: ở phần egress có 2 block , sẽ là logic OR. Còn trong 1 block có 2 key là `to` và `ports`, sẽ là logic AND
 
----
-
-Ví dụ về network policy
 ```
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -104,15 +113,7 @@ spec:
           id: backend
 ```
 
-Ở phần egress có 2 cái block , sẽ là logic OR
-
-Trong 1 block có 2 key là `to` và `ports`. sẽ là logic AND
-
-Chỉ define Egress, tức Ingress ko bị limit
-
-Trong Kubernetes, các rule NetworkPolicy được xử lý theo thứ tự và rule đầu tiên đã chặn rồi thì rule sau không có tác dụng.
-
-### 4.1 Network policy trong Cloud
+### 4.5. Network policy trong Cloud
 
 Mặc định khi tạo worker node trên cloud thì các pod trên worker node sẽ có quyền truy cập metadata server. Trong đấy có thể chứa các sensitive data (VD credential cho VM/cloud, provisioning data như kubelet credential)
 
@@ -136,6 +137,9 @@ spec:
         except:
         - 169.254.169.254/32
 ```
+
+
+
 
 ## 5. CIS benchmark
 
