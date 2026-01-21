@@ -70,7 +70,9 @@ các biến trong GitLab CI không tự động persist giữa các job/stage. �
 
 - Mỗi script (VD before_script, script, after_script) chạy trong 1 shell mới
 
+- GitLab CI mặc định tạo lại container/shell mới cho mỗi job/stage, do đó môi trường và config không được giữ nguyên. Để chia sẻ dữ liệu hoặc môi trường giữa các job/stage thì phải dùng artifact hoặc cache
 
+ 
 Scope của biến
 
 1. Predefined Variables (Toàn cục)
@@ -387,7 +389,7 @@ Nếu bạn chỉ định tag: linux và image: nginx trong GitLab CI, thì:
 
 Nếu bạn viết GitLab CI mà không chỉ định tags trong job, thì job đó sẽ có thể được chạy bởi bất kỳ runner nào có sẵn và không bị giới hạn bởi tag cụ thể nào​
 
-
+- Có thể chỉ định tags ở default section để tất cả các job dùng chung 1 tag
 ---
 
 Khối default trong GitLab CI 
