@@ -112,8 +112,45 @@ spec:
         matchLabels:
           id: backend
 ```
+### 4.5. Network policy chỉ cho phép Pod giao tiếp với các Pod trong cùng namespace
+- Để đạt được mục đích, cần tạo 2 network policy
 
-### 4.5. Network policy trong Cloud
+#### Network policy deny all
+```
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: test-network-policy
+  namespace: default
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+```
+
+#### Network policy cho phép giao tiếp trong cùng namespace
+```
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: test-policy
+  namespace: mynamespace
+spec:
+  podSelector:
+    matchLabels:
+      app: myapp
+  ingress:
+    - from:
+        - podSelector: {}
+  egress:
+    - to:
+        - podSelector: {}
+```
+
+Lưu ý: Do NetworkPolicy là namespace-scoped resource → rule `ingress.from.podSelector: {}` và `egress.from.podSelector: {}` chỉ match các pod trong `mynamespace`
+
+### 4.6. Network policy trong Cloud
 
 Mặc định khi tạo worker node trên cloud thì các pod trên worker node sẽ có quyền truy cập metadata server. Trong đấy có thể chứa các sensitive data (VD credential cho VM/cloud, provisioning data như kubelet credential)
 
