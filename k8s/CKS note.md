@@ -1131,3 +1131,35 @@ Readiness vs Liveness:
 - Readiness fail thì pod ở trạng thái NotReady và Service ko forward traffic đến. Tuy nhiên container vẫn chạy bình thuồng
 - Liveness fail thì container sẽ bị restart
 ​​
+## CKS Question
+
+### Question 1: context
+- Lệnh lấy tên các contexts `kubectl config get-contexts -o name`
+- Lệnh xem kubeconfig (tương tự đọc file ~/.kube/config): `kubectl config view --raw`
+
+### Question 2: Falco
+- Kiểm tra log Falco lưu ở đâu (mặc định là /var/log/syslog) bằng cách xem config của Falco ở `/etc/falco/falco.yaml`, tìm đến syslog_output hoặc file_output
+- Từ container id (trên node) tìm ra pod bằng cách:
+  - crictl ps -id <container_id> -> get được pod id
+  - crictl pods -id <pod_id> -> get được pod name và namespace
+- Thay đổi output format của Falco:
+  - Khi làm thì nên copy file `/etc/falco/falco_rules.yaml` thành `falco_rules.local.yaml` rồi sửa file `falco_rules.local.yaml`
+  - Xem output ở docs Falco: Reference -> Falco Rule -> Fields for Conditions and Outputs
+  - Restart Falco
+- Scale down deployment: `kubectl scale deploy <deploy_name> --replicas 0`
+- Thử phương pháp ` falco -M 30 -o output_format="%evt.time,%container.id,%container.name,%user.name" > /opt/course/2/falco.log`
+
+### Question 3: Apiserver exposed by NodePort
+- Có thể expose apiserver qua option `--kubernetes-service-node-port=<xxx>` trong cấu hình của API server ở `/etc/kubernetes/manifest/kube-apiserver.yaml`
+- Để deactivate NodePort Service thì comment option `--kubernetes-service-node-port=<xxx>` lại hoặc set xxx=0
+- Lưu ý nếu sau khi apiserver restart mà Service vẫn là type NodePort thì cần delete thủ công Service đi, sau khi delete thì Service sẽ được tự động tạo lại với type là ClusterIP
+
+### Question 4: Pod Security Standard
+- Enable bằng cách set label của namespace (do Pod Security Standard áp dụng ở mức namespace)
+  - Có 2 chế độ thực thi là enforce (Từ chối Pod không phù hợp) và warn (Hiển thị cảnh báo nhưng vẫn cho phép Pod)
+  - Có 3 mức chính sách là privileged, baseline và restricted 
+- VD để enforce baseline thì set label `pod-security.kubernetes.io/enforce: baseline` cho namespace
+
+### Question 5: CIS benchmark
+- Sử dụng CIS benchmark bằng lệnh `kube-bench run --targets=<master/node>
+- Đọc và fix theo gợi ý
