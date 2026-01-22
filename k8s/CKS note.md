@@ -139,7 +139,7 @@ spec:
         - podSelector: {}
 ```
 
-Lưu ý: Do NetworkPolicy là namespace-scoped resource → rule `ingress.from.podSelector: {}` và `egress.to.podSelector: {}` chỉ match các pod trong `mynamespace`
+Lưu ý: Do NetworkPolicy là namespace-scoped resource → rule `ingress.from.podSelector: {}` và `egress.to.podSelector: {}` chỉ match các pod trong `mynamespace`, do đó không cần chỉ định namespace nữa
 
 ### 4.6. Network policy trong Cloud
 
