@@ -36,10 +36,14 @@ Lưu ý
 
 ### 4.0. Logic giữa các thành phần trong rule
 Trong cùng 1 block thì logic giữa các rule là AND, khác block thì là logic OR. Ví dụ
-<img width="896" height="406" alt="image" src="https://github.com/user-attachments/assets/20247a08-fe9e-492e-b809-011ebfb6228f" />
+
+<img width="448" height="200" alt="image" src="https://github.com/user-attachments/assets/0cc802b5-5349-4b7d-9afe-bb77e5df5a50" />
+
 
 Chỉ cần thay đổi block thì logic cũng thay đổi theo
-<img width="739" height="402" alt="image" src="https://github.com/user-attachments/assets/46bbffa8-7be9-47f6-8e88-59ea0cc36540" />
+
+<img width="370" height="199" alt="image" src="https://github.com/user-attachments/assets/9d7392c3-fa09-4a32-be48-21d4bdeebddf" />
+
 
 ### 4.1. Network policy cho phép tất cả Pod trong default namespace giao tiếp bình thường (mặc định)
 ```
