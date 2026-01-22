@@ -27,7 +27,10 @@ Lưu ý
 ## 4. Network policy
 - Trong Kubernetes, mặc định mọi Pod đều có thể truy cập mọi Pod
 - Để kiểm soát traffic giữa các Pod trong cluster thì cần sử dụng Network Policy. Network policy trong Kubernetes là một resource gắn với namespace, dùng để định nghĩa các quy tắc kiểm soát traffic, hoạt động như một firewall ở tầng IP/port (OSI layer 3–4) cho các Pod.
-- Network Policy dùng label để chọn nhóm Pod chịu tác động (qua podSelector), và định nghĩa các rule ingress (traffic vào) và egress (traffic ra) nào được phép. - Nếu 1 Pod được áp nhiều network policy thì sẽ là union của tất cả các network policy áp lên
+- Network Policy dùng label để chọn nhóm Pod chịu tác động (qua podSelector), và định nghĩa các rule ingress (traffic vào) và egress (traffic ra) nào được phép.
+- Khi trong trường `policyTypes` của Network policy có `Egress` hay `Ingress` thì pod bị áp policy ngay lập tức sẽ bị isolated (deny traffic). Nếu muốn pod có thể gửi/nhận request thì cần allow cụ thể (đã kiểm nghiệm thực tế không cần khai báo `policyTypes` mà chỉ cần khai báo egress/ingress list là Pod đã bị chặn rồi, tuy nhiên nên khai báo cho dễ đọc)
+- Khi đã allow 1 chiều thì chiều còn lại sẽ được hiểu rằng cũng allow (stateless)
+- Nếu 1 Pod được áp nhiều network policy thì sẽ là union của tất cả các network policy áp lên
 - Trong 1 Network Policy, các rule được xử lý theo thứ tự và rule đầu tiên đã chặn rồi thì rule sau không có tác dụng.
 - Lưu ý Policy chỉ có hiệu lực nếu CNI (ví dụ Calico, Cilium, Weave Net) hỗ trợ NetworkPolicy; nếu không, policy chỉ là một object trong API server chứ không kiểm soát được traffic (VD Flannel)
 
@@ -113,23 +116,6 @@ spec:
           id: backend
 ```
 ### 4.5. Network policy chỉ cho phép Pod giao tiếp với các Pod trong cùng namespace
-- Để đạt được mục đích, cần tạo 2 network policy
-
-#### Network policy deny all
-```
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: test-network-policy
-  namespace: default
-spec:
-  podSelector: {}
-  policyTypes:
-  - Ingress
-  - Egress
-```
-
-#### Network policy cho phép giao tiếp trong cùng namespace
 ```
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -140,15 +126,20 @@ spec:
   podSelector:
     matchLabels:
       app: myapp
-  ingress:
-    - from:
-        - podSelector: {}
   egress:
-    - to:
+    - to: #trường này để cho phép pod gọi đến coredns
+        - namespaceSelector: {}
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - port: 53
+          protocol: UDP
+    - to: #trường này để cho phép pod giao tiếp trong cùng namespace
         - podSelector: {}
 ```
 
-Lưu ý: Do NetworkPolicy là namespace-scoped resource → rule `ingress.from.podSelector: {}` và `egress.from.podSelector: {}` chỉ match các pod trong `mynamespace`
+Lưu ý: Do NetworkPolicy là namespace-scoped resource → rule `ingress.from.podSelector: {}` và `egress.to.podSelector: {}` chỉ match các pod trong `mynamespace`
 
 ### 4.6. Network policy trong Cloud
 
