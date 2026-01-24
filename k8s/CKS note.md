@@ -189,64 +189,74 @@ Người dùng có thể sử dụng kube-bench (mã nguồn mở) để tự đ
 
 Dùng lệnh `docker run --pid=host -v /etc:/etc:ro -v /var:/var:ro -t docker.io/aquasec/kube-bench:latest --version 1.18` cho nhanh -> get được list các lỗ hổng và dựa vào document để fix
 
-## 6. RBAC
-### 6.1. Các loại identity trong K8S
-- Trong Kubernetes có 3 loại identity chính để phân quyền: User, Group và ServiceAccount.
+## 6. Phân quyền trong Kubernetes
 
-#### Normal User 
-- ​User đại diện cho người dùng con người hoặc external identities (như IAM users từ AWS/Azure/GCP). Kubernetes không quản lý user accounts trực tiếp mà dựa vào external authentication (certificates, OIDC, webhooks). Ví dụ: jane, bob@example.com.
-- Normal user (hay còn gọi là Humans/Users) đại diện cho người dùng bên ngoài cluster, không phải là tài nguyên trong k8s, như quản trị viên hoặc developer sử dụng kubectl, được xác thực qua certificates, tokens, hoặc OpenID Connect mà không được quản lý tự động bởi Kubernetes (VD được quản lý bởi AWS, GCP,...). Chúng thuộc các group mặc định như system:authenticated và được phân quyền qua RBAC (Role/ClusterRole với RoleBinding/ClusterRoleBinding), khác với SA chỉ giới hạn trong namespace
-- Normal User chỉ cần có certificate và key thì sẽ connect được tới cụm k8s. Với điều kiện là certificate của user (hay còn gọi là client certificate) phải được signed bởi cluster's certificate authority (CA). Username trong Kubernetes được định nghĩa trong certificate thông qua trường Common Name (CN) trong phần subject của X.509 client certificate, ví dụ /CN=username sẽ được dùng làm tên người dùng khi xác thực với API server.
-- Quy trình để tạo client certificate. Ta hoàn toàn có thể tạo CSR rồi dùng CA để ký, sau đó down CRT về mà không cần phải tạo CertificateSigningRequest resource, tuy nhiên như thế sẽ phức tạp hơn
+### 6.1. Các loại identity trong Kubernetes
 
-<img width="1307" height="636" alt="image" src="https://github.com/user-attachments/assets/efcbc22a-fc15-41fe-b977-37a4a10aabba" />
+Trong Kubernetes có 3 loại identity chính: User, Group và ServiceAccount.
 
-Quy trình: 
-- User tạo key (có thể dùng openssl)
-- từ key user tạo CSR
-- Admin tạo CertificateSigningRequest resource trong cụm k8s bằng thông tin CSR user gửi (lưu ý cần mã hóa base64), sau đó admin approve bằng lệnh `kubectl certificate approve <ten_csr>`
-- User download cert và thêm vào trong kubeconfig để sử dụng
+#### 6.1.1. User
+- ​User đại diện cho người dùng hoặc external identities (như IAM users từ AWS/Azure/GCP). Kubernetes không quản lý user accounts trực tiếp mà dựa vào external authentication (certificates, OIDC, webhooks).
+- Ví dụ quản trị viên sử dụng kubectl để tương tác với cụm k8s, được xác thực qua certificates và tokens. Certificate của user (hay còn gọi là client certificate) phải được signed bởi cluster's certificate authority (CA).
+- Username trong Kubernetes được định nghĩa trong certificate thông qua trường Common Name (CN) trong phần subject của X.509 client certificate, ví dụ /CN=username sẽ được dùng làm tên người dùng khi xác thực với API server.
+- Cách tạo client certificate: có thể làm thủ công hoặc dùng resource CertificateSigningRequest trong K8S
+  - Thủ công: tạo CSR rồi dùng CA để ký, sau đó down CRT về để sử dụng. Nhược điểm: phức tạp, không quản lý tập trung
+  - Quản lý bằng resource CertificateSigningRequest trong K8S
+    - User tạo key (có thể dùng openssl hoặc bất kỳ tool nào khác)
+    - từ key user tạo CSR và gửi cho admin
+    - Admin tạo CertificateSigningRequest resource trong cụm k8s bằng thông tin CSR user gửi (lưu ý cần mã hóa base64), sau đó admin approve bằng lệnh `kubectl certificate approve <ten_csr>`
+    - User download cert và thêm vào trong kubeconfig để sử dụng
 - Các lệnh làm việc với kubeconfig
-  - `kubectl config view`. Thêm option `--raw` để xem data
-  - `kubectl config set-credentials <user_name> --client-key=<key> --client-certificate=<cert>`. Thêm option `--embed-certs` để include vào
-  - `kubectl config set-context <context_name> --user=<user_name> --cluster=<cluster_name>`
+  - `kubectl config view`: xem file kubeconfig. Thêm option `--raw` để xem data (nếu không sẽ thấy DATA-OMIITED)
+  - `kubectl config set-credentials <user_name> --client-key=<key> --client-certificate=<cert>`:  thêm/update thông tin authentication của một user vào kubeconfig. Thêm option `--embed-certs` để include vào
+  - `kubectl config set-context <context_name> --user=<user_name> --cluster=<cluster_name>`: thêm/sửa một context (là sự kết hợp giữa user, cluster, và namespace mặc định - giúp kubectl biết cần kết nối đến cluster nào với user nào khi chạy lệnh)
+- Lưu ý không thể invaliadte 1 certificate. Trong trường hợp certificate bị leak thì xử lý bằng cách:
+  - Remove tất cả access bằng RBAC
+  - Tạo CA mới và issue lại tất cả các cert
 
-Lưu ý không thể invaliadte 1 certificate
-⭢ trong trường hợp certificate bị leak thì xử lý bằng cách:
-- Remove tất cả access bằng RBAC
-- Tạo CA mới và issue lại tất cả các cert
+#### 6.1.2. Group
+- Group là tập hợp các User hoặc ServiceAccount lại với nhau, cho phép gán quyền (permissions) hàng loạt. Mỗi User hoặc ServiceAccount có thể thuộc một hoặc nhiều Group
+- Kubernetes có 4 Group hệ thống mặc định:
+  - system:authenticated : user đã xác thực
+  - system:unauthenticated : user chưa xác thực
+  - system:serviceaccounts : tất cả ServiceAccount
+  - system:serviceaccounts:<namespace> : ServiceAccount trong namespace cụ thể
+- Trong Kubernetes, Group không phải là resource có thể tạo trực tiếp như ServiceAccount mà được xác định bởi authentication plugins (OIDC, x509, LDAP...). Group được tạo và quản lý thông qua identity provider (IdP) hoặc certificate, sau đó được map vào Kubernetes thông qua RBAC. Thông tin Group được trích xuất từ token hoặc certificate trong quá trình xác thực.
+- Cách tạo Group:
+  - Sử dụng OIDC (phổ biến nhất): Đây là phương pháp linh hoạt nhất cho môi trường production, đặc biệt với EKS
+  - Sử dụng X509 Client Certificates: Phương pháp này tạo certificate với thông tin group trong Organization (O) field
+​
 
-#### Group
-- Group là tập hợp các users để quản lý permission dễ dàng hơn. Kubernetes có built-in groups như system:authenticated, system:unauthenticated. Admin có thể tạo custom groups như developers, admins.
-
-#### Service account
-- ServiceAccount dành cho processes chạy trong Pod, tự động mount token để gọi Kubernetes API. Mỗi namespace có default default ServiceAccount. Ví dụ: sa-name trong namespace my-app.
-- Service Account trong Kubernetes là một “danh tính” dành cho workload (Pod, controller, addon…), không phải cho người dùng đăng nhập trực tiếp; Pod dùng Service Account để xác thực với API server và được gán quyền thông qua RBAC (Role/ClusterRole + RoleBinding/ClusterRoleBinding). Service Account là resource nằm trong namespace, mỗi namespace khi tạo ra sẽ có sẵn một ServiceAccount tên `default`, và khi tạo thêm SA thì controller của cluster sẽ tạo object ServiceAccount tương ứng trong etcd.​
-- Khi một Pod gọi API bằng token của Service Account, API server sẽ map token đó thành một username nội bộ có dạng system:serviceaccount:<namespace>:<serviceaccount-name>.​ Username kiểu system:serviceaccount:ns:name: do API server tự “build” từ SA + token, không phải user quản trị tạo bằng lệnh kubectl create user.​
-- ServiceAccount (SA) trong Kubernetes là một tài nguyên namespaced, được quảng lý bởi k8s API, được sử dụng để đại diện cho danh tính của các tiến trình chạy trong Pod, giúp Pod xác thực với API server mà không cần quản lý credentials thủ công. Khi tạo SA account resource, thực chất k8s sẽ tạo ra 1 secret chứa token. Token của SA được tự động mount vào container tại /var/run/secrets/kubernetes.io/serviceaccount (hoặc dùng lệnh `mount | grep serviceaccount` để tìm vị trí mount), cho phép ứng dụng bên trong Pod thực hiện các yêu cầu API với username dạng system:serviceaccount:<namespace>:<sa-name>.​
-
-Trong thư mục /var/run/secrets/kubernetes.io/serviceaccount sẽ có các file ca.crt, namespace và token
-
-Có thể sử dụng token tại /var/run/secrets/kubernetes.io/serviceaccount/token để gọi đến api server bằng lệnh `curl https://10.96.0.1 -k -H 'Authorization: Bearer $(cat token)` -> lúc này ta có thể tương tác với api server bằng service account tương ứng với token (lưu ý mới pass qua được bước authen, còn để thực hiện action thì phải xem service account có quyền gì)
-
-
-- Lệnh tạo service account `kubectl create serviceaccount <name>`
-- Lệnh cấp quyền cho service account : dùng rolebinding
-- Lệnh để lấy token của service account: `kubectl create token <sa_name>` (lưu ý chỉ generate được temp token, có thể dùng jwt decoder để đọc thông tin) (hoặc đọc secret rồi decode base64 - cần check lại thông tin)
+#### 6.1.3. Service account
+- Service Account là identity dành cho các containers chạy trong Pod để xác thực với API server.
+- Service Account là resource nằm trong namespace, mỗi namespace khi tạo ra sẽ có sẵn một ServiceAccount tên `default`​
+- Khi một Pod gọi API bằng token của Service Account, API server sẽ map token đó thành một username nội bộ có dạng system:serviceaccount:<namespace>:<serviceaccount-name>.​ Bản chất khi tạo Service Account resource, k8s sẽ tạo ra 1 secret chứa token. Token của này được tự động mount vào container tại `/var/run/secrets/kubernetes.io/serviceaccount` (hoặc dùng lệnh `mount | grep serviceaccount` để tìm vị trí mount), cho phép ứng dụng bên trong Pod thực hiện các API requests​. Có thể sử dụng token trong container để xác thực đến API server (VD `curl https://10.96.0.1 -k -H 'Authorization: Bearer $(cat token)`)
+- Ngoài ra có thể lấy token của Service account bằng lệnh `kubectl create token <sa_name>` (chỉ generate được temp token, cần dùng jwt decoder để đọc thông tin). Hoặc đọc secret rồi decode base64
 
 
-## 6. RBAC
+### 6.2. Role-Based Access Control (RBAC)
 
-- RBAC (Role-Based Access Control) là cơ chế kiểm soát truy cập dựa trên role trong Kubernetes, cho phép quản trị viên quy định ai (người dùng, nhóm hoặc ServiceAccount) có thể thực hiện hành động gì trên tài nguyên cụ thể, áp dụng nguyên tắc "least privilege" để tăng cường bảo mật.
-- Mặc định RBAC được enable Kubernetes từ version 1.6 trở lên
+- RBAC là cơ chế kiểm soát truy cập dựa trên role trong Kubernetes, cho phép quản trị viên quy định identity có thể thực hiện hành động gì trên tài nguyên nào. Mặc định RBAC được enable Kubernetes từ version 1.6 trở lên.
+- Khi RBAC được bật thì các ServiceAccount không có quyền gì cả, cần phải gán quyền (binding) cho SA hoặc user đó.
 - RBAC có thể kết hợp với các authorizer khác như ABAC nếu cần.
-- Mặc định khi RBAC được bật trên Kubernetes thì các ServiceAccount (SA) không có quyền gì cả. Nói cách khác, các SA, người dùng mới sẽ không được cấp quyền truy cập hoặc thao tác trên tài nguyên Kubernetes cho đến khi có Role hoặc ClusterRole được tạo và gán quyền (binding) cho SA hoặc user đó. Ví dụ, để một ServiceAccount mặc định có thể list các Service trong một namespace, ta cần tạo Role và RoleBinding gán quyền rõ ràng cho nó, không có quyền nào được cấp mặc định.​
-  
-Các thành phần chính của RBAC
+
+#### 6.2.1. Các thành phần chính của RBAC
 
 Kubernetes định nghĩa bốn đối tượng RBAC chính: Role, ClusterRole, RoleBinding và ClusterRoleBinding.​
 
-- Role: Quy định các quyền (verbs như get, list, create) trên tài nguyên trong một namespace cụ thể, ví dụ cho phép list pods trong namespace default.​
+- Role: Quy định các quyền (verbs như get, list, create) trên tài nguyên trong một namespace cụ thể. VD:
+
+```
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: default
+  name: pod-reader
+rules:
+- apiGroups: [""] # "" indicates the core API group
+  resources: ["pods"]
+  verbs: ["get", "watch", "list"]
+```​
 
 - ClusterRole: Quy định các quyền trên tài nguyên trong tất cả các namespace và tài nguyên thuộc non-namespaced (VD Node, Persistent Volume)
 
