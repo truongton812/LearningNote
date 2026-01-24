@@ -239,104 +239,88 @@ Trong Kubernetes có 3 loại identity chính: User, Group và ServiceAccount.
 - RBAC là cơ chế kiểm soát truy cập dựa trên role trong Kubernetes, cho phép quản trị viên quy định identity có thể thực hiện hành động gì trên tài nguyên nào. Mặc định RBAC được enable Kubernetes từ version 1.6 trở lên.
 - Khi RBAC được bật thì các ServiceAccount không có quyền gì cả, cần phải gán quyền (binding) cho SA hoặc user đó.
 - RBAC có thể kết hợp với các authorizer khác như ABAC nếu cần.
+- Khi dùng lệnh `kubectl` có thể tương tác được với Kubernetes mà không cần cấu hình RBAC là vì file kubeconfig mặc định chứa credentials của tài khoản cluster-admin với quyền cao nhất (ClusterRoleBinding cluster-admin được tạo tự động khi cài cluster). Khi tạo cluster (qua kubeadm, Minikube, managed service như EKS/GKE), Kubernetes tự động sinh kubeconfig admin với certificate hoặc token cấp quyền cluster-admin, cho phép truy cập toàn bộ tài nguyên. Nếu muốn chia sẻ quyền control cluster nên tạo kubeconfig riêng với RBAC hạn chế thay vì dùng admin
 
 #### 6.2.1. Các thành phần chính của RBAC
 
 Kubernetes định nghĩa bốn đối tượng RBAC chính: Role, ClusterRole, RoleBinding và ClusterRoleBinding.​
 
-- Role: Quy định các quyền (verbs như get, list, create) trên tài nguyên trong một namespace cụ thể. VD:
-
-```
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  namespace: default
-  name: pod-reader
-rules:
-- apiGroups: [""] # "" indicates the core API group
-  resources: ["pods"]
-  verbs: ["get", "watch", "list"]
-```​
-
-- ClusterRole: Quy định các quyền trên tài nguyên trong tất cả các namespace và tài nguyên thuộc non-namespaced (VD Node, Persistent Volume)
-
-- RoleBinding: Gán Role cho subject (User, Group, ServiceAccount) trong một namespace.​
-
-- ClusterRoleBinding: Gán ClusterRole cho subject toàn cluster.​
-
-Cách thức hoạt động: Khi một yêu cầu API đến (như kubectl get pods), Kubernetes kiểm tra RBAC để xác định quyền dựa trên rules trong Role/ClusterRole và bindings.  
-
-
-- Lưu ý khi dùng lệnh kubectl get các tài nguyên mà không cần cấu hình RBAC thêm vì file kubeconfig mặc định (thường ở ~/.kube/config hoặc /etc/kubernetes/admin.conf) chứa credentials của tài khoản cluster-admin với quyền cao nhất (ClusterRoleBinding cluster-admin được tạo tự động khi cài cluster). Khi tạo cluster (qua kubeadm, Minikube, managed service như EKS/GKE), Kubernetes tự động sinh kubeconfig admin với certificate hoặc token cấp quyền cluster-admin, cho phép truy cập toàn bộ tài nguyên cluster-scoped và namespace mà không cần RBAC riêng.​
-
-- ClusterRole cluster-admin được bind với Group system:masters hoặc admin user trong kubeconfig, cấp verbs * (tất cả hành động) trên resources * (tất cả tài nguyên), bao gồm get/list pods, nodes, deployments. Kiểm tra quyền bằng lệnh: `kubectl auth can-i '*' '*' --all-namespaces` , kết quả "yes" xác nhận quyền admin đầy đủ từ kubeconfig hiện tại.​
-
-- Ngược lại, các ServiceAccount default (như default trong namespace) không có quyền gì, cần RoleBinding riêng để kubectl (qua SA) hoạt động; kubeconfig admin dùng user credentials riêng biệt. Nếu chia sẻ cluster, tạo kubeconfig riêng với RBAC hạn chế thay vì dùng admin
-
-
-### 11.1. Role và clusterrole
-
-- Role là tài nguyên namespace-scoped, định nghĩa quyền truy cập chỉ trong một namespace cụ thể.​
+- Role: Quy định các quyền (verbs như get, list, create) trên tài nguyên trong một namespace cụ thể.
   - Có thể có tạo nhiều role với cùng tên, chỉ cần chúng khác namespace
   - User X có thể gán với nhiều role trên nhiều namespace. VD user X có thể có quyền đọc secret trong namespace1, có quyền đọc/ghi secret trong namespace2
-- ClusterRole là tài nguyên cluster-scoped, không thuộc namespace nào và có thể định nghĩa quyền truy cập trên toàn bộ cluster, bao gồm cả tài nguyên có scope namespace và tài nguyên có scope cluster như node hoặc persistent volume.​ ClusterRole thường dùng để tái sử dụng quyền chung trên nhiều namespace hoặc cho tài nguyên không thuộc namespace.​ Khi 1 user được gán với ClusterRole thì user đấy sẽ có quyền giống nhau trên toàn bộ namespace. VD tạo ClusterRole với quyền get secret rồi gán cho user ⭢ user đó có quyền get secret trên toàn bộ namespace
-  - Lưu ý ClusterRole sẽ áp dụng lên tất cả namespace hiện có và **các namespace trong tương lai**
- 
-### 11.2 Kết hợp giữa Role/ClusterRole và RoleBinding/ClusterRoleBinding
-Có thể có các tổ hợp
+  - Ví dụ tạo Role
+  ```
+  apiVersion: rbac.authorization.k8s.io/v1
+  kind: Role
+  metadata:
+    namespace: default
+    name: pod-reader
+  rules:
+  - apiGroups: [""] # "" indicates the core API group
+    resources: ["pods"]
+    verbs: ["get", "watch", "list"]​
+  ```
 
-#### 11.2.1 Role + RoleBinding
-<img width="1649" height="817" alt="image" src="https://github.com/user-attachments/assets/8a1c0be1-aee6-4454-a482-c295fc7a28c4" />
+- ClusterRole: định nghĩa quyền truy cập tài nguyên trong tất cả các namespace và tài nguyên thuộc non-namespaced (VD Node, Persistent Volume).
+  - ClusterRole dùng để tái sử dụng quyền chung trên nhiều namespace hoặc cho tài nguyên không thuộc namespace.​ Khi 1 user được gán với ClusterRole thì user đấy sẽ có quyền giống nhau trên toàn bộ namespace. VD tạo ClusterRole với quyền get secret rồi gán cho user thì user đó có quyền get secret trên toàn bộ namespace
+  - ClusterRole sẽ áp dụng lên tất cả namespace hiện có và **các namespace trong tương lai**
+  - Ví dụ tạo ClusterRole
+  ```
+  apiVersion: rbac.authorization.k8s.io/v1
+  kind: ClusterRole
+  metadata:
+    name: pv-reader
+  rules:
+    - apiGroups: [""]
+      verbs: ["get", "list"]
+      resources: ["persistentvolumes"]
+  ```
 
-Kết quả: User có quyền trên 1 namespace cụ thể
+- RoleBinding: Gán Role hoặc ClusterRole cho identity. VD:
+  ```
+  apiVersion: rbac.authorization.k8s.io/v1
+  kind: RoleBinding
+  metadata:
+    name: test
+    namespace: foo
+  roleRef:
+    apiGroup: rbac.authorization.k8s.io
+    kind: Role # this must be Role or ClusterRole
+    name: service-reader # this must match the name of the Role or ClusterRole you wish to bind to
+  subjects:
+    - kind: ServiceAccount # Kind is User or ServiceAccount
+      name: default # name of the SA
+      namespace: foo
+  ```​
 
-#### 11.2.2 ClusterRole + ClusterRoleBinding
-<img width="1224" height="571" alt="image" src="https://github.com/user-attachments/assets/c5ffa2a2-5a09-4f5e-8c99-21f41a3f1e2d" />
+- ClusterRoleBinding: Gán ClusterRole cho identity​
+  ```
+  apiVersion: rbac.authorization.k8s.io/v1
+  # This cluster role binding allows anyone in the "manager" group to read secrets in any namespace.
+  kind: ClusterRoleBinding
+  metadata:
+    name: read-secrets-global
+  subjects:
+  - kind: Group
+    name: manager # Name is case sensitive
+    apiGroup: rbac.authorization.k8s.io
+  roleRef:
+    kind: ClusterRole
+    name: secret-reader
+    apiGroup: rbac.authorization.k8s.io
+  ```
 
-Kết quả: User có quyền trên toàn bộ namespace và các non-namespaced resources
+#### 6.2.2. Gán quyền (binding) trong Kubernetes
+- Role + RoleBinding: gán quyền cho user thao tác với tài nguyên trong 1 namespace cụ thể. Role được tạo riêng cho namespace đó, chỉ dùng được trong namespace tương ứng. Phải tạo Role riêng cho mỗi namespace nếu cần quyền tương tự.
+- ClusterRole + ClusterRoleBinding: User có quyền trên toàn bộ namespace và các non-namespaced resources
+- ClusterRole + RoleBinding: gán quyền cho user thao tác với tài nguyên trong 1 namespace cụ thể. ClusterRole là template cluster-wide (không thuộc namespace nào), có thể tái sử dụng cho nhiều RoleBinding ở các namespace khác nhau. Đây là pattern phổ biến để tránh duplicate rules.
+- Role + ClusterRoleBinding: Không thể thực hiện được
 
-#### 11.2.3 ClusterRole + RoleBinding
-<img width="1201" height="566" alt="image" src="https://github.com/user-attachments/assets/d2ccb287-ebb3-4e89-ae38-8c470ae0350b" />
-
-Kết quả: User có quyền trên 1 số namespace được chỉ định
-
-Lưu ý:
-
-ClusterRole + RoleBinding và Role + RoleBinding đều cấp quyền trong một namespace cụ thể, nhưng khác nhau về cách định nghĩa và tái sử dụng quyền.
-
-Điểm giống nhau: Cả hai kết hợp đều giới hạn quyền trong namespace chứa RoleBinding, nghĩa là subject (user/ServiceAccount) chỉ thao tác được resources trong namespace đó.
-​
-
-Điểm khác biệt chính
-- Role + RoleBinding: Role được tạo riêng cho namespace đó, chỉ dùng được trong namespace tương ứng. Phải tạo Role riêng cho mỗi namespace nếu cần quyền tương tự.
-- ClusterRole + RoleBinding: ClusterRole là template cluster-wide (không thuộc namespace nào), có thể tái sử dụng cho nhiều RoleBinding ở các namespace khác nhau. Đây là pattern phổ biến để tránh duplicate rules.
-
-Ví dụ thực tế
-```
-# Role (namespace-specific) - chỉ dùng trong namespace "dev"
-kubectl create role dev-editor --verb=create,delete --resource=pods -n dev
-
-# ClusterRole (cluster-wide template) - tái sử dụng được
-kubectl create clusterrole editor --verb=create,delete --resource=pods
-```
-
-Kết luận: Về hiệu quả quyền hạn thì giống nhau, nhưng ClusterRole + RoleBinding giúp quản lý RBAC DRY (Don't Repeat Yourself) hơn khi có nhiều namespace cần quyền tương tự.
+#### 6.2.3 Test quyền
+- Dùng lệnh `kubectl auth can-i -n <namespace> <verb> <resource> --as <service_account/user>` để test. Hoặc thay vì chỉ định cụ thể 1 namespace thì dùng -A để chỉ định tất cả ns, kết quả trả về sẽ là yes hoặc no
+- VD: `kubectl auth can-i delete secrets --as system:serviceaccount:default:accessor`
 
 
-#### 11.2.3 Role + ClusterRoleBinding
-<img width="1091" height="568" alt="image" src="https://github.com/user-attachments/assets/a6164a87-503b-48ca-b544-6ae4b1887b09" />
-
-Không thể thực hiện được
-
-Dùng lệnh `kubectl auth can-i` để test . VD `kubectl auth can-i -n <namespace> get secrets --as <service_account/user>` (hoặc thay vì chỉ định cụ thể 1 namespace thì dùng -A để chỉ định tất cả ns) -> kết quả trả về sẽ là yes hoặc no
-
-VD: `kubectl auth can-i delete secrets --as system:serviceaccount:default:accessor`
-
-### 11.2. RoleBinding và ClusterRoleBinding
-- RoleBinding gán quyền từ Role (hoặc ClusterRole) cho user/group/ServiceAccount chỉ trong namespace của nó.​ RoleBinding có thể tham chiếu ClusterRole để áp dụng quyền cluster-wide nhưng giới hạn trong namespace của binding.​
-- ClusterRoleBinding gán quyền từ ClusterRole cho subject trên toàn cluster, áp dụng cho mọi namespace.​ Có thể dùng ClusterRoleBinding để bind ClusterRole với ServiceAccount, ví dụ: `kubectl create clusterrolebinding pv-test --clusterrole=pv-reader --serviceaccount=foo:default.`. Điều này cấp quyền cluster-wide cho ServiceAccount, cho phép truy cập tài nguyên ở mọi namespace hoặc cluster-scoped resources.​ ClusterRoleBinding chỉ mở rộng phạm vi namespace-scoped (đọc mọi namespace)
-
-So với RoleBinding bind cùng ClusterRole, ClusterRoleBinding khác ở phạm vi: RoleBinding chỉ giới hạn namespace của binding, còn ClusterRoleBinding áp dụng toàn cluster.
 
 
 Ví dụ cụ thể với ClusterRole "view"
