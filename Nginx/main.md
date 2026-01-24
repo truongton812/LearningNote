@@ -218,39 +218,36 @@ Lưu ý khi cài đặt:
     - Tạo webroot riêng cho Let’s Encrypt, ví dụ /var/www/letsencrypt, chỉ dùng để phục vụ đường dẫn /.well-known/acme-challenge/: `mkdir -p /var/www/letsencrypt`
     - Thêm location phục vụ ACME challenge trong server block của monitor.wnew25.com (port 80), trỏ root của location này về /var/www/letsencrypt, nên mọi request kiểu `http://monitor.wnew25.com/.well-known/acme-challenge/...` đều được Nginx serve từ thư mục đó.
       - Tạo file /etc/nginx/snippets/letsencrypt.conf:
-```
-location ^~ /.well-known/acme-challenge/ {
-    default_type "text/plain";
-    root /var/www/letsencrypt;
-}
-```
+        ```
+        location ^~ /.well-known/acme-challenge/ {
+            default_type "text/plain";
+            root /var/www/letsencrypt;
+        }
+        ```
+      - Trong block server listen 80 của monitor.wnew25.com, include nó:
         
+        ```
+        server {
+            listen 80;
+            server_name monitor.wnew25.com;
+        
+            include /etc/nginx/snippets/letsencrypt.conf;
+        
+            # phần còn lại (proxy_pass / redirect...) để nguyên
+        }
+        ```
 
-Trong block server listen 80 của monitor.wnew25.com, include nó:
-
-```
-server {
-    listen 80;
-    server_name monitor.wnew25.com;
-
-    include /etc/nginx/snippets/letsencrypt.conf;
-
-    # phần còn lại (proxy_pass / redirect...) để nguyên
-}
-```
-
-Kiểm tra và reload Nginx: `sudo systemctl reload nginx` 
+      - Kiểm tra và reload Nginx: `sudo systemctl reload nginx` 
 
     - Chạy Certbot với chế độ webroot, chỉ rõ `--webroot -w /var/www/letsencrypt` và `-d monitor.wnew25.com` để Certbot tạo file challenge vào đúng thư mục này, Let’s Encrypt truy cập được, nên cấp/gia hạn cert thành công.
-```
-sudo certbot certonly \
-  --webroot -w /var/www/letsencrypt \
-  -d monitor.wnew25.com \
-  --cert-name monitor.wnew25.com \
-  -v
-```
-Sau khi lệnh này chạy thành công, Certbot sẽ cập nhật file:
-/etc/letsencrypt/renewal/monitor.wnew25.com.conf sang authenticator = webroot và lưu webroot_path
+        ```
+        sudo certbot certonly \
+          --webroot -w /var/www/letsencrypt \
+          -d monitor.wnew25.com \
+          --cert-name monitor.wnew25.com \
+          -v
+        ```
+        ➜ Sau khi lệnh này chạy thành công, Certbot sẽ cập nhật file `/etc/letsencrypt/renewal/monitor.wnew25.com.conf` sang authenticator = webroot và lưu webroot_path
     - Sau lần chạy đó, file renewal được cập nhật sang authenticator = webroot + lưu webroot path, nên về sau certbot renew tự chạy ổn, không còn phụ thuộc parser của plugin nginx nữa.
 
 - Như vậy, lỗi gốc là do Certbot không “hiểu” được cấu hình nginx phức tạp để dùng plugin nginx, và bạn đã fix bằng cách tách hẳn sang cơ chế webroot đơn giản, rõ ràng, giúp việc renew ổn định và ít phụ thuộc vào cấu hình nội bộ của Nginx.
