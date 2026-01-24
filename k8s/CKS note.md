@@ -190,6 +190,52 @@ Người dùng có thể sử dụng kube-bench (mã nguồn mở) để tự đ
 Dùng lệnh `docker run --pid=host -v /etc:/etc:ro -v /var:/var:ro -t docker.io/aquasec/kube-bench:latest --version 1.18` cho nhanh -> get được list các lỗ hổng và dựa vào document để fix
 
 ## 6. RBAC
+### 6.1. Các loại identity trong K8S
+- Trong Kubernetes có 3 loại identity chính để phân quyền: User, Group và ServiceAccount.
+
+#### Normal User 
+- ​User đại diện cho người dùng con người hoặc external identities (như IAM users từ AWS/Azure/GCP). Kubernetes không quản lý user accounts trực tiếp mà dựa vào external authentication (certificates, OIDC, webhooks). Ví dụ: jane, bob@example.com.
+- Normal user (hay còn gọi là Humans/Users) đại diện cho người dùng bên ngoài cluster, không phải là tài nguyên trong k8s, như quản trị viên hoặc developer sử dụng kubectl, được xác thực qua certificates, tokens, hoặc OpenID Connect mà không được quản lý tự động bởi Kubernetes (VD được quản lý bởi AWS, GCP,...). Chúng thuộc các group mặc định như system:authenticated và được phân quyền qua RBAC (Role/ClusterRole với RoleBinding/ClusterRoleBinding), khác với SA chỉ giới hạn trong namespace
+- Normal User chỉ cần có certificate và key thì sẽ connect được tới cụm k8s. Với điều kiện là certificate của user (hay còn gọi là client certificate) phải được signed bởi cluster's certificate authority (CA). Username trong Kubernetes được định nghĩa trong certificate thông qua trường Common Name (CN) trong phần subject của X.509 client certificate, ví dụ /CN=username sẽ được dùng làm tên người dùng khi xác thực với API server.
+- Quy trình để tạo client certificate. Ta hoàn toàn có thể tạo CSR rồi dùng CA để ký, sau đó down CRT về mà không cần phải tạo CertificateSigningRequest resource, tuy nhiên như thế sẽ phức tạp hơn
+
+<img width="1307" height="636" alt="image" src="https://github.com/user-attachments/assets/efcbc22a-fc15-41fe-b977-37a4a10aabba" />
+
+Quy trình: 
+- User tạo key (có thể dùng openssl)
+- từ key user tạo CSR
+- Admin tạo CertificateSigningRequest resource trong cụm k8s bằng thông tin CSR user gửi (lưu ý cần mã hóa base64), sau đó admin approve bằng lệnh `kubectl certificate approve <ten_csr>`
+- User download cert và thêm vào trong kubeconfig để sử dụng
+- Các lệnh làm việc với kubeconfig
+  - `kubectl config view`. Thêm option `--raw` để xem data
+  - `kubectl config set-credentials <user_name> --client-key=<key> --client-certificate=<cert>`. Thêm option `--embed-certs` để include vào
+  - `kubectl config set-context <context_name> --user=<user_name> --cluster=<cluster_name>`
+
+Lưu ý không thể invaliadte 1 certificate
+⭢ trong trường hợp certificate bị leak thì xử lý bằng cách:
+- Remove tất cả access bằng RBAC
+- Tạo CA mới và issue lại tất cả các cert
+
+#### Group
+- Group là tập hợp các users để quản lý permission dễ dàng hơn. Kubernetes có built-in groups như system:authenticated, system:unauthenticated. Admin có thể tạo custom groups như developers, admins.
+
+#### Service account
+- ServiceAccount dành cho processes chạy trong Pod, tự động mount token để gọi Kubernetes API. Mỗi namespace có default default ServiceAccount. Ví dụ: sa-name trong namespace my-app.
+- Service Account trong Kubernetes là một “danh tính” dành cho workload (Pod, controller, addon…), không phải cho người dùng đăng nhập trực tiếp; Pod dùng Service Account để xác thực với API server và được gán quyền thông qua RBAC (Role/ClusterRole + RoleBinding/ClusterRoleBinding). Service Account là resource nằm trong namespace, mỗi namespace khi tạo ra sẽ có sẵn một ServiceAccount tên `default`, và khi tạo thêm SA thì controller của cluster sẽ tạo object ServiceAccount tương ứng trong etcd.​
+- Khi một Pod gọi API bằng token của Service Account, API server sẽ map token đó thành một username nội bộ có dạng system:serviceaccount:<namespace>:<serviceaccount-name>.​ Username kiểu system:serviceaccount:ns:name: do API server tự “build” từ SA + token, không phải user quản trị tạo bằng lệnh kubectl create user.​
+- ServiceAccount (SA) trong Kubernetes là một tài nguyên namespaced, được quảng lý bởi k8s API, được sử dụng để đại diện cho danh tính của các tiến trình chạy trong Pod, giúp Pod xác thực với API server mà không cần quản lý credentials thủ công. Khi tạo SA account resource, thực chất k8s sẽ tạo ra 1 secret chứa token. Token của SA được tự động mount vào container tại /var/run/secrets/kubernetes.io/serviceaccount (hoặc dùng lệnh `mount | grep serviceaccount` để tìm vị trí mount), cho phép ứng dụng bên trong Pod thực hiện các yêu cầu API với username dạng system:serviceaccount:<namespace>:<sa-name>.​
+
+Trong thư mục /var/run/secrets/kubernetes.io/serviceaccount sẽ có các file ca.crt, namespace và token
+
+Có thể sử dụng token tại /var/run/secrets/kubernetes.io/serviceaccount/token để gọi đến api server bằng lệnh `curl https://10.96.0.1 -k -H 'Authorization: Bearer $(cat token)` -> lúc này ta có thể tương tác với api server bằng service account tương ứng với token (lưu ý mới pass qua được bước authen, còn để thực hiện action thì phải xem service account có quyền gì)
+
+
+- Lệnh tạo service account `kubectl create serviceaccount <name>`
+- Lệnh cấp quyền cho service account : dùng rolebinding
+- Lệnh để lấy token của service account: `kubectl create token <sa_name>` (lưu ý chỉ generate được temp token, có thể dùng jwt decoder để đọc thông tin) (hoặc đọc secret rồi decode base64 - cần check lại thông tin)
+
+
+## 6. RBAC
 
 - RBAC (Role-Based Access Control) là cơ chế kiểm soát truy cập dựa trên role trong Kubernetes, cho phép quản trị viên quy định ai (người dùng, nhóm hoặc ServiceAccount) có thể thực hiện hành động gì trên tài nguyên cụ thể, áp dụng nguyên tắc "least privilege" để tăng cường bảo mật.
 - Mặc định RBAC được enable Kubernetes từ version 1.6 trở lên
@@ -217,29 +263,100 @@ Cách thức hoạt động: Khi một yêu cầu API đến (như kubectl get p
 
 - Ngược lại, các ServiceAccount default (như default trong namespace) không có quyền gì, cần RoleBinding riêng để kubectl (qua SA) hoạt động; kubeconfig admin dùng user credentials riêng biệt. Nếu chia sẻ cluster, tạo kubeconfig riêng với RBAC hạn chế thay vì dùng admin
 
+
+### 11.1. Role và clusterrole
+
+- Role là tài nguyên namespace-scoped, định nghĩa quyền truy cập chỉ trong một namespace cụ thể.​
+  - Có thể có tạo nhiều role với cùng tên, chỉ cần chúng khác namespace
+  - User X có thể gán với nhiều role trên nhiều namespace. VD user X có thể có quyền đọc secret trong namespace1, có quyền đọc/ghi secret trong namespace2
+- ClusterRole là tài nguyên cluster-scoped, không thuộc namespace nào và có thể định nghĩa quyền truy cập trên toàn bộ cluster, bao gồm cả tài nguyên có scope namespace và tài nguyên có scope cluster như node hoặc persistent volume.​ ClusterRole thường dùng để tái sử dụng quyền chung trên nhiều namespace hoặc cho tài nguyên không thuộc namespace.​ Khi 1 user được gán với ClusterRole thì user đấy sẽ có quyền giống nhau trên toàn bộ namespace. VD tạo ClusterRole với quyền get secret rồi gán cho user ⭢ user đó có quyền get secret trên toàn bộ namespace
+  - Lưu ý ClusterRole sẽ áp dụng lên tất cả namespace hiện có và **các namespace trong tương lai**
+ 
+### 11.2 Kết hợp giữa Role/ClusterRole và RoleBinding/ClusterRoleBinding
+Có thể có các tổ hợp
+
+#### 11.2.1 Role + RoleBinding
+<img width="1649" height="817" alt="image" src="https://github.com/user-attachments/assets/8a1c0be1-aee6-4454-a482-c295fc7a28c4" />
+
+Kết quả: User có quyền trên 1 namespace cụ thể
+
+#### 11.2.2 ClusterRole + ClusterRoleBinding
+<img width="1224" height="571" alt="image" src="https://github.com/user-attachments/assets/c5ffa2a2-5a09-4f5e-8c99-21f41a3f1e2d" />
+
+Kết quả: User có quyền trên toàn bộ namespace và các non-namespaced resources
+
+#### 11.2.3 ClusterRole + RoleBinding
+<img width="1201" height="566" alt="image" src="https://github.com/user-attachments/assets/d2ccb287-ebb3-4e89-ae38-8c470ae0350b" />
+
+Kết quả: User có quyền trên 1 số namespace được chỉ định
+
+Lưu ý:
+
+ClusterRole + RoleBinding và Role + RoleBinding đều cấp quyền trong một namespace cụ thể, nhưng khác nhau về cách định nghĩa và tái sử dụng quyền.
+
+Điểm giống nhau: Cả hai kết hợp đều giới hạn quyền trong namespace chứa RoleBinding, nghĩa là subject (user/ServiceAccount) chỉ thao tác được resources trong namespace đó.
+​
+
+Điểm khác biệt chính
+- Role + RoleBinding: Role được tạo riêng cho namespace đó, chỉ dùng được trong namespace tương ứng. Phải tạo Role riêng cho mỗi namespace nếu cần quyền tương tự.
+- ClusterRole + RoleBinding: ClusterRole là template cluster-wide (không thuộc namespace nào), có thể tái sử dụng cho nhiều RoleBinding ở các namespace khác nhau. Đây là pattern phổ biến để tránh duplicate rules.
+
+Ví dụ thực tế
+```
+# Role (namespace-specific) - chỉ dùng trong namespace "dev"
+kubectl create role dev-editor --verb=create,delete --resource=pods -n dev
+
+# ClusterRole (cluster-wide template) - tái sử dụng được
+kubectl create clusterrole editor --verb=create,delete --resource=pods
+```
+
+Kết luận: Về hiệu quả quyền hạn thì giống nhau, nhưng ClusterRole + RoleBinding giúp quản lý RBAC DRY (Don't Repeat Yourself) hơn khi có nhiều namespace cần quyền tương tự.
+
+
+#### 11.2.3 Role + ClusterRoleBinding
+<img width="1091" height="568" alt="image" src="https://github.com/user-attachments/assets/a6164a87-503b-48ca-b544-6ae4b1887b09" />
+
+Không thể thực hiện được
+
+Dùng lệnh `kubectl auth can-i` để test . VD `kubectl auth can-i -n <namespace> get secrets --as <service_account/user>` (hoặc thay vì chỉ định cụ thể 1 namespace thì dùng -A để chỉ định tất cả ns) -> kết quả trả về sẽ là yes hoặc no
+
+VD: `kubectl auth can-i delete secrets --as system:serviceaccount:default:accessor`
+
+### 11.2. RoleBinding và ClusterRoleBinding
+- RoleBinding gán quyền từ Role (hoặc ClusterRole) cho user/group/ServiceAccount chỉ trong namespace của nó.​ RoleBinding có thể tham chiếu ClusterRole để áp dụng quyền cluster-wide nhưng giới hạn trong namespace của binding.​
+- ClusterRoleBinding gán quyền từ ClusterRole cho subject trên toàn cluster, áp dụng cho mọi namespace.​ Có thể dùng ClusterRoleBinding để bind ClusterRole với ServiceAccount, ví dụ: `kubectl create clusterrolebinding pv-test --clusterrole=pv-reader --serviceaccount=foo:default.`. Điều này cấp quyền cluster-wide cho ServiceAccount, cho phép truy cập tài nguyên ở mọi namespace hoặc cluster-scoped resources.​ ClusterRoleBinding chỉ mở rộng phạm vi namespace-scoped (đọc mọi namespace)
+
+So với RoleBinding bind cùng ClusterRole, ClusterRoleBinding khác ở phạm vi: RoleBinding chỉ giới hạn namespace của binding, còn ClusterRoleBinding áp dụng toàn cluster.
+
+
+Ví dụ cụ thể với ClusterRole "view"
+
+- Giả sử có ClusterRole mặc định tên "view" cho phép đọc (get, list, watch) các tài nguyên namespace như Pod, Service, ConfigMap trên toàn cluster.​
+- Tạo ServiceAccount "myapp" trong namespace "dev".​ Pod dùng SA này sẽ có quyền khác nhau tùy binding.
+
+Trường hợp dùng RoleBinding với ClusterRole "view": Tạo RoleBinding trong namespace "dev":
+`kubectl create rolebinding myapp-view-dev --clusterrole=view --serviceaccount=dev:myapp --namespace=dev`
+
+-> SA "myapp" chỉ đọc được tài nguyên trong namespace "dev" (như kubectl get pods -n dev).​ Không thể đọc Pod ở namespace khác như "prod" (kubectl get pods -n prod sẽ lỗi).​
+
+Trường hợp dùng ClusterRoleBinding với ClusterRole "view". Tạo ClusterRoleBinding:
+`kubectl create clusterrolebinding myapp-view-cluster --clusterrole=view --serviceaccount=dev:myapp`
+
+-> SA "myapp" đọc được tài nguyên namespace-scoped ở mọi namespace (như kubectl get pods -n dev hoặc kubectl get pods -n prod).​ Vẫn không đọc cluster-scoped resources như Node do ClusterRole "view" mặc định chỉ định nghĩa quyền đọc (get, list, watch) cho namespace-scoped resources như Pod, Service, ConfigMap, Secret, nó không bao gồm cluster-scoped resources như Node, PersistentVolume, Namespace. Muốn đọc được cluster-scoped resources thì cần tạo ClusterRole cho phép đọc cluster-scoped resources (ví dụ ClusterRole "system:node-reader" cho phép list Node), sau đó bind bằng ClusterRoleBinding với ServiceAccount hoặc User (không dùng RoleBinding vì nó là namespace-scoped)
+
+Lưu ý permission là additive
+
+<img width="1176" height="397" alt="image" src="https://github.com/user-attachments/assets/bf45b00d-7a61-47a3-8e7d-58ab2a04e270" />
+
+
+
+
+
+
+
 ### 6.1 Namespaced và non-namespaced resource
 - Xem bằng lệnh `kubectl api-resources --namespaced=true/false`
 
-
-## 11. RBCA
-
-- Service Account trong Kubernetes là một “danh tính” dành cho workload (Pod, controller, addon…), không phải cho người dùng đăng nhập trực tiếp; Pod dùng Service Account để xác thực với API server và được gán quyền thông qua RBAC (Role/ClusterRole + RoleBinding/ClusterRoleBinding). Service Account là resource nằm trong namespace, mỗi namespace khi tạo ra sẽ có sẵn một ServiceAccount tên `default`, và khi tạo thêm SA thì controller của cluster sẽ tạo object ServiceAccount tương ứng trong etcd.​
-- Khi một Pod gọi API bằng token của Service Account, API server sẽ map token đó thành một username nội bộ có dạng system:serviceaccount:<namespace>:<serviceaccount-name>.​ Username kiểu system:serviceaccount:ns:name: do API server tự “build” từ SA + token, không phải user quản trị tạo bằng lệnh kubectl create user.​
-
-### 11.0. ServiceAccount và Normal User
-
-ServiceAccount (SA) trong Kubernetes là một tài nguyên namespaced, được quảng lý bởi k8s API, được sử dụng để đại diện cho danh tính của các tiến trình chạy trong Pod, giúp Pod xác thực với API server mà không cần quản lý credentials thủ công. Khi tạo SA account resource, thực chất k8s sẽ tạo ra 1 secret chứa token. Token của SA được tự động mount vào container tại /var/run/secrets/kubernetes.io/serviceaccount (hoặc dùng lệnh `mount | grep serviceaccount` để tìm vị trí mount), cho phép ứng dụng bên trong Pod thực hiện các yêu cầu API với username dạng system:serviceaccount:<namespace>:<sa-name>.​
-
-Trong thư mục /var/run/secrets/kubernetes.io/serviceaccount sẽ có các file ca.crt, namespace và token
-
-Có thể sử dụng token tại /var/run/secrets/kubernetes.io/serviceaccount/token để gọi đến api server bằng lệnh `curl https://10.96.0.1 -k -H 'Authorization: Bearer $(cat token)` -> lúc này ta có thể tương tác với api server bằng service account tương ứng với token (lưu ý mới pass qua được bước authen, còn để thực hiện action thì phải xem service account có quyền gì)
-
-
-Lệnh tạo service account `kubectl create serviceaccount <name>`
-
-Lệnh cấp quyền cho service account : dùng rolebinding
-
-Lệnh để lấy token của service account: `kubectl create token <sa_name>` (lưu ý chỉ generate được temp token, có thể dùng jwt decoder để đọc thông tin) (hoặc đọc secret rồi decode base64 - cần check lại thông tin)
 
 ---
 
@@ -278,91 +395,6 @@ Use case thực tế
 - Môi trường security-sensitive (production, multi-tenant, PCI, v.v.): best practice là set automountServiceAccountToken: false cho default SA và chỉ bật cho những Pod/SA thực sự cần gọi API, thậm chí kết hợp với RBAC tối thiểu (least privilege).
 
 ---
-
-Normal User (hay còn gọi là Humans/Users) đại diện cho người dùng bên ngoài cluster, không phải là tài nguyên trong k8s, như quản trị viên hoặc developer sử dụng kubectl, được xác thực qua certificates, tokens, hoặc OpenID Connect mà không được quản lý tự động bởi Kubernetes (VD được quản lý bởi AWS, GCP,...). Chúng thuộc các group mặc định như system:authenticated và được phân quyền qua RBAC (Role/ClusterRole với RoleBinding/ClusterRoleBinding), khác với SA chỉ giới hạn trong namespace
-
-Normal User chỉ cần có certificate và key thì sẽ connect được tới cụm k8s. Với điều kiện là certificate của user (hay còn gọi là client certificate) phải được signed bởi cluster's certificate authority (CA). Username trong Kubernetes được định nghĩa trong certificate thông qua trường Common Name (CN) trong phần subject của X.509 client certificate, ví dụ /CN=username sẽ được dùng làm tên người dùng khi xác thực với API server.
-
-Quy trình để tạo client certificate. Ta hoàn toàn có thể tạo CSR rồi dùng CA để ký, sau đó down CRT về mà không cần phải tạo CertificateSigningRequest resource, tuy nhiên như thế sẽ phức tạp hơn
-
-<img width="1307" height="636" alt="image" src="https://github.com/user-attachments/assets/efcbc22a-fc15-41fe-b977-37a4a10aabba" />
-
-Quy trình: 
-- User tạo key (có thể dùng openssl)
-- từ key user tạo CSR
-- Admin tạo CertificateSigningRequest resource trong cụm k8s bằng thông tin CSR user gửi (lưu ý cần mã hóa base64), sau đó admin approve bằng lệnh `kubectl certificate approve <ten_csr>`
-- User download cert và thêm vào trong kubeconfig để sử dụng
-- Các lệnh làm việc với kubeconfig
-  - `kubectl config view`. Thêm option `--raw` để xem data
-  - `kubectl config set-credentials <user_name> --client-key=<key> --client-certificate=<cert>`. Thêm option `--embed-certs` để include vào
-  - `kubectl config set-context <context_name> --user=<user_name> --cluster=<cluster_name>`
-
-Lưu ý không thể invaliadte 1 certificate
-⭢ trong trường hợp certificate bị leak thì xử lý bằng cách:
-- Remove tất cả access bằng RBAC
-- Tạo CA mới và issue lại tất cả các cert
-
-### 11.1. Role và clusterrole
-
-- Role là tài nguyên namespace-scoped, định nghĩa quyền truy cập chỉ trong một namespace cụ thể.​
-  - Có thể có tạo nhiều role với cùng tên, chỉ cần chúng khác namespace
-  - User X có thể gán với nhiều role trên nhiều namespace. VD user X có thể có quyền đọc secret trong namespace1, có quyền đọc/ghi secret trong namespace2
-- ClusterRole là tài nguyên cluster-scoped, không thuộc namespace nào và có thể định nghĩa quyền truy cập trên toàn bộ cluster, bao gồm cả tài nguyên có scope namespace và tài nguyên có scope cluster như node hoặc persistent volume.​ ClusterRole thường dùng để tái sử dụng quyền chung trên nhiều namespace hoặc cho tài nguyên không thuộc namespace.​ Khi 1 user được gán với ClusterRole thì user đấy sẽ có quyền giống nhau trên toàn bộ namespace. VD tạo ClusterRole với quyền get secret rồi gán cho user ⭢ user đó có quyền get secret trên toàn bộ namespace
-  - Lưu ý ClusterRole sẽ áp dụng lên tất cả namespace hiện có và **các namespace trong tương lai**
- 
-### 11.2 Kết hợp giữa Role/ClusterRole và RoleBinding/ClusterRoleBinding
-Có thể có các tổ hợp
-
-#### 11.2.1 Role + RoleBinding
-<img width="1649" height="817" alt="image" src="https://github.com/user-attachments/assets/8a1c0be1-aee6-4454-a482-c295fc7a28c4" />
-
-Kết quả: User có quyền trên 1 namespace cụ thể
-
-#### 11.2.2 ClusterRole + ClusterRoleBinding
-<img width="1224" height="571" alt="image" src="https://github.com/user-attachments/assets/c5ffa2a2-5a09-4f5e-8c99-21f41a3f1e2d" />
-
-Kết quả: User có quyền trên toàn bộ namespace và các non-namespaced resources
-
-#### 11.2.3 ClusterRole + RoleBinding
-<img width="1201" height="566" alt="image" src="https://github.com/user-attachments/assets/d2ccb287-ebb3-4e89-ae38-8c470ae0350b" />
-
-Kết quả: User có quyền trên 1 số namespace được chỉ định
-
-#### 11.2.3 Role + ClusterRoleBinding
-<img width="1091" height="568" alt="image" src="https://github.com/user-attachments/assets/a6164a87-503b-48ca-b544-6ae4b1887b09" />
-
-Không thể thực hiện được
-
-Dùng lệnh `kubectl auth can-i` để test . VD `kubectl auth can-i -n <namespace> get secrets --as <service_account/user>` (hoặc thay vì chỉ định cụ thể 1 namespace thì dùng -A để chỉ định tất cả ns) -> kết quả trả về sẽ là yes hoặc no
-
-VD: `kubectl auth can-i delete secrets --as system:serviceaccount:default:accessor`
-
-### 11.2. RoleBinding và ClusterRoleBinding
-- RoleBinding gán quyền từ Role (hoặc ClusterRole) cho user/group/ServiceAccount chỉ trong namespace của nó.​ RoleBinding có thể tham chiếu ClusterRole để áp dụng quyền cluster-wide nhưng giới hạn trong namespace của binding.​
-- ClusterRoleBinding gán quyền từ ClusterRole cho subject trên toàn cluster, áp dụng cho mọi namespace.​ Có thể dùng ClusterRoleBinding để bind ClusterRole với ServiceAccount, ví dụ: `kubectl create clusterrolebinding pv-test --clusterrole=pv-reader --serviceaccount=foo:default.`. Điều này cấp quyền cluster-wide cho ServiceAccount, cho phép truy cập tài nguyên ở mọi namespace hoặc cluster-scoped resources.​ ClusterRoleBinding chỉ mở rộng phạm vi namespace-scoped (đọc mọi namespace)
-
-So với RoleBinding bind cùng ClusterRole, ClusterRoleBinding khác ở phạm vi: RoleBinding chỉ giới hạn namespace của binding, còn ClusterRoleBinding áp dụng toàn cluster.
-
-
-Ví dụ cụ thể với ClusterRole "view"
-
-- Giả sử có ClusterRole mặc định tên "view" cho phép đọc (get, list, watch) các tài nguyên namespace như Pod, Service, ConfigMap trên toàn cluster.​
-- Tạo ServiceAccount "myapp" trong namespace "dev".​ Pod dùng SA này sẽ có quyền khác nhau tùy binding.
-
-Trường hợp dùng RoleBinding với ClusterRole "view": Tạo RoleBinding trong namespace "dev":
-`kubectl create rolebinding myapp-view-dev --clusterrole=view --serviceaccount=dev:myapp --namespace=dev`
-
--> SA "myapp" chỉ đọc được tài nguyên trong namespace "dev" (như kubectl get pods -n dev).​ Không thể đọc Pod ở namespace khác như "prod" (kubectl get pods -n prod sẽ lỗi).​
-
-Trường hợp dùng ClusterRoleBinding với ClusterRole "view". Tạo ClusterRoleBinding:
-`kubectl create clusterrolebinding myapp-view-cluster --clusterrole=view --serviceaccount=dev:myapp`
-
--> SA "myapp" đọc được tài nguyên namespace-scoped ở mọi namespace (như kubectl get pods -n dev hoặc kubectl get pods -n prod).​ Vẫn không đọc cluster-scoped resources như Node do ClusterRole "view" mặc định chỉ định nghĩa quyền đọc (get, list, watch) cho namespace-scoped resources như Pod, Service, ConfigMap, Secret, nó không bao gồm cluster-scoped resources như Node, PersistentVolume, Namespace. Muốn đọc được cluster-scoped resources thì cần tạo ClusterRole cho phép đọc cluster-scoped resources (ví dụ ClusterRole "system:node-reader" cho phép list Node), sau đó bind bằng ClusterRoleBinding với ServiceAccount hoặc User (không dùng RoleBinding vì nó là namespace-scoped)
-
-Lưu ý permission là additive
-
-<img width="1176" height="397" alt="image" src="https://github.com/user-attachments/assets/bf45b00d-7a61-47a3-8e7d-58ab2a04e270" />
-
 
 
 ## 12. Workflow request đi tới API server
