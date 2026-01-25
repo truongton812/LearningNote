@@ -791,16 +791,12 @@ spec:
 
 ➜ Sau khi ta apply ConstraintTemplate thì trong cụm sẽ tồn tại constrainttemplate object tên là k8salwaysdeny, đồng thời Gatekeeper sẽ tạo ra CRD K8sAlwaysDeny ➜ Từ đó có thể tạo resource K8sAlwaysDeny
 
-- Constraint: Constraint kích hoạt và cấu hình policy từ template:
+- Constraint: có thể xem như là instance của ConstraintTemplate, dùng để chỉ định tài nguyên nào bị kiểm tra và action khi thỏa mãn điều kiện. Tạo Constraint bằng cách tạo object với kind là CRD do ConstraintTemplate tạo ra
 
-Scope (match): Chỉ định tài nguyên nào bị kiểm tra (Pod, Namespace, Deployment...) và namespace cụ thể.
-
-Parameters: Truyền tham số vào Rego code (ví dụ: label bắt buộc nào, image registry nào).
-
-EnforcementAction: deny (chặn), dryrun (test), audit (kiểm tra sau)
+Ví dụ:
 ```
 apiVersion: constraints.gatekeeper.sh/v1beta1
-kind: K8sAlwaysDeny #tạo constraint resource với kind là K8sAlwaysDeny
+kind: K8sAlwaysDeny #tạo constraint bằng cách tạo object có kind là K8sAlwaysDeny
 metadata:
   name: pod-always-deny
 spec:
