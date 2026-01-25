@@ -759,6 +759,9 @@ Luồng hoạt động là tạo template trước, sau đó tạo constraint t�
 <img width="2183" height="689" alt="image" src="https://github.com/user-attachments/assets/0be0bac1-bc12-423a-9959-13d87da1a4cc" />
 
 
+- ConstraintTemplate dùng để định nghĩa logic policy bằng Rego code. Sau khi apply ConstraintTemplate thì Gatekeeper tự động tạo ra một CRD mới
+
+Ví dụ: ConstraintTemplate luôn deny
 ```
 apiVersion: templates.gatekeeper.sh/v1beta1
 kind: ConstraintTemplate
@@ -786,10 +789,15 @@ spec:
         }
 ```
 
--> Sau khi ta apply ConstraintTemplate thì OPA sẽ tạo ra CRD K8sAlwaysDeny (define ở line 9), đồng thời ta có thể get được constrainttemplate tên là k8salwaysdeny
+➜ Sau khi ta apply ConstraintTemplate thì trong cụm sẽ tồn tại constrainttemplate object tên là k8salwaysdeny, đồng thời Gatekeeper sẽ tạo ra CRD K8sAlwaysDeny ➜ Từ đó có thể tạo resource K8sAlwaysDeny
 
--> Từ đó ta có thể tạo constraint resource với kind là K8sAlwaysDeny
+- Constraint: Constraint kích hoạt và cấu hình policy từ template:
 
+Scope (match): Chỉ định tài nguyên nào bị kiểm tra (Pod, Namespace, Deployment...) và namespace cụ thể.
+
+Parameters: Truyền tham số vào Rego code (ví dụ: label bắt buộc nào, image registry nào).
+
+EnforcementAction: deny (chặn), dryrun (test), audit (kiểm tra sau)
 ```
 apiVersion: constraints.gatekeeper.sh/v1beta1
 kind: K8sAlwaysDeny #tạo constraint resource với kind là K8sAlwaysDeny
