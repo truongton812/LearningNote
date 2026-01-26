@@ -678,6 +678,33 @@ AppArmor: Định nghĩa policy để giới hạn quyền truy cập của ứn
 
 AppArmor được cài đặt sẵn trên Ubuntu
 
+Xem các profile của AppArmor ở `/etc/apparmor.d`
+
+Load AppArmor profile `apparmor_parser -q /etc/apparmor.d/<profile>`
+
+Verify that the profile is active `aa-status | grep -i <proffile>`
+
+Sử dụng profile trong Pod:
+- Đối với Kubernetes ≥1.30, chỉ định bằng Security Context
+```
+spec:
+  containers:
+  - name: nginx-pod
+    securityContext:
+      appArmorProfile:
+        type: Localhost
+        localhostProfile: nginx-profile-2
+```
+- Đối với Kubernetes <1.30, chỉ định bằng annotations
+```
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx-pod
+  annotations:
+    container.apparmor.security.beta.kubernetes.io/nginx-pod: localhost/nginx-profile-2
+```
+
 ### 14.5. seccomp
 seccomp (secure computing mode) là một cơ chế lọc system call của Linux. Nó cho phép giới hạn các system call mà một tiến trình hoặc container có thể thực hiện, từ đó giảm bề mặt tấn công. seccomp thường được dùng kết hợp với các cơ chế khác như AppArmor hoặc SELinux để tăng cường bảo mật. seccomp hoạt động trực tiếp trên kernel, không tạo môi trường cô lập riêng biệt như VM hay sandbox kernel.
 
