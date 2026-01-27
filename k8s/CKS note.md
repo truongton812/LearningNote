@@ -1307,3 +1307,51 @@ Dùng kube-bench để thực hiện bench check
 - Kiểm tra kublet trên worker node `kube-bench run --targets=node --check "4.*"` . Option `--check "4.*"` là để chỉ định chỉ chạy các kiểm tra có ID bắt đầu bằng 4 thay vì chạy toàn bộ từ 1.* đến 6.* (trong CIS Benchmark, nhóm 4. là “Worker Node Security Configuration”, bao gồm các mục như: Cấu hình bảo mật của kubelet, cấu hình của container runtime, các setting hệ thống liên quan đến node 
 Kiểm tra từng section: Khi muốn tập trung vào nhóm Worker Node Security Configuration trước, .
 - Kiểm tra etcd `kube-bench run --targets=etcd`
+
+### Question 8
+Sử dụng EncryptionConfiguration resource để enable encryption at rest cho Secrets, đảm bảo Secret được mã hóa trong etcd
+- Tạo base64-encoded encryption key `head -c 32 /dev/urandom | base64`
+- Tạo EncryptionConfiguration object
+```
+# /etc/kubernetes/enc/enc.yaml
+apiVersion: apiserver.config.k8s.io/v1
+kind: EncryptionConfiguration
+resources:
+  - resources:
+      - secrets
+    providers:
+      - aescbc:
+          keys:
+            - name: key1
+              secret: c2VjcmV0IGlzIHNlY3VyZSwgSSB0aGluaw==   # base64-encoded key lấy ở trên
+      - identity: {}
+```
+- Edit kube-apiserver manifest để enable encryption
+```
+spec:
+  containers:
+  - command:
+    - kube-apiserver
+    ...
+    - --encryption-provider-config=/etc/kubernetes/enc/enc.yaml
+    volumeMounts:
+    ...
+    - name: enc
+      mountPath: /etc/kubernetes/enc #mount file enc vào trong container
+      readOnly: true
+  volumes:
+  ...
+  - name: enc
+    hostPath:
+      path: /etc/kubernetes/enc
+      type: DirectoryOrCreate
+```
+- Verify encryption trong etcd
+```
+ETCDCTL_API=3 etcdctl \
+   --cacert=/etc/kubernetes/pki/etcd/ca.crt \
+   --cert=/etc/kubernetes/pki/etcd/server.crt \
+   --key=/etc/kubernetes/pki/etcd/server.key \
+   get /registry/secrets/default/secret1 | hexdump -C #ETCD secrets được lưu ở /registry/secrets/<namespace>/<secret>
+ ```
+- Mã hóa tất cả các existing secrets (do EncryptionConfiguration chỉ mã hóa các Secret về sau, không mã hóa Secret đã tồn tại) `kubectl get secrets --all-namespaces -o json | kubectl replace -f -`
