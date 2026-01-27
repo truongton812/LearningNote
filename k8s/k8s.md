@@ -1,5 +1,17 @@
 imagePullSecret là cách để tạo credential cho k8s pull image từ private registry (tìm hiểu thêm)
-Có thể gán vào container hoặc service account (cần xác minh lại)
+
+Có thể gán vào Pod hoặc service account. VD
+```
+    spec:
+      imagePullSecrets:
+        - name: my-secret
+      containers:
+        - name: background-consume-queue
+          image: registry.kala.ai/web-crm/background-consume-queue
+```
+
+Gán vào service account: `kubectl patch sa default --type json -p '[{"op":"replace","path":"/imagePullSecrets[0].name", "value": "my-secret"}]'`
+
 
 ---
 
@@ -857,4 +869,25 @@ spec:
 
 
 
-
+### API Group
+- Trong Kubernetes, tất cả các tài nguyên (như Pod, Service, Deployment, ConfigMap…) đều được expose qua REST API của kube-apiserver. Do số lượng tài nguyên rất lớn, Kubernetes dùng khái niệm API Group để gom các tài nguyên liên quan nhau vào một nhóm riêng.
+- K8S có các API group root là /metrics (lấy metric của cụm), /healthz (giám sát trạng thái cụm), /version (xem version của cluster), /api, /apis, /logs. 2 group liên quan đến resource trong K8S là core group (/api) và named group (/apis):
+  - Core group chứa các tài nguyên cơ bản: Pods, Services, Endpoints, Namespaces, Nodes, Bindings, ConfigMaps, Secrets, PV, PVC. Core group expose ra uri /api/v1, tuy nhiên dùng trong k8s manifest thì chỉ cần viết tắt là v1, dùng cho Pod, Service, ConfigMap, Secret, Node, Namespace . VD:
+    ```
+    apiVersion: v1 (có thể hiểu là /api/v1)
+    kind: Service
+    metadata:
+    name: my-service
+    ```
+  - Named group (/apis) chứa các child group /apps (chứa các resource như Deployment, StatefulSet, DaemonSet), /extensions, /networking.k8s.io (chứa network policy), /storage.k8s.io, /authentication.k8s.io, /certificate.k8s.io (chứa certificatesigningrequest), /batch. Khi viết trong manifest named group chỉ cần gọi các child group. VD:
+    - apps/v1: dùng cho Deployment, StatefulSet, DaemonSet, ReplicaSet 
+    - networking.k8s.io/v1: dùng cho Ingress, NetworkPolicy
+    - batch/v1: dùng cho Job, CronJob.
+    - rbac.authorization.k8s.io/v1 dùng cho	Role, RoleBinding, ClusterRole, ClusterRoleBinding
+    - storage.k8s.io/v1 dùng cho	StorageClass, VolumeAttachment 
+    ```
+    apiVersion: apps/v1 (có thể hiểu là /apis/apps/v1)
+    kind: Deployment
+    metadata:
+      name: my-app
+    ```
