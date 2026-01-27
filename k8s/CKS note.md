@@ -1301,4 +1301,9 @@ spec:
 - Test logging bằng cách tạo cronjob `kubectl create cronjob testjob --image=busybox --schedule="*/1 * * * *" -- /bin/sh -c 'date; echo Hello'`
 - Check log `cat /var/log/kubernetes-logs.log | grep cronjob` và xác nhận log ở RequestResponse level
 
-
+### Question 7.
+Dùng kube-bench để thực hiện bench check
+- Kiểm tra master node (apiserver, controller-manager, scheduler, etcd, kubelet-on-master): `kube-bench run --targets=master`
+- Kiểm tra kublet trên worker node `kube-bench run --targets=node --check "4.*"` . Option `--check "4.*"` là để chỉ định chỉ chạy các kiểm tra có ID bắt đầu bằng 4 thay vì chạy toàn bộ từ 1.* đến 6.* (trong CIS Benchmark, nhóm 4. là “Worker Node Security Configuration”, bao gồm các mục như: Cấu hình bảo mật của kubelet, cấu hình của container runtime, các setting hệ thống liên quan đến node 
+Kiểm tra từng section: Khi muốn tập trung vào nhóm Worker Node Security Configuration trước, .
+- Kiểm tra etcd `kube-bench run --targets=etcd`
