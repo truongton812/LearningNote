@@ -1236,7 +1236,7 @@ Readiness vs Liveness:
   - từ tập tin kubeconfig ở đường dẫn mặc định ~/.kube/config
  
 ### Question 5
-- Tạo audit policy
+- Tạo audit policy ở `/etc/audit/audit-policy.yaml` (đường dẫn tùy ý)
 ```
 apiVersion: audit.k8s.io/v1
 kind: Policy
@@ -1268,28 +1268,24 @@ rules:
       - group: ""
         resources: ["endpoints", "services"]
 ```
-
-# Update kube-apiserver manifest to enable audit logging
-vim /etc/kubernetes/manifests/kube-apiserver.yaml
-
-
-# Relevant kube-apiserver spec snippet
+- Sửa config của kube-apiserver để enable audit logging và mount file cấu hình/file log ở `/etc/kubernetes/manifests/kube-apiserver.yaml`
+```
 spec:
   containers:
   - name: kube-apiserver
     image: k8s.gcr.io/kube-apiserver:v1.30.0
     command:
     - kube-apiserver
-    - --audit-policy-file=/etc/audit/audit-policy.yaml
-    - --audit-log-path=/var/log/kubernetes-logs.log
-    - --audit-log-maxage=5
-    - --audit-log-maxbackup=10
-    - --audit-log-maxsize=100
-    volumeMounts:
-    - mountPath: /etc/audit/audit-policy.yaml
+    - --audit-policy-file=/etc/audit/audit-policy.yaml #load file audit policy
+    - --audit-log-path=/var/log/kubernetes-logs.log #đường dẫn lưu log
+    - --audit-log-maxage=5 #Retain logs for 5 days
+    - --audit-log-maxbackup=10 #maximum 10 old files
+    - --audit-log-maxsize=100 #100 MB per file
+    volumeMounts: 
+    - mountPath: /etc/audit/audit-policy.yaml #mount file audit-policy từ host vào trong container
       name: audit
       readOnly: true
-    - mountPath: /var/log/
+    - mountPath: /var/log/ #mount log từ container ra ngoài host
       name: audit-log
       readOnly: false
   volumes:
@@ -1301,45 +1297,8 @@ spec:
     hostPath:
       path: /var/log/
       type: DirectoryOrCreate
-
-
-# Verify kube-apiserver is running with audit logs
-ps aux | grep kube-apiserver | grep audit
- 
-# Test logging by creating a CronJob
-kubectl create cronjob testjob --image=busybox --schedule="*/1 * * * *" -- /bin/sh -c 'date; echo Hello'
- 
-# Check audit logs for CronJob entries
-cat /var/log/kubernetes-logs.log | grep cronjob
- 
-# Follow the log file
-tail -f /var/log/kubernetes-logs.log
-
-
-Verification Step:
-
-Confirm the kube-apiserver is running with audit logging:
-
-ps aux | grep kube-apiserver | grep audit
-Check that audit logs are being generated:
-
-cat /var/log/kubernetes-logs.log | grep cronjob
-tail -f /var/log/kubernetes-logs.log
-Verify CronJob requests appear with RequestResponse level.
-
-Ensure other rules are applied correctly and system:kube-proxy watch requests are excluded.
-
-Check log rotation and retention settings (maxsize, maxbackup, maxage).
-
-
-
-⚠️ Note:
-
-Audit policies are applied per API server; manifest changes automatically restart kube-apiserver in static pod setup.
-
-Use kubectl get cronjob to trigger API server events for testing logging.
-
-Adjust logging levels to balance audit detail vs disk usage.
-
+```
+- Test logging bằng cách tạo cronjob `kubectl create cronjob testjob --image=busybox --schedule="*/1 * * * *" -- /bin/sh -c 'date; echo Hello'`
+- Check log `cat /var/log/kubernetes-logs.log | grep cronjob` và xác nhận log ở RequestResponse level
 
 
