@@ -891,7 +891,7 @@ spec:
     metadata:
       name: my-app
     ```
-- Để xác định resource trong Kubernetes thuộc vào API group thì dùng lệnh `kubectl api-resources`. Output ở cột APIVERSION sẽ có dạng <group>/<version>, nếu không có group thì resource thuộc nhóm core (ví dụ: v1 cho Pod, Service, ConfigMap, ...). Với các resource này khi phân quyền sẽ dùng ký hiệu "". VD: 
+- Để xác định resource trong Kubernetes thuộc vào API group thì dùng lệnh `kubectl api-resources`. Output ở cột APIVERSION sẽ có dạng `<group>/<version>`, nếu không có group thì resource thuộc nhóm core (ví dụ: v1 cho Pod, Service, ConfigMap, ...). Với các resource này khi phân quyền sẽ dùng ký hiệu "". VD: 
     - kubectl api-resources | grep cronjob -> APIVERSION là batch/v1 thì cronjob thuộc group batch
     - kubectl api-resources | grep services -> APIVERSION là v1 thì services thuộc group ""
 - Nếu muốn xem chi tiết hơn (các verbs hỗ trợ), dùng `kubectl api-resources -o wide`
