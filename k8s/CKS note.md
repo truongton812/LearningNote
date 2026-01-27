@@ -524,7 +524,7 @@ Cách đọc secret trong etcd
 
 `ETCDCTL_API=3 etcdctl --cert <path> --key <path>  --cacert <path> get /registry/secrets/<namespace>/<secret_name>` -> lấy được secret ở dạng plain text
 
-Để mã hóa secret lưu trong etcd, cần sử dụng EncryptionConfiguration resource (tạo trong /etc/kubernetes/etcd/ec.yaml - không biết tạo chỗ khác được không hay phải tạo ở đây), sau đó khai báo trong file config ở trường --encryption-provider-config
+Để mã hóa secret lưu trong etcd, cần sử dụng EncryptionConfiguration resource (hoặc tạo ở đâu cũng được), sau đó khai báo trong file config của apiserver, thêm option --encryption-provider-config
 
 ```
 apiVersion: apiserver.config.k8s.io/v1
@@ -552,7 +552,7 @@ resources:
 Để decrypt tất cả các secret thì lại đảo provider identity lên đầu rồi dùng lệnh `kubectl get secrets --all-namespaces -ojson | kubectl replace -f -`
 
 
-Sau khi tạo file EncryptionConfiguration trong /etc/kubernetes/etcd/ec.yaml cần sửa config của kube-apiserver, thêm option `--encryption-provider-config=trong /etc/kubernetes/etcd/ec.yaml`
+Sau khi tạo EncryptionConfiguration resource thì cần sửa config của kube-apiserver, thêm option `--encryption-provider-config=trong /etc/kubernetes/etcd/ec.yaml`
 
 Sửa cả volume thêm cụm hostPath
 ```
