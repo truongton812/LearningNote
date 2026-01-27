@@ -872,7 +872,7 @@ spec:
 ### API Group
 - Trong Kubernetes, tất cả các tài nguyên (như Pod, Service, Deployment, ConfigMap…) đều được expose qua REST API của kube-apiserver. Do số lượng tài nguyên rất lớn, Kubernetes dùng khái niệm API Group để gom các tài nguyên liên quan nhau vào một nhóm riêng.
 - K8S có các API group root là /metrics (lấy metric của cụm), /healthz (giám sát trạng thái cụm), /version (xem version của cluster), /api, /apis, /logs. 2 group liên quan đến resource trong K8S là core group (/api) và named group (/apis):
-  - Core group chứa các tài nguyên cơ bản: Pods, Services, Endpoints, Namespaces, Nodes, Bindings, ConfigMaps, Secrets, PV, PVC. Core group expose ra uri /api/v1, tuy nhiên dùng trong k8s manifest thì chỉ cần viết tắt là v1, dùng cho Pod, Service, ConfigMap, Secret, Node, Namespace . VD:
+  - Core group chứa các tài nguyên cơ bản: Pods, Services, Endpoints, Namespaces, Nodes, Bindings, ConfigMaps, Secrets, PV, PVC. Core group expose ra uri /api/v1, tuy nhiên dùng trong k8s manifest thì chỉ cần viết tắt là v1. VD:
     ```
     apiVersion: v1 (có thể hiểu là /api/v1)
     kind: Service
@@ -891,3 +891,4 @@ spec:
     metadata:
       name: my-app
     ```
+- Với các resources trong API group có các verb là list, get, create, delete, update và watch
