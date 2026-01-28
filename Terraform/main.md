@@ -1484,3 +1484,9 @@ concat([], [1, "a"], [[3], "c"])
   "c",
 ]
 ```
+---
+
+### Condition trong terraform
+Syntax: condition ? true_val : false_val -> condition đúng thì xảy ra khối true_val, sai thì xảy ra khối false_val
+
+Ý tưởng: kết hợp condition với count, nếu đúng thì count = 1 -> tạo resource, nếu sai thì count = 0 -> không tạo resource
