@@ -1034,6 +1034,10 @@ az_index = 2
   # modules/network/outputs.tf
   output "public_subnets" {
     value = aws_subnet.public[*].id
+  #hoặc có thể dùng for nếu cần transform/filter
+    value = [for subnet in aws_subnet.public_subnet : subnet.id]
+  #Ví dụ chỉ lấy subnet ở AZ có tên chứa "ap-southeast-1a"
+    value = [for subnet in aws_subnet.public_subnet if subnet.availability_zone == "ap-southeast-1a" : subnet.id]
   }
   ```
   - Dùng Output của Module Network làm Input cho Module ECS rong file cấu hình root (main.tf)
