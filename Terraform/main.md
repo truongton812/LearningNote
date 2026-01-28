@@ -1026,6 +1026,45 @@ instance_type = "t2.nano"
 az_index = 2
 ```
 
+### 12.2. Output/Input thông tin giữa các module
+- Khi làm việc với module, sẽ có trường hợp ta cần lấy thông tin của module này để làm input cho module khác. VD module network tạo subnet, module ECS cần lấy thông tin subnet để triển khai Service lên
+- Các bước thực hiện:
+  - Định nghĩa Output trong Module Network để trả về thông tin subnet:
+  ```
+  # modules/network/outputs.tf
+  output "public_subnets" {
+    value = aws_subnet.public[*].id
+  }
+  ```
+  - Dùng Output của Module Network làm Input cho Module ECS rong file cấu hình root (main.tf)
+```
+module "network" {
+  source = "./modules/network"
+}
+
+module "ecs" {
+  source = "./modules/ecs"
+  subnets = module.network.public_subnets
+}
+```
+  - Định nghĩa variable trong Module ECS, variable này sẽ nhận giá trị do file root truyền vào
+  ```
+  # modules/ecs/variables.tf
+  variable "subnets" {
+    type = list(string)
+  }
+  ```
+- Sử dụng variable trong module ECS để tạo ECS service:
+  ```
+  # modules/ecs/main.tf
+  resource "aws_ecs_service" "app" {
+    # ... các cấu hình khác
+    network_configuration {
+      subnets = var.subnets
+    }
+  }
+  ```
+
 ## 13. Import
 
 - Là tính năng cho phép đưa cácresources đã được tạo thủ công hoặc ngoài phạm vi quản lý của Terraform vào trong Terraform state, từ đó quản lý chúng hoàn toàn bằng Terraform.​
