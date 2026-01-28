@@ -1355,3 +1355,19 @@ ETCDCTL_API=3 etcdctl \
    get /registry/secrets/default/secret1 | hexdump -C #ETCD secrets được lưu ở /registry/secrets/<namespace>/<secret>
  ```
 - Mã hóa tất cả các existing secrets (do EncryptionConfiguration chỉ mã hóa các Secret về sau, không mã hóa Secret đã tồn tại) `kubectl get secrets --all-namespaces -o json | kubectl replace -f -`
+
+### Question 9
+- Kiểm tra pod nào không immutable, tức có config là `privileged: false` hoặc có thể ghi vào root filesystems (không set `readOnlyRootFilesystem: true`)
+```
+kubectl get pods -n prod -o yaml | grep -E 'privileged|readOnlyRootFilesystem'
+```
+- Kiểm tra Pod có attached volumes (không stateless). Lưu ý emptyDir volume được xem là stateless
+```
+kubectl get pods -n prod -o jsonpath="{range .items[*]}{.metadata.name}{': '}{.spec.volumes[*].name}{'\n'}{end}"`
+kubectl get pod/frontend -n prod -o yaml | grep volumeMounts -A 5
+``` 
+- Xóa Pod không immutable/statefull
+```
+kubectl delete --grace-period=0 --force pod app -n prod
+kubectl delete --grace-period=0 --force pod gcc -n prod
+```
