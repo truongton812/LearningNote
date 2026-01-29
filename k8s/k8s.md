@@ -896,3 +896,45 @@ spec:
     - kubectl api-resources | grep services -> APIVERSION là v1 thì services thuộc group ""
 - Nếu muốn xem chi tiết hơn (các verbs hỗ trợ), dùng `kubectl api-resources -o wide`
 - Với các resources trong API group có các verb là list, get, create, delete, update và watch
+
+---
+
+- Context trong kubeconfig là một cấu hình đặt sẵn chỉ định 3 thứ:
+  - Cluster (đang nói chuyện với cụm nào).
+  - User (dùng credential/identity nào để auth).
+  - Namespace mặc định khi chạy lệnh.
+- Context giúp dễ chuyển qua lại giữa nhiều cluster
+- Ví dụ rút gọn:
+```
+contexts:
+- name: dev-context
+  context:
+    cluster: dev-cluster
+    user: dev-user
+    namespace: development
+
+- name: prod-context
+  context:
+    cluster: prod-cluster
+    user: prod-user
+    namespace: production
+
+current-context: dev-context #context mặc định đang là dev-context
+```
+- Command làm việc với context:
+  - Liệt kê tất cả context: `kubectl config get-contexts`
+  - Xem context hiện tại: `kubectl config current-context`
+  - Chuyển context: `kubectl config use-context <ten-context>.`
+  - Xoá context: `kubectl config delete-context <ten-context>`
+​
+
+- Cách để hiển thị context/namespace trên prompt shell nhằm tránh sai context hoặc namespace: thêm snippet này vào ~/.bashrc 
+```bash
+prompt_k8s() {
+  k8s_current_context=$(kubectl config current-context 2>/dev/null)
+  if [[ $? -eq 0 ]]; then 
+    echo -e "(${k8s_current_context}) "
+  fi
+}
+PS1+='$(prompt_k8s)'
+```
