@@ -566,7 +566,8 @@ resource "aws_iam_user" "users" {
 }
 ```
 
-Lưu ý khi dùng meta-argument for_each﻿, giá trị truyền vào phải là một map hoặc set. Nếu có một list nhưng muốn dùng cho for_each﻿, cần chuyển danh sách đó sang set bằng cách sử dụng hàm toset()﻿ trong Terraform. Điều này giúp tránh việc Terraform tạo lại tài nguyên không cần thiết khi danh sách có phần tử trùng lặp hoặc khi thứ tự phần tử thay đổi. Trong ví dụ trên, mặc dù trong danh sách có 2 phần tử trùng "alice", hàm toset﻿ sẽ loại bỏ trùng lặp, chỉ tạo hai tài nguyên dành cho "alice" và "bob".
+- Lưu ý khi dùng meta-argument for_each﻿, giá trị truyền vào phải là một **map** hoặc **set**. Nếu có một list nhưng muốn dùng cho for_each﻿, cần chuyển danh sách đó sang set bằng cách sử dụng hàm `toset()`﻿ trong Terraform. Điều này giúp tránh việc Terraform tạo lại tài nguyên không cần thiết khi danh sách có phần tử trùng lặp hoặc khi thứ tự phần tử thay đổi. Trong ví dụ trên, mặc dù trong danh sách có 2 phần tử trùng "alice", hàm toset﻿ sẽ loại bỏ trùng lặp, chỉ tạo hai tài nguyên dành cho "alice" và "bob".
+- Khi dùng for_each với một set thì trong vòng lặp, each.key và each.value là giống nhau, và đều là giá trị hiện tại của phần tử trong set.
 
 
 ### 7.3 depends_on
@@ -1484,6 +1485,11 @@ concat([], [1, "a"], [[3], "c"])
   "c",
 ]
 ```
+
+- keys(map): dùng để lấy tất cả các key của map, output là list(string)
+- length(collection): dùng để đếm số lượng của collection, output là number
+- tolist/toset: dùng để chuyển đổi set thành list hoặc list thành set
+- tomap(object): dùng để chuyển đổi object thành map (đầu vào phải là object, tức kiểu map-like)
 ---
 
 ### Condition trong terraform
