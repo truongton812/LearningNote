@@ -224,7 +224,29 @@ resource "example_resource" "r" {
   ip   = each.value
 }
 ```
+- Cách tạo map động bằng for. Lưu ý syntax của for là `[for <KEY_OR_INDEX>, <VALUE> in <COLLECTION> : <OUTPUT>]` VD:
+```
+  public_subnets = {
+    for idx, subnet_id in var.public_subnet_ids : #idx sẽ nhận index trong trường hợp này
+    subnet_id => {
+      index = idx
+    }
+  }
 
+-> Kết quả sẽ là 1 map để sử dụng
+  public_subnets = {
+    "subnet-111" = {
+      index = 0
+    }
+    "subnet-222" = {
+      index = 1
+    }
+    "subnet-333" = {
+      index = 2
+    }
+  }
+}
+```
 ##### 3.3.2.4. Object
 - Một object định nghĩa một schema hoặc cấu trúc rõ ràng với các thuộc tính được đặt tên (named attributes), mỗi thuộc tính có thể có kiểu dữ liệu khác nhau. Thuộc tính của object có thể thuộc các kiểu: string, number, bool, list, set, map, object, tuple. Ví dụ một object có thể có thuộc tính name kiểu string, age kiểu number, favorite_pet kiểu bool. Object dùng để định nghĩa kiểu dữ liệu phức tạp với nhiều trường riêng biệt, mỗi trường có kiểu riêng.
 - Có thể hiểu đơn giản là map là một tập hợp các giá trị cùng kiểu với key tùy ý, còn object là một kiểu dữ liệu có cấu trúc cố định với các trường đã xác định sẵn kiểu của từng trường.
