@@ -1485,7 +1485,22 @@ concat([], [1, "a"], [[3], "c"])
   "c",
 ]
 ```
+#### 4. zipmap
 
+zipmap constructs a map from a list of keys and a corresponding list of values. Both keyslist and valueslist must be of the same length. keyslist must be a list of strings, while valueslist can be a list of any type.
+
+
+Syntax: zipmap(keyslist, valueslist)
+
+
+Examples
+```
+> zipmap(["a", "b"], [1, 2])
+{
+  "a" = 1
+  "b" = 2
+}
+```
 - keys(map): dùng để lấy tất cả các key của map, output là list(string)
 - length(collection): dùng để đếm số lượng của collection, output là number
 - tolist/toset: dùng để chuyển đổi set thành list hoặc list thành set
