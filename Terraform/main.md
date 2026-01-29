@@ -1490,3 +1490,25 @@ concat([], [1, "a"], [[3], "c"])
 Syntax: condition ? true_val : false_val -> condition đúng thì xảy ra khối true_val, sai thì xảy ra khối false_val
 
 Ý tưởng: kết hợp condition với count, nếu đúng thì count = 1 -> tạo resource, nếu sai thì count = 0 -> không tạo resource
+
+Ví dụ
+- Tạo resource dựa trên điều kiện true/false `count = var.create_something_or_not ? 1 : 0` -> nếu `create_something_or_not` là true thì tạo resource
+- Tạo resource dựa trên điều kiện so sánh `count = var.env == "prod" ? 2 : 1` -> nếu `env` là prod thì tạo 2 resources, nếu không thì chỉ tạo 1
+- Có thể áp dụng với module để bật/tắt module
+```
+module "vpc" {
+  count = var.enable_vpc_module ? 1 : 0
+  source = "module/vpc"
+}
+```
+
+Ngoài count, condition còn có thể dùng với for_each. Ví dụ:
+- Tạo resource dựa trên true/false `for_each = var.create_something_or_not ? var.something : {}` -> nếu `create_something_or_not` là true thì for_each lấy map từ biến `something`, còn không thì lấy map rỗng
+- Reconstruct lại map trước khi tạo resource:
+```
+for_each = {
+  for k, v in var.something : k => v
+    if k !== "do-not-create"
+}
+```
+Giải thích: Đoạn code `{ for k, v in var.something : k => v }` là một expression dùng để tạo một map mới dựa trên một map input (ở đây là var.something), thường được dùng để chuẩn hóa hoặc lọc dữ liệu trước khi truyền vào for_each. `for_each = { for k, v in var.something : k => v }` tương đương với `for_each = var.something` nếu không có điều kiện gì. Đoạn code ở trên tạo lại map mới chỉ chứa những key khác với `"do-not-create"`
