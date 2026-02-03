@@ -150,3 +150,43 @@ Các loại key trong AWS KMS:
   - Có thể thiết lập automatic key rotation hằng năm.
   - Phù hợp cho các ứng dụng yêu cầu kiểm soát chi tiết hoặc tuân thủ quy định bảo mật.
 
+---
+
+Luồng sử dụng envelope encryption với KMS data keys để mã hóa/giải mã secrets hiệu quả.
+​
+### 1. Secrets Manager tạo secret, đồng thời gọi KMS để encrypt secret
+```
+1. Secrets Manager gọi KMS.GenerateDataKey(custom-kms-key) 
+   → Nhận plaintext_data_key + encrypted_data_key
+   
+2. Secrets Manager dùng plaintext_data_key + AES-256 → 
+   encrypt(secret_value="MyDBPass123") → encrypted_secret
+   
+3. Xóa plaintext_data_key khỏi memory
+   
+4. Lưu vào Secrets Manager:
+   - encrypted_secret  
+   - encrypted_data_key (trong metadata)
+   - KMS key ARN reference
+
+
+```
+​
+
+### 2. Get Secret (Decrypt) - ECS case
+```
+1. ECS Task Execution Role gọi SecretsManager.GetSecretValue(secret-arn)
+   ✅ IAM: secretsmanager:GetSecretValue + kms:Decrypt
+   
+2. Secrets Manager gọi KMS.Decrypt(encrypted_data_key)
+   → Nhận plaintext_data_key
+   
+3. Secrets Manager dùng plaintext_data_key → 
+   decrypt(encrypted_secret) → "MyDBPass123"
+   
+4. Xóa plaintext_data_key
+   
+5. Trả plaintext secret → ECS Agent
+   
+6. ECS Agent inject vào container env var: DB_PASSWORD=MyDBPass123
+```
