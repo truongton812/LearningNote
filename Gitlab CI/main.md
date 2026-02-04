@@ -464,3 +464,32 @@ Nhược điểm: Cần Docker daemon trên host runner.
 Ưu điểm: Scale tự động theo cluster K8s.
 
 Phù hợp môi trường cloud-native như EKS (AWS).
+
+---
+
+Để GitLab pipeline chỉ trigger khi bạn push lên nhánh master, bạn có hai cách chính phổ biến trong file .gitlab-ci.yml:
+
+1. Dùng workflow: rules (áp dụng cho toàn bộ pipeline)
+Đặt ở cấp “root” của file, không nằm trong job:
+```
+workflow:
+  rules:
+    - if: $CI_COMMIT_BRANCH == "master"
+```
+
+Cách này nghĩa là: pipeline chỉ chạy nếu commit được push vào nhánh master; các nhánh khác sẽ không trigger pipeline.
+
+2. Dùng rules cho từng job (nếu muốn giữ một số job không giới hạn)
+Nếu không muốn giới hạn toàn bộ pipeline, chỉ muốn một số job chạy trên master:
+```
+deploy-job:
+  stage: deploy
+  script:
+    - echo "Deploy to production..."
+  rules:
+    - if: $CI_COMMIT_BRANCH == "master"
+```
+
+Trong ví dụ trên, deploy-job chỉ chạy khi push lên master
+
+Lưu ý nhỏ: Trên GitLab mới, nên dùng rules thay vì `only: [master]` vì only/except đã bị deprecated.
