@@ -143,3 +143,23 @@ Luồng hoạt động khi app tích hợp với Cognito
 - Bản thân server không có key nên không thể xác thực được JWT token, server sẽ gọi tới Cognito endpoint để lấy public key (chỉ gọi 1 lần và lưu vào đâu đó hay là lần nào validate JWT token cũng gọi, cần check lại), nếu xác thực JWT token hợp lệ thì trả lại respond cho client
 
 Để xem public key của Cognito thì vào Overview -> Token signing key URL 
+
+
+Thứ tự các bước sẽ là:
+
+1. User click Login → mở popup Cognito
+
+Browser redirect đến Cognito Hosted UI (https://yourdomain.auth.region.amazoncognito.com/oauth2/authorize?...).
+
+2. User login thành công trong Cognito
+
+Cognito sẽ redirect về redirect_uri bạn đã khai báo trong App Client, ví dụ: https://meuapp.com/auth/callback?code=...&state=...
+
+3. Tại trang callback
+
+- Trang /auth/callback nhận code (hoặc token),
+
+- Sau đó (tùy backend/SPA) bạn:
+  - Đổi code lấy tokens (nếu dùng authorization code flow),
+  - Hoặc lưu token nếu dùng implicit flow,
+  - Rồi tự redirect về trang gốc (ví dụ: window.location.href = state.returnTo hoặc parent.window.location.reload()).
