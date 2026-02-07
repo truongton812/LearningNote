@@ -73,32 +73,63 @@ resource "aws_cloudfront_origin_access_control" "site_oac" {
 }
 ```
 
-Tạo CloudFront Distribution với S3 origin (sử dụng REST endpoint, không website endpoint), OAC, managed cache policy, HTTPS với default certificate, và compression.
+Tạo CloudFront Distribution với S3 origin (sử dụng REST endpoint, không website endpoint), OAC, managed cache policy, HTTPS với default certificate, và compression. 
 ​
 ```
 resource "aws_cloudfront_distribution" "site_distribution" {
+#1 distribution có thể khai báo tối đa 100 origins
   origin {
     domain_name              = aws_s3_bucket.site_bucket.bucket_regional_domain_name
     origin_id                = "S3-${var.bucket_name}" #là một string dùng làm định danh duy nhất cho origin trong distribution. Mỗi origin trong cùng một CloudFront distribution phải có origin_id khác nhau, có thể đặt
 tùy ý nhưng nên đặt rõ ràng kiểu: S3-my_bucket, ALB-my_service, API-my_backend để dễ đọc code Terraform và debug
     origin_access_control_id = aws_cloudfront_origin_access_control.site_oac.id
   }
-
+  
+# Origin 2: API từ ALB
+  origin {
+    domain_name = aws_lb.api.dns_name
+    origin_id   = "APILoadBalancer"
+    custom_origin_config {
+      http_port              = 80
+      https_port             = 443
+      origin_protocol_policy = "https-only"
+      origin_ssl_protocols   = ["TLSv1.2"]
+    }
+  }
   enabled             = true
   is_ipv6_enabled     = true
   default_root_object = "index.html"
   aliases             = ["${var.frontend_subdomain}.${var.domain_name}"] #chỉ định các custom domain (VD www.example.com) cho CloudFront distribution thay vì domain mặc định của CloudFront (VD d111111abcdef8.cloudfront.net). Khai báo dưới dạng list string: aliases = ["example.com", "www.example.com"]. Lưu ý cần kèm certificate hợp lệ (từ ACM hoặc CA khác) bao phủ các domain này trong khối default_cache_behavior hoặc viewer_certificate.
-Lưu ý khai báo aliases chỉ để whitelist domain mà Cloudfront chấp nhận xử lý. Khi request đi đến Cloudfront, Edge location sẽ kiểm tra trường Host header trong request, nếu không khớp với alias sẽ reject. DNS chỉ route traffic đến edge → aliases quyết định CloudFront có chấp nhận xử lý hay không. User cần phải tự tạo DNS record (CNAME/Alias) trong DNS
+# Mục đích của khai báo aliases là để whitelist domain mà Cloudfront chấp nhận xử lý. Khi request đi đến Cloudfront, Edge location sẽ kiểm tra trường Host header trong request, nếu không khớp với alias sẽ reject. DNS chỉ route traffic đến edge → aliases quyết định CloudFront có chấp nhận xử lý hay không. Điều này đảm bảo không phải ai cũng có thể trỏ DNS đến distribution
+# User cần phải tự tạo DNS record (CNAME/Alias) trong DNS
   default_cache_behavior {
     allowed_methods        = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
     cached_methods         = ["GET", "HEAD"]
     target_origin_id       = "S3-${var.bucket_name}"
     compress               = true
     viewer_protocol_policy = "redirect-to-https"
-
     cache_policy_id = "658327ea-f89d-4fab-a63d-7e22939e7934"  # Managed-CachingOptimized
   }
 
+  # Custom behavior: API calls
+  ordered_cache_behavior {
+    path_pattern     = "/api/*"
+    target_origin_id = "APILoadBalancer" 
+    allowed_methods  = ["GET", "POST", "PUT", "DELETE"]
+    # TTL ngắn hoặc no-cache cho API
+    min_ttl     = 0
+    default_ttl = 60
+    max_ttl     = 300
+    forwarded_values {
+      query_string = true         # Forward tất cả query params cho API
+      cookies { forward = "all" }
+    }
+  }
+  ordered_cache_behavior {
+    path_pattern     = "/images/*"
+    target_origin_id = "ImageBucket"
+    min_ttl          = 86400  # Cache hình ảnh 1 ngày
+  }
   price_class = "PriceClass_100"  # North America/Europe (tiết kiệm chi phí)
 
   restrictions {
@@ -126,5 +157,22 @@ output "s3_website_endpoint" {
 }
 ```
 
+---
+
+Cache Behavior trong CloudFront là quy tắc định nghĩa cách xử lý và cache request cho các path pattern cụ thể.
+
+Cache Behavior quyết định:
+- Origin nào phục vụ content (S3, EC2, ALB...)
+- Cache bao lâu (TTL settings)
+- Forward gì đến origin (query string, headers, cookies)
+
+Default cache behavior (*): Áp dụng cho tất cả request không match custom behavior. Còn Custom behavior sẽ xử lý riêng cho từng path (VD /images/*, /api/*, *.css). Thứ tự ưu tiên Cache Behavior được quyết định bằng vị trí trong ordered_cache_behavior list (từ trên xuống)
 
 
+Các trường chính trong khai báo Cache behavior
+- target_origin_id (required): ID của origin sẽ phục vụ request này
+- path_pattern (dùng cho ordered_cache_behavior): VD pattern như `/api/*`, `/images/*.jpg`
+- viewer_protocol_policy:	(required): chỉ định protocol mà users có thể dùng để truy cập file trong origin. Có thể chọn các giá trị `allow-all`, `https-only` hoặc `redirect-to-https`
+- allowed_methods:	HTTP methods cho phép: `["GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE"]`
+- Cache TTL Settings (deprecated, khuyến nghị dùng Cache Policy)
+- forwarded_values (deprecated, khuyến nghị dùng Policy)
