@@ -79,7 +79,7 @@ Tạo CloudFront Distribution với S3 origin (sử dụng REST endpoint, không
 resource "aws_cloudfront_distribution" "site_distribution" {
   origin {
     domain_name              = aws_s3_bucket.site_bucket.bucket_regional_domain_name
-    origin_id                = "S3-${var.bucket_name}"
+    origin_id                = "S3-${var.bucket_name}" #là một string dùng làm định danh duy nhất cho origin trong distribution. Mỗi origin trong cùng một CloudFront distribution phải có origin_id khác nhau, có thể đặt tùy ý nhưng nên đặt rõ ràng kiểu: S3-my_bucket, ALB-my_service, API-my_backend để dễ đọc code Terraform và debug
     origin_access_control_id = aws_cloudfront_origin_access_control.site_oac.id
   }
 
