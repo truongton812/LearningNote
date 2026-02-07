@@ -99,9 +99,7 @@ tùy ý nhưng nên đặt rõ ràng kiểu: S3-my_bucket, ALB-my_service, API-m
   enabled             = true
   is_ipv6_enabled     = true
   default_root_object = "index.html"
-  aliases             = ["${var.frontend_subdomain}.${var.domain_name}"] #chỉ định các custom domain (VD www.example.com) cho CloudFront distribution thay vì domain mặc định của CloudFront (VD d111111abcdef8.cloudfront.net). Khai báo dưới dạng list string: aliases = ["example.com", "www.example.com"]. Lưu ý cần kèm certificate hợp lệ (từ ACM hoặc CA khác) bao phủ các domain này trong khối default_cache_behavior hoặc viewer_certificate.
-# Mục đích của khai báo aliases là để whitelist domain mà Cloudfront chấp nhận xử lý. Khi request đi đến Cloudfront, Edge location sẽ kiểm tra trường Host header trong request, nếu không khớp với alias sẽ reject. DNS chỉ route traffic đến edge → aliases quyết định CloudFront có chấp nhận xử lý hay không. Điều này đảm bảo không phải ai cũng có thể trỏ DNS đến distribution
-# User cần phải tự tạo DNS record (CNAME/Alias) trong DNS
+  aliases             = ["${var.frontend_subdomain}.${var.domain_name}"] # Khai báo dưới dạng list string. Lưu ý cần kèm certificate hợp lệ (từ ACM hoặc CA khác) bao phủ các domain này trong khối default_cache_behavior hoặc viewer_certificate.
   default_cache_behavior {
     allowed_methods        = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
     cached_methods         = ["GET", "HEAD"]
@@ -156,6 +154,14 @@ output "s3_website_endpoint" {
   value = aws_s3_bucket_website_configuration.site_bucket.website_endpoint
 }
 ```
+
+---
+
+`Alternate domain names` dùng để chỉ định các custom domain (VD www.example.com) cho CloudFront distribution thay vì domain mặc định của CloudFront (VD d111111abcdef8.cloudfront.net). 
+
+Mục đích của `Alternate domain names` là để whitelist domain mà Cloudfront chấp nhận xử lý. Khi request đi đến Cloudfront, Edge location sẽ kiểm tra trường Host header trong request, nếu không khớp với `Alternate domain names` sẽ reject. Điều này đảm bảo không phải ai cũng có thể trỏ DNS đến distribution
+
+Lưu ý user cần phải tự tạo DNS record (CNAME/Alias) trong DNS 
 
 ---
 
