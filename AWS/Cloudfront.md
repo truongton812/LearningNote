@@ -182,3 +182,50 @@ Các trường chính trong khai báo Cache behavior
 - allowed_methods:	HTTP methods cho phép: `["GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE"]`
 - Cache TTL Settings (deprecated, khuyến nghị dùng Cache Policy)
 - forwarded_values (deprecated, khuyến nghị dùng Policy)
+
+---
+
+Cache Policy, Origin Request Policy và Response Headers Policy là policy hiện đại thay thế forwarded_values cũ trong CloudFront. 
+
+### Origin Request Policy 
+
+dùng để kiểm soát dữ liệu GỬI đến origin khi cache miss. VD kiểm soát Headers sẽ forward những gì (Authorization, User-Agent, X-API-Key...), có forward Query strings (VD ?user_id=123, ?format=json) không, có forward Cookies không
+
+Các Managed policies có sẵn:
+- Managed-AllViewer: Forward tất cả
+- Managed-AllViewerExceptHostHeader: Tất cả trừ Host
+- Managed-None: Không forward gì (static assets)
+- Managed-CORS-CustomOrigin: CORS headers cho custom origin
+
+### Response Headers Policy 
+
+dùng để thêm/ghi đè headers TRẢ VỀ cho viewer. VD thêm các trường Security (Strict-Transport-Security, X-Content-Type-Options), CORS (Access-Control-Allow-Origin), Cache (Cache-Contron, max-age)
+
+### Cache Policy:
+
+Dùng để quyết định CACHE KEY + TTL cho object trong edge location. Cache Key là định danh duy nhất CloudFront dùng để xác định object trong cache edge location.
+
+```
+# 1. Tạo policies
+resource "aws_cloudfront_origin_request_policy" "api" { ... }
+resource "aws_cloudfront_response_headers_policy" "secure" { ... }
+
+# 2. Cache policy (riêng biệt)
+data "aws_cloudfront_cache_policy" "caching_disabled" {
+  name = "Managed-CachingDisabled"
+}
+
+# 3. Behavior sử dụng policies
+ordered_cache_behavior {
+  path_pattern = "/api/*"
+  
+  cache_policy_id         = data.aws_cloudfront_cache_policy.caching_disabled.id
+  origin_request_policy_id = aws_cloudfront_origin_request_policy.api.id
+  response_headers_policy_id = aws_cloudfront_response_headers_policy.secure.id
+  
+  target_origin_id = "APIGateway"
+}
+```
+
+Lưu ý cache policy là bắt buộc (nếu tạo trên UI thì default policy là CachingDisabled), còn origin_request_policy_id và response_headers_policy_id là optional. Nếu không set Origin Request Policy thì CloudFront chỉ gửi Path (/images/cat.jpg) và Auto headers (Host, User-Agent), không gửi: Cookies, Query strings, Custom headers. Nếu không set Response Headers Policy thì Origin respond giữ nguyên 100%, không thêm: HSTS, CORS, Security headers
+
