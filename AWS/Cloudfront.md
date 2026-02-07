@@ -79,45 +79,16 @@ Tạo CloudFront Distribution với S3 origin (sử dụng REST endpoint, không
 resource "aws_cloudfront_distribution" "site_distribution" {
   origin {
     domain_name              = aws_s3_bucket.site_bucket.bucket_regional_domain_name
-    origin_id                = "S3-${var.bucket_name}" #là một string dùng làm định danh duy nhất cho origin trong distribution. Mỗi origin trong cùng một CloudFront distribution phải có origin_id khác nhau, có thể đặt tùy ý nhưng nên đặt rõ ràng kiểu: S3-my_bucket, ALB-my_service, API-my_backend để dễ đọc code Terraform và debug
+    origin_id                = "S3-${var.bucket_name}" #là một string dùng làm định danh duy nhất cho origin trong distribution. Mỗi origin trong cùng một CloudFront distribution phải có origin_id khác nhau, có thể đặt
+tùy ý nhưng nên đặt rõ ràng kiểu: S3-my_bucket, ALB-my_service, API-my_backend để dễ đọc code Terraform và debug
     origin_access_control_id = aws_cloudfront_origin_access_control.site_oac.id
   }
 
   enabled             = true
   is_ipv6_enabled     = true
   default_root_object = "index.html"
-  aliases             = ["${var.frontend_subdomain}.${var.domain_name}"] #chỉ định các tên miền tùy chỉnh (alternate domain names hoặc CNAMEs) cho CloudFront distribution. cho phép bạn sử dụng domain riêng như www.example.com thay vì domain mặc định của CloudFront (ví dụ: d111111abcdef8.cloudfront.net). Điều này giúp route traffic từ domain tùy chỉnh đến distribution. Khai báo dưới dạng list string: aliases = ["example.com", "www.example.com"].
-
-Phải kèm certificate hợp lệ (từ ACM hoặc CA khác) bao phủ các domain này trong khối default_cache_behavior hoặc viewer_certificate.
-khi bạn khai báo aliases trong Terraform cho aws_cloudfront_distribution, CloudFront không tự tạo bản ghi CNAME hay ALIAS trong Route 53, bạn phải tự tạo DNS record
-
-Khai báo alternate domain chỉ để cho CloudFront validate và ghi nhận các domain đấy, khi có request đến Cloudfront sẽ match Host header từ request để route đúng distribution.
-
-chỉ tạo bản ghi DNS trong Route 53 mà không khai báo aliases sẽ KHÔNG hoạt động đúng.
-
-CloudFront sử dụng Host header matching để xác định distribution xử lý request. Nếu www.example.com không có trong aliases list:
-
-text
-GET /index.html HTTP/1.1
-Host: www.example.com  ← Không match → 403 Forbidden hoặc wrong distribution
-
-
-Điều gì xảy ra nếu thiếu aliases
-DNS resolution OK: Route 53 trả về IP của CloudFront edge location
-​
-
-CloudFront reject: Edge location kiểm tra Host header → không tìm thấy matching alias → 403 Forbidden
-​
-
-Certificate mismatch: SSL/TLS cert không validate cho domain không được khai báo
-
-
-Tóm tắt: DNS chỉ route traffic đến edge → aliases quyết định CloudFront có chấp nhận xử lý hay không.
-
-​
-
-
-
+  aliases             = ["${var.frontend_subdomain}.${var.domain_name}"] #chỉ định các custom domain (VD www.example.com) cho CloudFront distribution thay vì domain mặc định của CloudFront (VD d111111abcdef8.cloudfront.net). Khai báo dưới dạng list string: aliases = ["example.com", "www.example.com"]. Lưu ý cần kèm certificate hợp lệ (từ ACM hoặc CA khác) bao phủ các domain này trong khối default_cache_behavior hoặc viewer_certificate.
+Lưu ý khai báo aliases chỉ để whitelist domain mà Cloudfront chấp nhận xử lý. Khi request đi đến Cloudfront, Edge location sẽ kiểm tra trường Host header trong request, nếu không khớp với alias sẽ reject. DNS chỉ route traffic đến edge → aliases quyết định CloudFront có chấp nhận xử lý hay không. User cần phải tự tạo DNS record (CNAME/Alias) trong DNS
   default_cache_behavior {
     allowed_methods        = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
     cached_methods         = ["GET", "HEAD"]
