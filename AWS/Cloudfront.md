@@ -203,7 +203,13 @@ dùng để thêm/ghi đè headers TRẢ VỀ cho viewer. VD thêm các trườn
 
 ### Cache Policy:
 
-Dùng để quyết định CACHE KEY + TTL cho object trong edge location. Cache Key là định danh duy nhất CloudFront dùng để xác định object trong cache edge location.
+Dùng để quyết định CACHE KEY + TTL cho object trong edge location. Cache Key là định danh duy nhất CloudFront dùng để xác định object trong cache edge location. Mặc định cache key = Domain + Path, ta có thể config để thêm header/query string/cookie vào trong cache key
+
+Ví dụ với request là `https://cdn.example.com/product?id=123` có header là `Accept-Language` thì cache key mặc định là `cdn.example.com/product`
+
+Nếu set thêm
+- Header -> cache key sẽ thành `cdn.example.com/product+Accept-Language:vi`
+- query string -> cache key sẽ thành `cdn.example.com/product?id=123`
 
 ```
 # 1. Tạo policies
