@@ -493,3 +493,49 @@ deploy-job:
 Trong ví dụ trên, deploy-job chỉ chạy khi push lên master
 
 Lưu ý nhỏ: Trên GitLab mới, nên dùng rules thay vì `only: [master]` vì only/except đã bị deprecated.
+
+---
+
+EOF và 'EOF' khác gì nhau?
+EOF và 'EOF' khác nhau ở cách shell xử lý biến và lệnh bên trong heredoc:
+
+1. << EOF (không có dấu ngoặc)
+bash
+cat << EOF
+  Hello $USER
+  PWD: $PWD
+EOF
+Shell sẽ thực hiện biến thay thế và command substitution ($USER, $(pwd), v.v.) trước khi gửi nội dung vào command (ví dụ cat).
+
+Tức là nội dung thực sự gửi đến cat đã là:
+
+text
+Hello root
+PWD: /home/root
+Theo tài liệu Bash, khi delimiter không được quote, shell sẽ thực hiện parameter expansion, command substitution, arithmetic expansion đối với nội dung heredoc.
+
+2. << 'EOF' (hoặc << "EOF")
+bash
+cat << 'EOF'
+  Hello $USER
+  PWD: $PWD
+EOF
+Shell không thay thế biến/command bên trong heredoc, nội dung được giữ nguyên dạng literal.
+
+cat nhận đúng là:
+
+text
+Hello $USER
+PWD: $PWD
+Khi delimiter có bất kỳ dấu ngoặc nào (đơn hoặc kép), nội dung heredoc được xử lý như string literal, tức là không có biến hay command substitution.
+
+3. Áp dụng vào GitLab CI
+Nếu dùng << EOF (không quote) trong .gitlab-ci.yml, GitLab CI sẽ thay thế biến ${APP_PATH}, nên remote server nhận cd "/var/www/html/buzz-ticket" → đúng.
+
+Nếu dùng << 'EOF', cd "${APP_PATH}" sẽ được gửi nguyên xi, mà nếu remote server không có APP_PATH thì lệnh sẽ sai hoặc thất bại.
+
+👉 Tóm lại:
+
+EOF → expand biến (GitLab CI / shell local thay thế trước).
+
+'EOF' → không expand, giữ nội dung như string literal.
