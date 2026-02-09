@@ -57,6 +57,139 @@ cache:
 
 ```
 
+Trong buildspec.yml của AWS CodeBuild, khối env: (version 0.2) có thể chứa đầy đủ các field sau.
+​
+
+Danh sách field trong env
+env: shell: chọn shell chạy lệnh; Linux hỗ trợ bash, /bin/sh, Windows hỗ trợ powershell.exe, cmd.exe.
+​
+
+env: variables: khai báo env var dạng plain text theo cặp key: value.
+​
+
+env: parameter-store: map key (tên env var trong build) → value (tên/đường dẫn parameter trong SSM Parameter Store).
+​
+
+env: secrets-manager: map key (tên env var trong build) → tham chiếu secret theo mẫu <secret-id>:<json-key>:<version-stage>:<version-id> (các phần sau secret-id là optional tuỳ cách lấy).
+​
+
+env: exported-variables: list các tên biến muốn export cho stage sau của CodePipeline (biến phải tồn tại trong container trong lúc build).
+​
+
+env: git-credential-helper: yes | no để bật/tắt Git credential helper của CodeBuild (không hỗ trợ một số trường hợp như webhook public repo). 
+​
+
+Ví dụ “đủ mặt” (template)
+text
+version: 0.2
+env:
+  shell: bash
+  variables:
+    APP_ENV: "stg"
+  parameter-store:
+    DB_USER: "/myapp/db/user"
+  secrets-manager:
+    DB_PASS: "mysecret:password"
+  exported-variables:
+    - APP_ENV
+  git-credential-helper: yes
+Cấu trúc/field là đúng theo buildspec reference; giá trị cụ thể bạn thay theo nhu cầu.
+​
+
+Bạn đang dùng CodeBuild trên Linux hay Windows (PowerShell/cmd)? Mình sẽ gợi ý env.shell phù hợp và cách set biến chuẩn theo image bạn dùng.
+
+
+---
+Trường env trong buildspec.yml (AWS CodeBuild) dùng để khai báo và lấy biến môi trường cho quá trình build, giúp bạn cấu hình hành vi build theo môi trường (dev/stg/prod) hoặc truyền các tham số/secret vào các lệnh trong phases.
+​
+
+env nhận những “giá trị” nào?
+Trong buildspec.yml (version 0.2), env thường có các nhóm cấu hình chính sau:
+
+env: variables: các cặp key/value dạng chuỗi (ví dụ MY_VARIABLE: "my-value").
+​
+
+env: parameter-store: map từ tên biến môi trường sang đường dẫn Parameter Store (SSM) để CodeBuild nạp giá trị về và expose thành env var trong build.
+​
+
+env: exported-variables: danh sách tên biến mà CodeBuild “export” ra để các bước sau (ví dụ CodePipeline action downstream) có thể nhận lại.
+​
+
+Ví dụ tối giản:
+
+text
+version: 0.2
+env:
+  variables:
+    MY_VARIABLE: "my-value"
+  parameter-store:
+    DB_CONNECTION_STRING: /myapp/database/connectionstring
+  exported-variables:
+    - MY_VARIABLE
+phases:
+  build:
+    commands:
+      - echo $MY_VARIABLE
+(Ý nghĩa từng khối như mô tả ở trên.)
+​
+
+Trường hợp đặc biệt: build matrix (batch build)
+Nếu bạn dùng batch build / build matrix, trong phần batch.build-matrix...env.variables bạn có thể khai báo biến theo dạng danh sách nhiều giá trị (để chạy nhiều job với các giá trị khác nhau), ví dụ MY_VAR: [VALUE1, VALUE2, VALUE3].
+​
+
+Lưu ý nhanh về kiểu dữ liệu
+Các giá trị dưới env.variables về bản chất là giá trị cấu hình dạng text trong YAML (thường bạn để string, có/không có dấu ngoặc kép), và khi vào build thì được dùng như biến môi trường trong shell (tham chiếu bằng $VAR).
+​
+
+Nếu bạn muốn, bạn dán đoạn buildspec.yml của bạn (hoặc mục tiêu: muốn lấy secret từ đâu, muốn export biến nào), mình sẽ chỉ ra cấu trúc env phù hợp và ví dụ hoàn chỉnh.
+
+Prepared using GPT-5.2
+có env: secret-manager ko
+Có. Trong buildspec.yml của AWS CodeBuild, dưới env có mục secrets-manager để map biến môi trường cục bộ sang secret trong AWS Secrets Manager.
+​
+
+Cú pháp
+Dạng tổng quát (theo Buildspec reference):
+
+env:
+
+secrets-manager:
+
+<LOCAL_ENV_NAME>: <secret-id>:<json-key>:<version-stage>:<version-id>
+​
+
+Trong đó:
+
+secret-id có thể là tên hoặc ARN của secret.
+​
+
+json-key, version-stage, version-id là phần tuỳ chọn (dùng khi secret là JSON và/hoặc muốn chỉ định version).
+​
+
+Ví dụ
+Lấy 1 key từ secret (secret chứa key-value), gán vào biến môi trường LOCAL_SECRET_VAR:
+
+text
+version: 0.2
+env:
+  secrets-manager:
+    LOCAL_SECRET_VAR: "TestSecret:MY_SECRET_VAR"
+phases:
+  build:
+    commands:
+      - echo "$LOCAL_SECRET_VAR"
+Ví dụ này được AWS nêu trực tiếp trong tài liệu (TestSecret là secret, MY_SECRET_VAR là key; LOCAL_SECRET_VAR là tên env var trong build).
+​
+
+Lưu ý quan trọng
+IAM role của CodeBuild project phải có quyền đọc secret tương ứng (ví dụ secretsmanager:GetSecretValue), nếu không build sẽ fail khi resolve biến.
+​
+
+
+---
+
+
+
 - Các tên phase như install, pre_build, build, post_build là quy ước chuẩn của AWS CodeBuild. AWS định nghĩa chính xác 4 phase này trong buildspec.yaml theo thứ tự thực thi cố định.​
 
 - Phase install có tác dụng cài đặt môi trường runtime (Python, Docker, Node.js...) và chạy các lệnh setup ban đầu trước khi build. Ví dụ:​
