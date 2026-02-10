@@ -223,6 +223,17 @@ Nguyên nhân là do CPU chỉ có thể thực thi 1 process/thread tại 1 th�
   - wa là waiting: khoảng tgian 1 task đang chờ (?) - chỉ số này cao thì xấu
 
 - Ở phần dưới là danh sách các process đang chạy, trường CPU/Mem là resource sử dụng, trường TIME là thời gian thực tế mà ứng dụng sử dụng CPU
+- Sắp xếp thông tin:
+  - P: Sắp xếp theo %CPU (cao nhất đầu).
+  - M: Sắp xếp theo %MEM (bộ nhớ).
+  - T: Sắp xếp theo TIME+ (thời gian CPU tích lũy).
+  - N: Sắp xếp theo PID (tăng dần).
+  - R: Đảo ngược thứ tự sắp xếp.
+- Quản Lý Process
+  - k: Kill process (nhập PID, rồi signal như 15 cho TERM hoặc 9 cho KILL).
+  - c: Toggle hiển thị full command line.
+  - u: Filter theo user (nhập tên, Enter để apply, u để clear).
+  - n hoặc /: Tìm kiếm PID (nhập số).
 
 ##### 18. Grep
 - grep -v "pattern" : loại bỏ dòng có <pattern> khỏi kết quả search
