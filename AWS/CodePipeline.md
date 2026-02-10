@@ -256,3 +256,8 @@ Hai chỗ này bổ sung cho nhau, không phải “giống nhau hoàn toàn”.
 
 Nếu trong buildspec.yaml có khai báo artifacts nhưng trên GUI chọn là `No artifacts` thì CodeBuild sẽ bỏ qua, không tạo artifact nào. Khi build xong sẽ không thấy file nào được upload lên S3 và cũng không có artifact nào để dùng trong CodePipeline (stage deploy sẽ không tìm thấy input artifact).
 ​
+---
+
+AWS CodeBuild mặc định không nằm trong VPC; nó chạy trong môi trường build được quản lý bởi AWS, lúc này CodeBuild không thể truy cập trực tiếp các tài nguyên trong VPC (ví dụ RDS, ElastiCache, private ECR, EC2 private…), vì không có route từ CodeBuild vào VPC.
+
+Có thể attach CodeBuild vào VPC bằng cách enable VPC access (cần chỉ định VPC ID, Subnet (thường là private subnet) và Security group). Khi bật VPC access, CodeBuild sẽ run build trong network của VPC đó → có thể truy cập các tài nguyên trong VPC (RDS, private ALB, Redis, etc.).
