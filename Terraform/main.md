@@ -180,6 +180,7 @@ resource "aws_security_group" "example" {
   }
 }
 ```
+- Lưu ý: khi dùng [*] sẽ trả về một list, có thể áp dụng với những trường cần đầu vào là 1 list. Còn nếu những trường cần đầu vào là phần tử thì phải dùng count/for_each. Ví dụ `aws_subnet.rds_subnet[*].id` trả về một list ID subnet là `["subnet-abc123", "subnet-def456"]`
 
 ##### 3.3.2.2. Set: 
 - Là một danh sách có thứ tự các phần tử có cùng kiểu dữ liệu, nhưng không cho phép trùng lặp giá trị nếu không sẽ báo lỗi
