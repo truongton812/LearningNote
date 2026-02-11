@@ -207,6 +207,9 @@ Lưu ý khi cài đặt:
 - Server cần mở port 80 để tạo challenge file tạm thời
 - Server block trong Nginx config phải có khai báo server_name trùng với <domain> trong câu lệnh certbot để certbot biết block nào cần modify, từ đó mới tự động chỉnh sửa và thêm SSL được
 
+#### 3. Lenh lam viec voi cert
+
+certbot certificates -d <domain> -> check status cua cert
 #### 3. Xử lý lỗi Certbot không renew được cert
 - Nguyên nhân lỗi: Chứng chỉ monitor.wnew25.com ban đầu được cấu hình renew bằng plugin nginx (authenticator = nginx trong file renewal), nên Certbot cố parse full cấu hình Nginx để tự tạo location challenge.
 - Cấu hình Nginx của bạn khá phức tạp (Lua, include nhiều file, reverse proxy, không có root), khiến Certbot:
