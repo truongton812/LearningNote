@@ -1581,4 +1581,52 @@ resource "null_resource" "after_cloudfront" {
 }
 ```
 
+---
+
+Khi bạn chạy Terraform (đặc biệt là terraform plan hoặc terraform apply), các ký tự +, -, ~, # là các ký hiệu mô tả hành động Terraform sẽ/đang làm với resource hoặc argument.
+
+1. + – Thêm / Tạo mới
++ nghĩa là “tạo mới” hoặc “thêm” resource/argument.
+
+- nghĩa là “xóa/xóa bỏ” resource hoặc set arg thành null (gỡ bỏ).
+
+2. ~ – Thay đổi (update) không xóa
+~ nghĩa là thay đổi nội dung của resource hoặc argument, nhưng không xóa và tạo lại (tức là update in‑place).
+
+Ví dụ:
+
+text
+~ aws_instance.example
+→ Instance sẽ được cập nhật (thay đổi config), nhưng không bị destroy/recreate.
+
+Với argument:
+
+text
+~ maintenance_window = "sat:06:10-sat:06:40" -> "sun:06:10-sun:06:40"
+→ maintenance_window đang được thay đổi giá trị; giá trị cũ → giá trị mới.
+​
+​
+
+3. -/+ – Xóa rồi tạo lại (replace)
+-/+ (hoặc ~ kèm destroy/recreate, tùy version Terraform) có nghĩa là xóa resource cũ rồi tạo resource mới.
+
+Thường xảy ra khi attribute thay đổi theo kiểu thay đổi immutable (ví dụ ami của EC2, engine của RDS, v.v.).
+
+text
+-/+ aws_instance.my_ec2
+→ Terraform sẽ destroy instance cũ và create instance mới.
+​
+
+
++	Tạo mới resource / argument. 
+​
+-	Xóa / gỡ bỏ (set null) resource hoặc argument. 
+~	Thay đổi (update in‑place), không destroy. 
+​
+​
+-/+	Destroy rồi tạo lại resource (replacement). 
+​
+
+​
+
 Khi bạn dùng provisioner "local_exec" bên trong null_resource thì lệnh sẽ chạy trên chính máy đang chạy terraform apply (nơi có local_exec được định nghĩa).
