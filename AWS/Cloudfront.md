@@ -161,6 +161,8 @@ output "s3_website_endpoint" {
 
 Mục đích của `Alternate domain names` là để whitelist domain mà Cloudfront chấp nhận xử lý. Khi request đi đến Cloudfront, Edge location sẽ kiểm tra trường Host header trong request, nếu không khớp với `Alternate domain names` sẽ reject. Điều này đảm bảo không phải ai cũng có thể trỏ DNS đến distribution
 
+Để khai báo alternative domain name (CNAME) trong terraform thì dùng trường `aliases` trong resource `aws_cloudfront_distribution` 
+
 Lưu ý user cần phải tự tạo DNS record (CNAME/Alias) trong DNS 
 
 ---
