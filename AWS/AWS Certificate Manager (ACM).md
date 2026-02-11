@@ -57,4 +57,14 @@ Ví dụ: domain_name = "example.com" (CN), subject_alternative_names = ["www.de
 
 Lưu ý thực tế: Tối đa 10 SAN mỗi cert (quota mặc định).
 ​
+---
+
+Để ACM có thể cấp certificate cho một domain, ACM phải xác thực bạn “là chủ hoặc có quyền kiểm soát domain” thông qua DNS validation (thêm record CNAME vào DNS public của domain) hoặc email validation (gửi mail đến các email quản trị của domain).
+
+Nếu bạn không sở hữu domain, phần validation sẽ không thành công (ACM không thể xác thực ownership), nên status ACM sẽ là “Pending” rồi timeout.
+
+Lưu ý ACM không dùng hosted zone của domain bạn không sở hữu để validate, ACM chỉ kiểm tra bản ghi trong nameserver thực sự đang quản lý domain đấy
+
+Do đó nếu bạn không sở hữu domain mà đang request ACM cho nó thì ACM sẽ không bao giờ issue certificate cho domain đó, dù bạn có thêm record CNAME trong hosted zone Route 53.
+
 
