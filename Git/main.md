@@ -196,3 +196,84 @@ Merge: tạo commit mới kết hợp hai nhánh, giữ lịch sử phân nhánh
 
 Rebase: lịch sử sạch, lý tưởng cho feature branch trước push shared branch, nhưng thay đổi commit hash (không rebase public branch).
 ​
+---
+
+Khác nhau giữa git branch và git branch -a
+
+
+- git branch: Chỉ hiển thị các nhánh local (nhánh đang có trong repo trên máy bạn).
+​- git branch -a (hoặc --all): Hiển thị tất cả nhánh, gồm nhánh local và các nhánh remote-tracking (ví dụ remotes/origin/main, remotes/origin/develop).
+
+
+Nếu chỉ muốn chỉ xem nhánh remote-tracking: git branch -r.
+​
+
+Nếu bạn thấy nhánh remote nhưng chưa thấy local, có thể tạo local branch theo nó bằng git switch -c <tên-local> --track origin/<tên-remote> (hoặc git checkout -t origin/<tên-remote> tùy phiên bản Git).
+
+
+Khi bạn chạy git push origin (không ghi rõ nhánh), Git sẽ cố đẩy nhánh local hiện tại (nhánh bạn đang checkout) lên remote tên origin, thường là lên nhánh remote cùng tên với nhánh local đó.
+​
+
+Trường hợp hay gặp
+Nếu nhánh local hiện tại đã có upstream (đã “link” với một nhánh remote, ví dụ origin/feature-x), thì git push origin sẽ đẩy lên đúng upstream đó.
+​
+
+Nếu nhánh local hiện tại chưa có upstream, Git thường sẽ báo lỗi kiểu “has no upstream branch” và gợi ý bạn dùng -u/--set-upstream để thiết lập.
+​
+
+Cách viết rõ ràng (khuyến nghị)
+Đẩy nhánh cụ thể:
+
+bash
+git push origin <branch-name>
+Ví dụ git push origin main sẽ đẩy nhánh main local lên main trên origin.
+​
+
+Lần đầu push nhánh mới và muốn set upstream luôn:
+
+bash
+git push -u origin <branch-name>
+Từ lần sau bạn chỉ cần git push (hoặc git push origin) là được.
+​
+
+---
+
+Xem upstream của tất cả nhánh local
+bash
+git branch -vv
+Lệnh này liệt kê các nhánh local và upstream tương ứng (thường hiển thị trong dấu [...] như [origin/main]).
+
+Xem upstream của nhánh hiện tại (1 dòng)
+bash
+git rev-parse --abbrev-ref --symbolic-full-name @{u}
+Lệnh này in ra upstream của nhánh đang checkout (ví dụ origin/feature-x).
+
+Xem upstream của mọi nhánh theo dạng “branch <- upstream”
+bash
+git for-each-ref --format='%(refname:short) <- %(upstream:short)' refs/heads
+
+---
+
+Nếu bạn chạy git push origin staging mà local không có nhánh staging (chỉ có main), Git sẽ không push được và thường báo lỗi kiểu “src refspec staging does not match any” (ý là: không tìm thấy ref/branch staging ở local để đẩy lên).
+​
+
+Vì sao lại vậy
+git push origin <tên> mặc định hiểu <tên> là tên nhánh local (nguồn) bạn muốn đẩy lên remote origin, nên nếu nhánh local đó không tồn tại thì không có gì để push.
+​
+
+Bạn muốn đẩy lên remote branch staging thì làm sao
+Nếu bạn muốn lấy nội dung từ main local và tạo/cập nhật nhánh staging trên remote, bạn cần chỉ rõ refspec nguồn:đích:
+
+bash
+git push origin main:staging
+Cách này nghĩa là “đẩy main local lên nhánh staging trên origin”.
+​
+
+Nếu bạn muốn có nhánh staging ở local trước rồi push theo tên nhánh:
+
+bash
+git switch -c staging
+git push -u origin staging
+(Ý tưởng là tạo nhánh local staging, rồi push lên origin/staging và set upstream.)
+
+Bạn đang muốn “tạo nhánh staging trên remote từ main” hay “checkout nhánh staging từ remote về local rồi mới làm tiếp”?
