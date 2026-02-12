@@ -261,3 +261,30 @@ Nếu trong buildspec.yaml có khai báo artifacts nhưng trên GUI chọn là `
 AWS CodeBuild mặc định không nằm trong VPC; nó chạy trong môi trường build được quản lý bởi AWS, lúc này CodeBuild không thể truy cập trực tiếp các tài nguyên trong VPC (ví dụ RDS, ElastiCache, private ECR, EC2 private…), vì không có route từ CodeBuild vào VPC.
 
 Có thể attach CodeBuild vào VPC bằng cách enable VPC access (cần chỉ định VPC ID, Subnet (thường là private subnet) và Security group). Khi bật VPC access, CodeBuild sẽ run build trong network của VPC đó → có thể truy cập các tài nguyên trong VPC (RDS, private ALB, Redis, etc.).
+
+---
+
+
+CODEBUILD_SOURCE_VERSION và CODEBUILD_RESOLVED_SOURCE_VERSION đều là biến môi trường của AWS CodeBuild, nhưng mục đích và nội dung khác nhau
+- CODEBUILD_SOURCE_VERSION là “input version” bạn truyền cho CodeBuild.
+- CODEBUILD_RESOLVED_SOURCE_VERSION là “version đã được resolve” xong, thường là một giá trị ổn định hơn để dùng làm tag, version, v.v.
+
+1. CODEBUILD_SOURCE_VERSION
+
+Biến này phản ánh cách bạn chỉ định source version khi khởi tạo build:
+
+- Với CodeCommit, GitHub, GitHub Enterprise Server, Bitbucket có thể là: commit ID (SHA), branch name (ví dụ: main, feature/login), tag name (ví dụ: v1.0.0), hoặc pr/pull-request-number (với webhook pull request event trên GitHub).
+- Với Amazon S3 là version ID của object chứa input artifact (file ZIP, tar…).
+
+Ví dụ: Nếu bạn cấu hình build trên GitHub với branch thì CODEBUILD_SOURCE_VERSION = refs/heads/main. Nếu bạn cấu hình build cho commit cụ thể thì CODEBUILD_SOURCE_VERSION = 1234567890abcdef1234567890abcdef12345678. Nếu là pull request thì CODEBUILD_SOURCE_VERSION = pr/123
+
+2. CODEBUILD_RESOLVED_SOURCE_VERSION
+Biến này là version sau khi CodeBuild đã resolve source, tức là:
+- Với CodeCommit, GitHub, GitHub Enterprise Server, Bitbucket: Luôn là commit ID (SHA), ngay cả khi bạn nhập branch hay tag ban đầu.
+- Với CodePipeline: Là source revision mà CodePipeline cung cấp (thường là commit SHA).
+- Nếu CodePipeline không resolve được (ví dụ S3 không bật versioning), biến này không được set.
+
+
+Nếu bạn muốn tag Docker image bằng commit SHA thực tế thì nên dùng biến CODEBUILD_RESOLVED_SOURCE_VERSION vì nó luôn là SHA (nếu có), rất hợp lý cho Docker tag.
+
+Lưu ý quan trọng khi dùng: CODEBUILD_RESOLVED_SOURCE_VERSION chỉ có sẵn sau phase DOWNLOAD_SOURCE, nên nếu bạn dùng trong phases: build thì ok, nhưng nếu có script chạy quá sớm thì có thể thấy null / không set. Nếu bạn đang dùng S3 (không phải Git) và không bật versioning, có thể biến CODEBUILD_RESOLVED_SOURCE_VERSION không tồn tại, lúc đó bạn buộc phải dùng CODEBUILD_SOURCE_VERSION hoặc logic khác.
