@@ -56,6 +56,7 @@ Trong AWS ACM (và hầu hết CA khác), CN (Common Name) và SAN có thể thu
 Ví dụ: domain_name = "example.com" (CN), subject_alternative_names = ["www.devops.net"] (SAN) - ACM sẽ chấp nhận request.
 
 Lưu ý thực tế: Tối đa 10 SAN mỗi cert (quota mặc định).
+
 ​
 ---
 
@@ -68,3 +69,10 @@ Lưu ý ACM không dùng hosted zone của domain bạn không sở hữu để 
 Do đó nếu bạn không sở hữu domain mà đang request ACM cho nó thì ACM sẽ không bao giờ issue certificate cho domain đó, dù bạn có thêm record CNAME trong hosted zone Route 53.
 
 
+---
+
+Chi phí ACM
+
+ACM cấp public certificate miễn phí khi chọn loại non‑exportable. Loại này chỉ có thể dùng với các dịch vụ AWS được tích hợp (ELB/ALB/NLB, CloudFront, API Gateway, AppSync…), không dùng được cho các tài nguyên ngoài AWS (on-prem,...)
+
+Chứng chỉ bị tính phí khi là loại có thể export (exportable public certificate). Với Standard FQDN là 15 USD mỗi lần cấp/ gia hạn. Với wildcard là 149 USD mỗi lần cấp/ gia hạn.
