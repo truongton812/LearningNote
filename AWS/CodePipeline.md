@@ -1,4 +1,4 @@
-Codebuild
+## Codebuild
 
 
 ```
@@ -288,3 +288,12 @@ Biến này là version sau khi CodeBuild đã resolve source, tức là:
 Nếu bạn muốn tag Docker image bằng commit SHA thực tế thì nên dùng biến CODEBUILD_RESOLVED_SOURCE_VERSION vì nó luôn là SHA (nếu có), rất hợp lý cho Docker tag.
 
 Lưu ý quan trọng khi dùng: CODEBUILD_RESOLVED_SOURCE_VERSION chỉ có sẵn sau phase DOWNLOAD_SOURCE, nên nếu bạn dùng trong phases: build thì ok, nhưng nếu có script chạy quá sớm thì có thể thấy null / không set. Nếu bạn đang dùng S3 (không phải Git) và không bật versioning, có thể biến CODEBUILD_RESOLVED_SOURCE_VERSION không tồn tại, lúc đó bạn buộc phải dùng CODEBUILD_SOURCE_VERSION hoặc logic khác.
+
+---
+
+## CodePipeline
+
+Stage Source trong AWS CodePipeline output ra một artifact chứa mã nguồn ứng dụng dưới dạng file ZIP. Source artifact thường tên mặc định như "SourceArtifacts", truyền trực tiếp vào Build stage để compile code.
+​
+Artifact lưu trữ trong S3 bucket của CodePipeline (ví dụ: codepipeline-{region}-{random}).
+​
