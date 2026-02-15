@@ -1,3 +1,16 @@
+## Giải thích cấu trúc phân cấp của database
+
+- Database (cơ sở dữ liệu): là đơn vị lớn nhất, chứa toàn bộ dữ liệu của một hệ thống. Một server có thể chứa nhiều database cùng loại, nhưng mỗi database là độc lập về dữ liệu/logic. Ví dụ: Một máy chủ (server) chạy một instance PostgreSQL có thể có nhiều database như postgres1, postgres2, postgres3,... Trên máy chủ đấy có thể chạy thêm một instance MySQL và có thể có nhiều schema / database như mysql1, mysql2,... Trong trường hợp này, mỗi database vẫn cùng hệ quản trị (PostgreSQL hoặc MySQL), nhưng là đơn vị logic riêng biệt về dữ liệu, schema, quyền truy cập.
+
+    Về mặt hạ tầng vật lý, một máy chủ (server) có thể cài nhiều hệ quản trị khác nhau, ví dụ cài cả PostgreSQL và MySQL trên cùng một máy. Khi đó mỗi hệ này sẽ có instance riêng, mỗi instance có thể chứa nhiều database riêng.
+
+    Để kết nối đến các database khác nhau trên cùng một instance PostgreSQL (như postgres1, postgres2, hr_db), bạn chỉ cần chỉ định tên database trong chuỗi kết nối. VD `psql -h localhost -p 5432 -U postgres -d postgres1` để kết nối đến database postgres1, `psql -h localhost -p 5432 -U postgres -d hr_db` để kết nối đến database hr_db. Sau khi kết nối, bạn sẽ vào prompt của database đó (ví dụ: postgres1=#). Để chuyển database khác mà không disconnect thì dùng  `\c hr_db`
+
+- Schema (lược đồ): Trong một số hệ (như PostgreSQL, SQL Server), database có thể chứa nhiều schema. Schema là một không gian tên (namespace) để nhóm các bảng, view, hàm… lại với nhau, giúp tổ chức logic. Ở MySQL, khái niệm schema gần như đồng nghĩa với database, nên thường không phân biệt rõ.
+- Table (bảng): Trong một schema (hoặc trực tiếp trong database) có nhiều bảng, mỗi bảng đại diện cho một thực thể (ví dụ: users, orders, products). Bảng chứa dữ liệu dưới dạng hàng (row) và cột (column).
+- Column (cột): mỗi bảng gồm nhiều cột, mỗi cột là một thuộc tính của thực thể (ví dụ cột id, name, email). Mỗi cột có kiểu dữ liệu (int, varchar, datetime…) và có thể có ràng buộc (NOT NULL, UNIQUE, PRIMARY KEY…).
+- Row / Record (dòng / bản ghi): Mỗi hàng trong bảng là một bản ghi mô tả một đối tượng cụ thể (một user, một order…). Mỗi cột của một hàng chứa một giá trị tương ứng.
+
 ## Các lệnh làm việc với database
 
 Restore data using mysql command
