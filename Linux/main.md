@@ -198,6 +198,43 @@ Tóm tắt nhanh:
 | → dùng để nối đầu ra và đầu vào giữa các lệnh
 💡 Dùng chính xác các toán tử này sẽ giúp bạn làm chủ terminal hiệu quả hơn!
 ```
+
+##### 16. Systemd service
+Service là gì, cách tạo service cơ bản:
+- ví dụ khai báo `ExecStart=/usr/bin/rustfs start`... tìm tài liệu bổ sung thêm
+
+Có 2 cách tạo biến trong khai báo service là dùng Environment= hoặc EnvironmentFile= . EnvironmentFile= trong systemd service dùng để load các biến môi trường từ file text bên ngoài, thay vì hard-code trực tiếp trong file .service. Phương pháp này giúp code sạch sẽ nếu service có nhiều biến và dễ dàng override biến thay vì phải sửa trực tiếp trong .service
+
+Syntax: EnvironmentFile=/path/to/envfile
+
+Format file: Mỗi dòng là VAR=value (không cần quote, comment bắt đầu bằng #)
+
+Ví dụ file /etc/rustfs/env.conf
+```
+RUSTFS_VOLUMES=/data/rustfs{0..3}
+RUSTFS_LOG_LEVEL=info
+DB_PASSWORD=secret123
+```
+
+Biến từ env file (qua EnvironmentFile=) được load vào environment của process chạy ExecStart, app có thể đọc qua $VAR hoặc os.getenv().
+
+```
+[Service]
+EnvironmentFile=/etc/rustfs/env.conf
+User=rustfs-user
+ExecStart=/usr/bin/rustfs-app --log-dir ${RUSTFS_LOG_DIR} --port ${RUSTFS_PORT}
+```
+
+Cách xem env của service
+`systemctl show rustfs.service -p Environment`
+
+Test process env
+`sudo -u rustfs-user env | grep RUSTFS`
+
+Log debug (ExecStartPre)
+`ExecStartPre=/bin/sh -c 'env | grep RUSTFS > /tmp/rustfs-env.log'`
+
+
 ##### 16. List ra các systemd service đang chạy
 `systemctl list-units --type=service --state=running`
 
