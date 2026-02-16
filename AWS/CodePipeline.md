@@ -255,7 +255,16 @@ Artifacts trên giao diện CodeBuild quy định “địa chỉ lưu” artifa
 Hai chỗ này bổ sung cho nhau, không phải “giống nhau hoàn toàn”. Nếu không khai báo artifacts trong buildspec.yaml, CodeBuild sẽ không upload file nào cả dù bạn đã cấu hình bucket trên GUI.
 
 Nếu trong buildspec.yaml có khai báo artifacts nhưng trên GUI chọn là `No artifacts` thì CodeBuild sẽ bỏ qua, không tạo artifact nào. Khi build xong sẽ không thấy file nào được upload lên S3 và cũng không có artifact nào để dùng trong CodePipeline (stage deploy sẽ không tìm thấy input artifact).
+
+---
+
+AWS CodeBuild artifacts là các tệp đầu ra được tạo ra sau quá trình build trong AWS CodeBuild. Artifacts có các loại chính: S3 (lưu vào bucket cụ thể với path, name, namespaceType như BUILD_ID), CODEPIPELINE (tích hợp với CodePipeline), hoặc NO_ARTIFACTS (không tạo output).
 ​
+
+Type CODEPIPELINE trong AWS CodeBuild là loại artifact được thiết kế đặc biệt để tích hợp với AWS CodePipeline, giúp tự động quản lý việc lưu trữ và truyền artifacts giữa các stage trong pipeline CI/CD. Khi CodeBuild project được cấu hình artifacts: type: CODEPIPELINE, CodeBuild không cần chỉ định S3 bucket cụ thể vì CodePipeline sẽ tự động xử lý việc upload/download artifacts vào bucket artifact của pipeline (thường tên codepipeline-<region>-<account>). Artifacts được zip tự động và truyền trực tiếp làm input cho stage tiếp theo (như Deploy), đảm bảo tính liền mạch mà không cần can thiệp thủ công.
+​
+Lưu ý: dùng type CODEPIPELINE khi CodeBuild là action trong CodePipeline; nếu chạy standalone, chuyển sang S3.
+​​
 ---
 
 AWS CodeBuild mặc định không nằm trong VPC; nó chạy trong môi trường build được quản lý bởi AWS, lúc này CodeBuild không thể truy cập trực tiếp các tài nguyên trong VPC (ví dụ RDS, ElastiCache, private ECR, EC2 private…), vì không có route từ CodeBuild vào VPC.
