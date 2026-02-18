@@ -195,6 +195,7 @@ Merge: tạo commit mới kết hợp hai nhánh, giữ lịch sử phân nhánh
 ​
 
 Rebase: lịch sử sạch, lý tưởng cho feature branch trước push shared branch, nhưng thay đổi commit hash (không rebase public branch).
+
 ​
 ---
 
