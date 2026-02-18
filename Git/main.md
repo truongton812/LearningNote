@@ -245,3 +245,10 @@ git push -u origin staging
 `git clone -b <branch-name> --single-branch <repo-url>` -> Chỉ clone đúng 1 nhánh​
 
 `git checkout <branch-name>` -> checkout sang nhánh khác, hoạt động với cả local và remote 
+
+---
+
+Xác thực với git có 2 cách:
+- Dùng Token (Personal/Project/Group/Repo Access Token): chuỗi ký tự dùng với HTTPS. Dùng khi clone/pull/push qua HTTPS (url dạng https://...). Bạn gửi trực tiếp token cho server ở bước xác thực, token giống như “mật khẩu ngẫu nhiên siêu dài”, ai có token là dùng được. Ưu điểm là với Token: Có scope chi tiết: ví dụ read_repository, write_repository, api, read_registry, v.v. (GitLab/GitHub đều hỗ trợ). Có thể tạo token chỉ để đọc code, hoặc chỉ để dùng API,… theo nguyên tắc “least privilege”. Dễ revoke từng token, đặt expiry date, log theo từng token. => Về mặt phân quyền chi tiết/least privilege, token linh hoạt hơn. Nhược điểm là rò rỉ là coi như mất quyền tương đương scope của token đó. Token Mỗi khi dùng với HTTPS, về lý thuyết phải nhập username + token, thực tế thường lưu bằng credential helper, env var, hoặc config url."https://name:token@...".insteadOf. Thường dùng cho CI/CD, script non‑interactive, container, nơi khó dùng SSH agent.
+
+- Dùng SSH key: cặp public/private key dùng với giao thức SSH. Dùng khi clone/pull/push qua SSH (url dạng git@github.com:... hoặc ssh://git@...). Xác thực dùng mật mã bất đối xứng: client chứng minh là có private key bằng cách ký dữ liệu, private key không bao giờ gửi qua mạng (SSH agent tự dùng private key). SSH key không có scope chi tiết, chỉ gắn với user và quyền thực tế là quyền của user/project đó. Không có khái niệm “key này chỉ được read, không được gọi API GitLab/GitHub REST/GraphQL”. Việc giới hạn là ở mức account và repo. Ưu điểm là bảo mật hơn token về mặt cơ chế crypto (không phải bearer). SSH key thường dùng cho dev machine cá nhân). Setup một lần (generate keypair, add public key lên GitHub/GitLab), sau đó git clone/pull/push không cần nhập gì thêm.
