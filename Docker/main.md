@@ -283,3 +283,22 @@ Nhược điểm: Cần Docker daemon trên host runner.
 Ưu điểm: Scale tự động theo cluster K8s.
 
 Phù hợp môi trường cloud-native như EKS (AWS).
+
+---
+
+ARG và ENV là hai instruction trong Dockerfile để quản lý biến môi trường, có phạm vi sử dụng khác nhau.
+
+- ARG dùng để định nghĩa biến chỉ tồn tại trong quá trình build image. Bạn có thể truyền giá trị qua lệnh `docker build --build-arg TÊN=giá_trị`, và biến này khả dụng cho các lệnh RUN sau đó, nhưng không tồn tại trong container chạy. Ví dụ:
+```
+ARG VERSION=1.0 #Biến VERSION chỉ dùng lúc build, không có trong runtime.
+RUN echo "Building version $VERSION" 
+```
+
+- ENV thiết lập biến môi trường tồn tại cả lúc build (từ lệnh ENV trở đi) lẫn runtime trong container. Giá trị mặc định có thể ghi đè bằng --env khi docker run. Ví dụ:
+```
+ENV APP_PORT=8080
+EXPOSE $APP_PORT
+CMD ["./app"]
+Container sẽ có biến APP_PORT=8080 để ứng dụng sử dụng.
+```
+Có thể thay đổi port bằng option `docker run --env APP_PORT=80`
