@@ -302,3 +302,11 @@ CMD ["./app"]
 Container sẽ có biến APP_PORT=8080 để ứng dụng sử dụng.
 ```
 Có thể thay đổi port bằng option `docker run --env APP_PORT=80`
+
+---
+
+Khi chỉ định env_file trong docker-compose, Docker đọc file .env và set các giá trị trong file thành biến môi trường của container (là biến shell bên trong container).
+
+Cách truy cập biến môi trường
+- bằng python: `os.getenv()`
+- bằng nodejs: `process.env()`
