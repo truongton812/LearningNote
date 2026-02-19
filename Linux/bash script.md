@@ -83,3 +83,39 @@ Gọi hàm create_dispatch_yaml với 3 tham số.
 Dấu ! phủ định kết quả exit code, tức là nếu hàm trả về lỗi (mã khác 0), điều kiện trong if sẽ đúng và khối lệnh trong then sẽ được thực thi.
 
 Như vậy, hàm luôn được gọi, nhưng phần then chỉ chạy khi hàm create_dispatch_yaml gặp lỗi trong quá trình thực thi.
+
+---
+
+EOF và 'EOF' khác nhau ở cách shell xử lý biến và lệnh bên trong heredoc:
+
+1. << EOF (không có dấu ngoặc)
+```
+cat << EOF
+  Hello $USER
+  PWD: $PWD
+EOF
+```
+
+Shell sẽ thực hiện biến thay thế và command substitution ($USER, $(pwd), v.v.) trước khi gửi nội dung vào command (ví dụ cat).
+
+Tức là nội dung thực sự gửi đến cat đã là:
+```
+Hello root
+PWD: /home/root
+```
+
+2. << 'EOF' (hoặc << "EOF")
+```
+cat << 'EOF'
+  Hello $USER
+  PWD: $PWD
+EOF
+```
+Shell không thay thế biến/command bên trong heredoc, nội dung được giữ nguyên dạng literal.
+
+cat nhận đúng là:
+
+```
+Hello $USER
+PWD: $PWD
+```
