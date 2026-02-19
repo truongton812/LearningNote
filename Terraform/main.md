@@ -1580,6 +1580,8 @@ Lưu ý try() trả về giá trị thực tế, khác với can() trả về bo
 ### Condition trong terraform
 Syntax: condition ? true_val : false_val -> condition đúng thì xảy ra khối true_val, sai thì xảy ra khối false_val
 
+Nested condition: `outer_condition ? (inner_condition ? inner_true : inner_false) : outer_false`. Ví dụ `count = var.create_nat_gw ? (var.single_nat_gateway ? 1 : length(var.public_subnets)) : 0`
+
 Ý tưởng: kết hợp condition với count, nếu đúng thì count = 1 -> tạo resource, nếu sai thì count = 0 -> không tạo resource
 
 Ví dụ
