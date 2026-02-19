@@ -1586,37 +1586,38 @@ module "vpc" {
 Ngoài count, condition còn có thể dùng với for_each. Ví dụ:
 - Tạo resource dựa trên true/false `for_each = var.create_something_or_not ? var.something : {}` -> nếu `create_something_or_not` là true thì for_each lấy map từ biến `something`, còn không thì lấy map rỗng
 - Reconstruct lại map trước khi tạo resource:
-```
-for_each = {
-  for k, v in var.something : k => v
-    if k !== "do-not-create"
-}
-```
+
+  Ví dụ có 1 map
+  ```
+    something = {
+      "web-server" = {
+        description = "Allow HTTP/HTTPS"
+      }
+      "db-access" = {
+        description = "Allow DB ports" 
+      }
+      "do-not-create" = {
+        description = "Không tạo SG này"
+      }
+    }
+  ```
+  
+  Khi sử dụng for_each với điều kiện
+  ```
+  for_each = {
+    for k, v in var.something : k => v
+      if k !== "do-not-create"
+  }
+  
+  ## Map mới thu được sẽ là
+  {
+    "web-server"  = { description = "Allow HTTP/HTTPS" }
+    "db-access"   = { description = "Allow DB ports" }
+  }
+  ```
+  
 Giải thích: Đoạn code `{ for k, v in var.something : k => v }` là một expression dùng để tạo một map mới dựa trên một map input (ở đây là var.something), thường được dùng để chuẩn hóa hoặc lọc dữ liệu trước khi truyền vào for_each. `for_each = { for k, v in var.something : k => v }` tương đương với `for_each = var.something` nếu không có điều kiện gì. Đoạn code ở trên tạo lại map mới chỉ chứa những key khác với `"do-not-create"`
 
----
-
-`null_resource` trong Terraform là một resource “ảo” – nó không tạo bất kỳ tài nguyên thực tế nào trên cloud (AWS, Azure, GCP, v.v.), nhưng vẫn tuân theo chu kỳ lifecycle của Terraform (tạo, thay đổi, xóa). `null_resource` chạy trên machine mà Terraform đang chạy: Nếu bạn chạy terraform apply trên máy local (laptop, dev server) → null_resource sẽ thực thi trên máy đó. Nếu bạn dùng Terraform Cloud / Terraform Enterprise với remote execution → null_resource sẽ chạy trên agent/server của Terraform Cloud
-
-Thường được dùng kết hợp với provisioner (local_exec, remote_exec, file, v.v.) để thực hiện các việc như:
-- Chạy script local.
-- Gọi API bên ngoài.
-- Thực hiện các bước thủ công sau khi Terraform tạo xong resource.
-- Chạy script setup trên máy local hoặc remote.
-
-Ví dụ đơn giản:
-
-```
-resource "null_resource" "after_cloudfront" {
-  triggers = { #chỉ định khi nào null_resource được trigger. Khi cloudfront_id thay đổi, Terraform coi null_resource thay đổi → xóa + tạo lại → chạy lại provisioner một lần nữa.
-    cloudfront_id = aws_cloudfront_distribution.example.id
-  }
-
-  provisioner "local_exec" {
-    command = "echo Done creating CloudFront: ${aws_cloudfront_distribution.example.arn}"
-  }
-}
-```
 
 ---
 
