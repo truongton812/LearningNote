@@ -908,9 +908,9 @@ VD:
 - Terraform state rm <resource> -> dùng để xóa item ra khỏi state file (lưu ý resource vẫn tồn tại trên môi trường thật)
 
 ## 11. Provisioner
-Provisioner trong Terraform là một tính năng cho phép thực thi các đoạn script hoặc lệnh sau khi tài nguyên (resource) được Terraform tạo ra. Provisioner có thể chạy script ở máy local (máy đang chạy Terraform) hoặc trên máy remote (ví dụ như máy chủ EC2 vừa mới tạo). Provisioner thường được dùng để cấu hình hạ tầng sau khi nó đã được tạo, ví dụ như cài đặt phần mềm, chỉnh sửa tập tin cấu hình, hoặc chạy các lệnh khởi tạo.
+- Provisioner trong Terraform là một tính năng cho phép thực thi các đoạn script hoặc lệnh sau khi tài nguyên (resource) được Terraform tạo ra. Provisioner có thể chạy script ở máy local (máy đang chạy Terraform) hoặc trên máy remote (ví dụ như máy chủ EC2 vừa mới tạo). Provisioner thường được dùng để cấu hình hạ tầng sau khi nó đã được tạo, ví dụ như cài đặt phần mềm, chỉnh sửa tập tin cấu hình, hoặc chạy các lệnh khởi tạo.
 
-Có hai loại provisioner chính trong Terraform:
+- Có hai loại provisioner chính trong Terraform:
 
 1. local-exec: Chạy các lệnh trên máy local, nơi Terraform đang chạy.
 ```
@@ -924,7 +924,7 @@ resource "aws_instance" "webserver" {
 }
 ```
 
-2. remote-exec: Chạy các lệnh trên máy remote, như máy chủ mới được provision.
+2. remote-exec: Chạy các lệnh trên máy remote, như máy chủ mới được provision. Ví dụ, khi tạo một máy ảo EC2, provisioner remote-exec có thể dùng để cài đặt Apache HTTP Server ngay sau khi máy được tạo ra, và Terraform sẽ chỉ đánh dấu tài nguyên đó là thành công khi lệnh cài đặt thành công
 
 ```
 resource "aws_instance" "webserver" {
@@ -950,11 +950,48 @@ resource "aws_instance" "webserver" {
 }
 ```
 
-Provisioner thường được thực thi khi tài nguyên được tạo ra (creation-time provisioners) hoặc khi tài nguyên bị xóa (destruction-time provisioners - dùng option `when = destroy`). Ngoài ra, nếu provisioner chạy thất bại, Terraform có thể đánh dấu tài nguyên đó là không thành công, hoặc có thể được cấu hình để tiếp tục. (dùng chỉ `on_failure` , mặc định là fail, có thể set thành continue) 
+- Provisioner thường được thực thi khi tài nguyên được tạo ra (creation-time provisioners) hoặc khi tài nguyên bị xóa (destruction-time provisioners - dùng option `when = destroy`). Ngoài ra, nếu provisioner chạy thất bại, Terraform có thể đánh dấu tài nguyên đó là không thành công, hoặc có thể được cấu hình để tiếp tục. (dùng chỉ `on_failure` , mặc định là fail, có thể set thành continue) 
 
-Provisioner giúp đảm bảo rằng quá trình tạo hạ tầng không chỉ dừng lại ở việc tạo tài nguyên mà còn thực hiện các bước cấu hình cần thiết, làm cho việc tự động hóa hạ tầng trở nên hoàn chỉnh hơn và kiểm soát chặt chẽ hơn về trạng thái thành công của việc provision.
+- Provisioner có thể kết hợp với null_resource để thực hiện các việc như chạy script local, gọi API bên ngoài, thực hiện các bước thủ công sau khi Terraform tạo xong resource. null_resource trong Terraform là một resource “ảo” – nó không tạo bất kỳ tài nguyên thực tế nào trên cloud (AWS, Azure, GCP, v.v.), nhưng vẫn tuân theo chu kỳ lifecycle của Terraform (tạo, thay đổi, xóa). Null_resource giúp chạy một hành động tùy ý cùng lúc với việc apply Terraform mà không sinh ra tài nguyên nào
 
-Ví dụ, khi tạo một máy ảo EC2, provisioner remote-exec có thể dùng để cài đặt Apache HTTP Server ngay sau khi máy được tạo ra, và Terraform sẽ chỉ đánh dấu tài nguyên đó là thành công khi lệnh cài đặt thành công
+- Các use case thông dụng: Gọi API sau khi tạo xong một resource (ví dụ: đổi CloudFront plan từ pay‑as‑you‑go sang Free), gửi thông báo (Slack, webhook) sau khi Terraform apply xong, chạy script setup trên máy local hoặc remote.
+
+Ví dụ đổi CloudFront plan từ pay‑as‑you‑go sang Free (do mặc định Cloudfront plan tạo ra bằng Terraform luôn là pay-as-you-go)
+```
+resource "aws_cloudfront_distribution" "example" {
+  # ... config
+}
+
+resource "null_resource" "after_cloudfront" {
+  triggers = {
+    # Đảm bảo chạy lại khi CloudFront thay đổi
+    cloudfront_id = aws_cloudfront_distribution.example.id
+  }
+
+  provisioner "local_exec" {
+    command = <<EOT
+      echo "Switching CloudFront ${aws_cloudfront_distribution.example.id} to FREE plan..."
+      # Gọi AWS CLI / API để đổi plan ở đây (nếu có API tương ứng)
+    EOT
+  }
+}
+```
+​
+- Có thể dùng map triggers để chỉ định khi nào null_resource cần được “refresh”:
+
+```
+resource "null_resource" "after_cloudfront" {
+  triggers = {
+    cloudfront_id = aws_cloudfront_distribution.example.id #Khi cloudfront_id thay đổi, Terraform coi null_resource thay đổi → xóa + tạo lại → chạy lại provisioner một lần nữa.
+  }
+
+  provisioner "local_exec" {
+    command = "echo Done creating CloudFront: ${aws_cloudfront_distribution.example.arn}"
+  }
+}
+```
+
+- Lưu ý khi dùng provisioner "local_exec" bên trong null_resource thì lệnh sẽ chạy trên chính máy đang chạy terraform apply (nơi có local_exec được định nghĩa). Còn nếu dùng provisioner "remote_exec" → lệnh chạy trên máy remote (qua SSH/WinRM), nhưng đích vẫn là máy được chỉ định trong block connection.
 
 
 ## 12. Module
