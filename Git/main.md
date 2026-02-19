@@ -209,7 +209,9 @@ Khác nhau giữa git branch và git branch -a
 Nếu chỉ muốn chỉ xem nhánh remote-tracking: git branch -r.
 ​
 
-Nếu bạn thấy nhánh remote nhưng chưa thấy local, có thể tạo local branch theo nó bằng `git switch -c <tên-local> --track origin/<tên-remote>` (hoặc `git checkout -t origin/<tên-remote>` tùy phiên bản Git).
+Nếu bạn thấy nhánh remote nhưng chưa thấy local, có thể tạo local branch theo nó bằng 1 trong các cách:
+- `git switch -c <tên-local> --track origin/<tên-remote>` hoặc `git checkout -t origin/<tên-remote>` (tùy phiên bản Git) -> Git tự động tạo local branch <tên-remote> (bỏ origin) và thiết lập tracking relationship giữa nhánh local với remote
+- `git checkout -b dev origin/dev` -> tạo và checkout branch local tên dev dựa vào nhánh origin/dev trên remote. Điểm khác là với lệnh này git không thiết lập tracking relationship với remote
 
 
 Khi bạn chạy git push origin (không ghi rõ nhánh), Git sẽ cố đẩy nhánh local hiện tại (nhánh bạn đang checkout) lên remote tên origin đích mặc định là nhánh remote cùng tên với nhánh local (tức origin/<current_local_branch>) hoặc đẩy lên nhánh upstream đang link với nhánh local hiện tại (phụ thuộc vào cấu hình push.default là simple hay upstream). Nếu current local branch chưa link (chưa có upstream), Git thường sẽ báo lỗi kiểu “has no upstream branch” và gợi ý bạn dùng -u/--set-upstream để thiết lập.
@@ -242,6 +244,7 @@ git push -u origin staging
 ---
 
 `git clone -b <branch-name> <repo-url>` -> Lệnh này sẽ fetch các refs từ remote và checkout nhánh đó làm nhánh local hiện tại.
+
 ​
 `git clone -b <branch-name> --single-branch <repo-url>` -> Chỉ clone đúng 1 nhánh​
 
