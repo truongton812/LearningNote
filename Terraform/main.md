@@ -1565,6 +1565,16 @@ Examples
 - length(collection): dùng để đếm số lượng của collection, output là number
 - tolist/toset: dùng để chuyển đổi set thành list hoặc list thành set
 - tomap(object): dùng để chuyển đổi object thành map (đầu vào phải là object, tức kiểu map-like)
+
+#### 5. try
+
+Hàm try() trong Terraform là một error-handling function giúp đánh giá nhiều biểu thức theo thứ tự và trả về GIÁ TRỊ của biểu thức đầu tiên không gây lỗi
+​
+
+Syntax: `try(expression1, expression2, ..., default_value)` -> thử expression1 → nếu thành công → trả về kết quả, nếu lỗi → thử expression2, và cứ thế... Nếu tất cả đều lỗi → trả về default_value (hoặc lỗi nếu không có)
+
+Lưu ý try() trả về giá trị thực tế, khác với can() trả về boolean. Ví dụ `try(var.my_var, false)` sẽ trả về giá trị của biến `my_var`
+
 ---
 
 ### Condition trong terraform
@@ -1616,7 +1626,7 @@ Ngoài count, condition còn có thể dùng với for_each. Ví dụ:
   }
   ```
   
-Giải thích: Đoạn code `{ for k, v in var.something : k => v }` là một expression dùng để tạo một map mới dựa trên một map input (ở đây là var.something), thường được dùng để chuẩn hóa hoặc lọc dữ liệu trước khi truyền vào for_each. `for_each = { for k, v in var.something : k => v }` tương đương với `for_each = var.something` nếu không có điều kiện gì. Đoạn code ở trên tạo lại map mới chỉ chứa những key khác với `"do-not-create"`
+Giải thích: Đoạn code `{ for k, v in var.something : k => v }` là một expression dùng để tạo một map mới dựa trên một map input (ở đây là var.something), thường được dùng để chuẩn hóa hoặc lọc dữ liệu trước khi truyền vào for_each. `for_each = { for k, v in var.something : k => v }` tương đương với `for_each = var.something` nếu không có điều kiện gì. Đoạn code ở trên tạo lại map mới chỉ chứa những key khác với `"do-not-create"`. Lưu ý k và v là đặt tùy ý, Terraform sẽ hiểu symbol ở vị trí thứ 1 đại diện cho key, symbol ở vị trí thứ 2 đại diện cho value (đối với map), còn đối với list thì symbol ở vị trí thứ 1 đại diện cho index, symbol ở vị trí thứ 2 đại diện cho item. Đối với list nếu chỉ định 1 symbol thì Terraform sẽ hiểu là lấy item
 
 
 ---
