@@ -1137,7 +1137,19 @@ module "ecs" {
 - Import chủ yếu để phục vụ việc chuyển đổi quản lý hạ tầng sang Terraform mà không phải xóa rồi tạo lại từ đầu.​
 - Quy trình sử dụng
   - Khai báo resource trong file .tf tương ứng với tài nguyên cần import do terraform import không tự động sinh ra code cấu hình .tf cho resource đã import
-  - Chạy lệnh terraform import <resource_type>.<resource_name> <real_resource_id>, ví dụ: `terraform import aws_instance.example i-1234567890abcdef0`. Hoặc có thể khai báo import block trong file .tf
+  - Chạy lệnh terraform import <resource_type>.<resource_name> <real_resource_id>, ví dụ: `terraform import aws_instance.example i-1234567890abcdef0`. Hoặc có thể khai báo import block trong file .tf. Ví dụ import ECR resource
+    ```
+    import {
+      to = aws_ecr_repository.service
+      identity = {
+        name = "test-service"
+      }
+    }
+    
+    resource "aws_ecr_repository" "service" {
+      ### Configuration omitted for brevity ###
+    }
+    ```
 - Khi không muốn dùng terraform để quản lý resource nữa thì sử dụng lệnh `terraform state rm <resource_type>.<resource_name>` -> resource sẽ bị xóa ra khỏi file state của Terraform. Lệnh này áp dụng cho cả resource được import và resource được tạo bởi Terraform. Lưu ý resource ngoài thực tế (ví dụ máy EC2 thực tế) vẫn còn nguyên, không bị xóa trên AWS hoặc môi trường cloud của bạn.​
 
 ### Dùng Terraform để deploy helm chart
