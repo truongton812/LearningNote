@@ -1626,7 +1626,7 @@ Ngoài count, condition còn có thể dùng với for_each. Ví dụ:
     }
   ```
   
-  Khi sử dụng for_each với điều kiện
+  Khi sử dụng for_each với điều kiện, VD1:
   ```
   for_each = {
     for k, v in var.something : k => v
@@ -1639,6 +1639,39 @@ Ngoài count, condition còn có thể dùng với for_each. Ví dụ:
     "db-access"   = { description = "Allow DB ports" }
   }
   ```
+  
+Khi sử dụng for_each với điều kiện, VD2:
+```
+locals {
+  service_map = {
+    admin = {
+      task_arn = aws_ecs_task_definition.admin.arn
+      port     = 3001  # Sửa theo thực tế
+      # enabled  = true  # Optional: conditional create
+    }
+    api = {
+      task_arn = aws_ecs_task_definition.api.arn
+      port     = 8000
+    }
+    # ... 
+  }
+}
+
+resource "aws_ecs_service" "services" {
+  for_each = { for k, v in local.service_map : k => v if lookup(v, "enabled", true) }  # Conditional
+
+  task_definition = each.value.task_arn
+  # Hoặc local.service_map[each.key].task_arn - tương đương
+  
+  service_connect_configuration {
+    service {
+      client_alias {
+        port = each.value.port  # Ngắn gọn hơn!
+      }
+    }
+  }
+}
+```
   
 Giải thích: Đoạn code `{ for k, v in var.something : k => v }` là một expression dùng để tạo một map mới dựa trên một map input (ở đây là var.something), thường được dùng để chuẩn hóa hoặc lọc dữ liệu trước khi truyền vào for_each. `for_each = { for k, v in var.something : k => v }` tương đương với `for_each = var.something` nếu không có điều kiện gì. Đoạn code ở trên tạo lại map mới chỉ chứa những key khác với `"do-not-create"`. Lưu ý k và v là đặt tùy ý, Terraform sẽ hiểu symbol ở vị trí thứ 1 đại diện cho key, symbol ở vị trí thứ 2 đại diện cho value (đối với map), còn đối với list thì symbol ở vị trí thứ 1 đại diện cho index, symbol ở vị trí thứ 2 đại diện cho item. Đối với list nếu chỉ định 1 symbol thì Terraform sẽ hiểu là lấy item
 
