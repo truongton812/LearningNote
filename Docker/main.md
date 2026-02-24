@@ -310,3 +310,40 @@ Khi chỉ định env_file trong docker-compose, Docker đọc file .env và set
 Cách truy cập biến môi trường
 - bằng python: `os.getenv()`
 - bằng nodejs: `process.env()`
+
+---
+
+
+Để build lại image trước khi chạy docker compose up, bạn chỉ cần thêm flag --build vào lệnh up. Lệnh này sẽ tự động build lại các image nếu có thay đổi (như Dockerfile hoặc code), rồi khởi động container.
+```
+docker compose up --build
+hoặc nếu muốn chạy ngầm: docker compose up -d --build.
+```
+​
+Nếu cần force rebuild từ đầu (bỏ qua cache):
+```
+docker compose build --no-cache
+docker compose up
+```
+
+Hoặc kết hợp: `docker compose up --build --force-recreate` để recreate container ngay cả khi config không đổi.
+
+Với service cụ thể: Chỉ build một service: `docker compose up --build <tên_service>` (ví dụ: docker compose up --build web). Điều này hữu ích trong dev workflow với Kubernetes/Docker.
+​​
+---
+
+Amazon Linux 2023 (AL2023) ship Docker với Buildx phiên bản cũ (v0.11.x hoặc v0.0.0+unknown), gây lỗi khi dùng docker compose build yêu cầu Buildx >=0.17.0.
+
+Giải pháp cập nhật Buildx
+```
+sudo mkdir -p ~/.docker/cli-plugins
+
+LATEST=0.17.1  # Thay bằng version mới nhất
+
+wget https://github.com/docker/buildx/releases/download/v${LATEST}/buildx-v${LATEST}.linux-amd64 -O ~/.docker/cli-plugins/docker-buildx
+chmod a+x ~/.docker/cli-plugins/docker-buildx
+
+docker buildx version  
+
+docker buildx install 
+```
