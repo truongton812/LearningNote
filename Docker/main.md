@@ -329,6 +329,7 @@ docker compose up
 Hoặc kết hợp: `docker compose up --build --force-recreate` để recreate container ngay cả khi config không đổi.
 
 Với service cụ thể: Chỉ build một service: `docker compose up --build <tên_service>` (ví dụ: docker compose up --build web). Điều này hữu ích trong dev workflow với Kubernetes/Docker.
+
 ​​
 ---
 
