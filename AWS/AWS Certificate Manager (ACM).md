@@ -76,3 +76,11 @@ Chi phí ACM
 ACM cấp public certificate miễn phí khi chọn loại non‑exportable. Loại này chỉ có thể dùng với các dịch vụ AWS được tích hợp (ELB/ALB/NLB, CloudFront, API Gateway, AppSync…), không dùng được cho các tài nguyên ngoài AWS (on-prem,...)
 
 Chứng chỉ bị tính phí khi là loại có thể export (exportable public certificate). Với Standard FQDN là 15 USD mỗi lần cấp/ gia hạn. Với wildcard là 149 USD mỗi lần cấp/ gia hạn.
+
+---
+
+| Option | Coverage | Số request | Phù hợp |
+|--------|----------|------------|---------|
+| Chỉ `geneco.io` | Root domain | 1 | Không cover subdomain |
+| Chỉ `*.geneco.io` | Tất cả subdomain cấp 1 | 1 | Không cover root |
+| `geneco.io` + `*.geneco.io` (SAN) | Root + tất cả subdomain cấp 1 | **1** | **Tốt nhất** |
