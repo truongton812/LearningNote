@@ -290,3 +290,5 @@ du -sh * liệt kê kích thước tổng (-s: summary) của tất cả file/th
 du -sh / chỉ hiển thị tổng kích thước duy nhất của toàn bộ filesystem root / (bao gồm tất cả thư mục con đệ quy). Muốn xem cụ thể thì dùng du -sh /*
 
 Dùng lệnh sudo du -h --max-depth=1 / | sort -rh cũng tương tự
+
+ls -t | head -n -10 | xargs rm -v -> xóa hết file trong một thư mục và chỉ giữ lại 10 file mới nhất (dựa trên thời gian sửa đổi). Thay rm -v bằng echo rm -v để xem danh sách sẽ xóa.
