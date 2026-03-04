@@ -288,3 +288,5 @@ Lưu ý du -sh * và du -sh / khác nhau về phạm vi quét và kết quả hi
 du -sh * liệt kê kích thước tổng (-s: summary) của tất cả file/thư mục trực tiếp trong thư mục hiện tại (wildcard * của shell mở rộng các item cấp 1).
 
 du -sh / chỉ hiển thị tổng kích thước duy nhất của toàn bộ filesystem root / (bao gồm tất cả thư mục con đệ quy). Muốn xem cụ thể thì dùng du -sh /*
+
+Dùng lệnh sudo du -h --max-depth=1 / | sort -rh cũng tương tự
