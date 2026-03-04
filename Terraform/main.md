@@ -1675,6 +1675,113 @@ resource "aws_ecs_service" "services" {
   
 Giải thích: Đoạn code `{ for k, v in var.something : k => v }` là một expression dùng để tạo một map mới dựa trên một map input (ở đây là var.something), thường được dùng để chuẩn hóa hoặc lọc dữ liệu trước khi truyền vào for_each. `for_each = { for k, v in var.something : k => v }` tương đương với `for_each = var.something` nếu không có điều kiện gì. Đoạn code ở trên tạo lại map mới chỉ chứa những key khác với `"do-not-create"`. Lưu ý k và v là đặt tùy ý, Terraform sẽ hiểu symbol ở vị trí thứ 1 đại diện cho key, symbol ở vị trí thứ 2 đại diện cho value (đối với map), còn đối với list thì symbol ở vị trí thứ 1 đại diện cho index, symbol ở vị trí thứ 2 đại diện cho item. Đối với list nếu chỉ định 1 symbol thì Terraform sẽ hiểu là lấy item
 
+---
+
+### Dynamic block
+- Là Expressions dùng để tạo ra các nested block (configuration block) lặp lại bên trong một resource/data/provider/provisioner. Nó hoạt động giống một vòng lặp for_each, nhưng thay vì tạo ra “giá trị” (list/map) thì nó tạo ra các block con như route {}, ingress {}, lifecycle_rule {}….
+​- Cú pháp và các phần của dynamic: Một dynamic block có 2 phần chính: for_each và content.
+  ```
+  resource "..." "..." {
+    dynamic "route" { 
+      for_each = <một list/map/set để lặp> 
+      content {
+        # nội dung của từng route {} được sinh ra
+      }
+    }
+  }
+  ```
+  Trong đó:
+  - "route" là tên block con mà bạn muốn Terraform sinh ra (phải là block hợp lệ trong resource đó).
+  - for_each quyết định số lần tạo block: có N phần tử ⇒ tạo N block; list rỗng ⇒ tạo 0 block. Lưu ý for_each phải là list/set/map, và mỗi phần tử sẽ sinh ra 1 block tương ứng. Không có phần tử nào (list rỗng []) thì 0 block được sinh.
+​  - content {} chứa các argument của block được tạo, và tham chiếu phần tử hiện tại bằng <iterator>.value (mặc định iterator có tên giống tên block con, trong VD này là route) hoặc tự đặt bằng iterator = "it".
+
+- Ví dụ trong trường hợp tạo private route table, khi create_nat_gateway=false thì muốn “route rỗng”
+  ```
+  dynamic "route" {
+    for_each = var.create_nat_gateway ? [1] : [] #có thể dùng ["any"], [{}], { for k,v in {} : k => v }… miễn là có 1 phần tử
+    content {
+      cidr_block     = "0.0.0.0/0"
+      nat_gateway_id = aws_nat_gateway.this.id
+    }
+  }
+  ```
+- Ví dụ dynamic block lặp qua 1 list Security Group ingress
+  ```
+  variable "ingress_rules" {
+    default = [80, 443, 8080]
+  }
+  
+  resource "aws_security_group" "web" {
+    name = "web-sg"
+  
+    dynamic "ingress" {
+      for_each = var.ingress_rules
+      content {
+        from_port   = ingress.value  # iterator mặc định là "ingress"
+        to_port     = ingress.value
+        protocol    = "tcp"
+        cidr_blocks = ["0.0.0.0/0"]
+      }
+    }
+  }
+  => Sinh ra 3 block ingress { from_port=80 }, ingress { from_port=443 }, ingress { from_port=8080 }.
+  ```
+- Ví dụ dynamic block lặp qua 1 map object (S3 lifecycle rules)
+  ```
+  variable "lifecycle_rules" {
+    type = map(object({
+      enabled = bool
+      days    = number
+    }))
+    default = {
+      "log1" = { enabled = true, days = 30 }
+      "log2" = { enabled = true, days = 90 }
+    }
+  }
+  
+  resource "aws_s3_bucket_lifecycle_configuration" "bucket" {
+    bucket = aws_s3_bucket.this.id
+  
+    dynamic "rule" {
+      for_each = { for k, v in var.lifecycle_rules : k => v if v.enabled }
+      content {
+        id = rule.key
+        status = "Enabled"
+        dynamic "expiration" {
+          for_each = [1]
+          content {
+            days = rule.value.days
+          }
+        }
+      }
+    }
+  }
+  Chỉ lặp rule có enabled=true (filter bằng for expression).
+  
+  Sinh 2 rule { id="log1" ... } và rule { id="log2" ... }. Nested dynamic "expiration" dùng [1] để sinh 1 block.
+  ```
+​- Ví dụ 3: dynamic block với Iterator tùy chỉnh + set
+  ```
+  variable "azs" {
+    default = ["us-east-1a", "us-east-1b"]
+  }
+  
+  resource "aws_route_table_association" "private" {
+    dynamic "route_table_association" {
+      for_each = toset(var.azs)
+      iterator = az  # đặt tên iterator = "az" thay vì mặc định "route_table_association"
+      content {
+        subnet_id      = aws_subnet.private[az.key].id
+        route_table_id = aws_route_table.private.id
+      }
+    }
+  }
+  toset() chuyển list thành set (cho for_each).
+  
+  Dùng az.key/az.value để tham chiếu.
+  ```
+​​
+- Khác nhau giữa Dynamic block và for_each: for_each dùng để tạo ra nhiều instance tài nguyên (VD aws_route_table, aws_subnet, …), còn dynamic block để tạo ra nhiều nested blocks trong cùng một resource (nhiều route {}, nhiều ingress {}, …).
 
 ---
 
