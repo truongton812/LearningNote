@@ -348,3 +348,89 @@ docker buildx version
 
 docker buildx install 
 ```
+---
+
+### override env vars tại runtime (lúc container chạy
+Dùng docker run -e hoặc --env-file để override ENV trong Dockerfile và host env.
+
+Cách override cơ bản
+```
+docker run -p 8080:80 \
+  -e NEXT_PUBLIC_API_URL=https://api.prod.com \
+  -e NODE_ENV=production \
+  myapp
+-e KEY=VALUE: Set/override env cho container. Lặp lại cho nhiều vars.
+```
+
+Sử dụng file env:
+
+Tạo .env.prod với format
+```
+NEXT_PUBLIC_API_URL=https://api.prod.com
+DATABASE_URL=postgres://...
+```
+Sau đó chạy
+
+```
+docker run -p 8080:80 --env-file .env.prod myapp
+Override ưu tiên: -e > --env-file > Dockerfile ENV > host env.
+```
+​
+
+Với Docker Compose
+docker-compose.yml:
+```
+services:
+  app:
+    image: myapp
+    ports:
+      - "8080:80"
+    environment:
+      - NEXT_PUBLIC_API_URL=https://api.prod.com
+    # Hoặc env_file: .env.prod
+docker-compose up tự load.
+```
+​
+
+Lưu ý cho Next.js static/S3
+Runtime env: Chỉ server-side (getServerSideProps, API routes) đọc được -e. Client-side (NEXT_PUBLIC_) phải build-time.
+​
+
+Test: docker run myapp env | grep NEXT_PUBLIC.
+​
+
+file env có cần dùng double quote cho string ko
+Không cần double quotes cho string trong Docker .env file trong hầu hết trường hợp. Docker docker run --env-file đọc raw text (NAME=value), quotes bị coi là phần của value thay vì syntax.
+
+Quy tắc chính xác
+text
+# ✅ ĐÚNG - Không quotes (khuyến nghị)
+NEXT_PUBLIC_API_URL=https://api.example.com
+DATABASE_URL=postgres://user:pass@localhost:5432/db
+
+# ❌ SAI - Quotes thành phần của value
+NEXT_PUBLIC_API_URL="https://api.example.com"  # Container nhận: "https://api.example.com" (có dấu quotes)
+
+# ✅ OK nếu có space/special chars (Docker Compose mới)
+PASSWORD=super secret pass
+JWT_SECRET={"type": "HS256", "key": "abc123"}
+Khi nào cần quotes?
+Có space: Docker CLI giữ quotes → không dùng quotes, escape bằng \ nếu cần:
+
+text
+PASSWORD=super\ secret\ pass
+Docker Compose v2+: Hỗ trợ quotes tốt hơn, nhưng vẫn khuyến nghị không quotes cho tương thích.
+​
+
+Test nhanh
+text
+# Tạo .env
+echo 'TEST_VAR=hello world' > .env
+docker run --env-file .env alpine env | grep TEST_VAR
+# Kết quả: TEST_VAR=hello world ✅ (không quotes)
+Best practice (.env cho S3 static app)
+text
+NEXT_PUBLIC_API_URL=https://api.prod.com
+NEXT_PUBLIC_APP_NAME=MyApp
+NODE_ENV=production
+Không quotes → sync build lên S3 hoạt động đúng
