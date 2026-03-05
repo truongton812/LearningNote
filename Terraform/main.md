@@ -1692,8 +1692,8 @@ Giải thích: Đoạn code `{ for k, v in var.something : k => v }` là một e
   ```
   Trong đó:
   - "route" là tên block con mà bạn muốn Terraform sinh ra (phải là block hợp lệ trong resource đó).
-  - for_each quyết định số lần tạo block: có N phần tử ⇒ tạo N block; list rỗng ⇒ tạo 0 block. Lưu ý for_each phải là list/set/map, và mỗi phần tử sẽ sinh ra 1 block tương ứng. Không có phần tử nào (list rỗng []) thì 0 block được sinh.
-​  - content {} chứa các argument của block được tạo, và tham chiếu phần tử hiện tại bằng <iterator>.value (mặc định iterator có tên giống tên block con, trong VD này là route) hoặc tự đặt bằng iterator = "it".
+  - for_each quyết định số lần tạo block: có N phần tử ⇒ tạo N block; list rỗng ⇒ tạo 0 block. Lưu ý for_each phải là list/set/map, và mỗi phần tử sẽ sinh ra 1 block tương ứng. Không có phần tử nào (list rỗng []) thì 0 block được sinh
+  - content {} chứa các argument của block được tạo, và tham chiếu phần tử hiện tại bằng <iterator>.value (mặc định iterator có tên giống tên block con, trong VD này là route) hoặc tự đặt bằng iterator = "it".
 
 - Ví dụ trong trường hợp tạo private route table, khi create_nat_gateway=false thì muốn “route rỗng”
   ```
