@@ -57,14 +57,13 @@ cache:
 
 ```
 
-Trong buildspec.yml của AWS CodeBuild, khối env: (version 0.2) có thể chứa đầy đủ các field sau.
-​
-- env: shell: chọn shell chạy lệnh; Linux hỗ trợ bash, /bin/sh, Windows hỗ trợ powershell.exe, cmd.exe.
-​- env: variables: khai báo env var dạng plain text theo cặp key: value.
-​- env: parameter-store: map key (tên env var trong build) → value (tên/đường dẫn parameter trong SSM Parameter Store).
-​- env: secrets-manager: map key (tên env var trong build) → tham chiếu secret theo mẫu <secret-id>:<json-key>:<version-stage>:<version-id> (các phần sau secret-id là optional tuỳ cách lấy).
-​- env: exported-variables: list các tên biến muốn export cho stage sau của CodePipeline (biến phải tồn tại trong container trong lúc build).
-​- env: git-credential-helper: yes | no để bật/tắt Git credential helper của CodeBuild (không hỗ trợ một số trường hợp như webhook public repo). 
+Trong buildspec.yml của AWS CodeBuild, khối env: (version 0.2) có thể chứa đầy đủ các field sau:
+- env: shell: chọn shell chạy lệnh; Linux hỗ trợ bash, /bin/sh, Windows hỗ trợ powershell.exe, cmd.exe
+- env: variables: khai báo env var dạng plain text theo cặp key: value.
+- env: parameter-store: map key (tên env var trong build) → value (tên/đường dẫn parameter trong SSM Parameter Store).
+- env: secrets-manager: map key (tên env var trong build) → tham chiếu secret theo mẫu <secret-id>:<json-key>:<version-stage>:<version-id> (các phần sau secret-id là optional tuỳ cách lấy).
+- env: exported-variables: list các tên biến muốn export cho stage sau của CodePipeline (biến phải tồn tại trong container trong lúc build).
+- env: git-credential-helper: yes | no để bật/tắt Git credential helper của CodeBuild (không hỗ trợ một số trường hợp như webhook public repo). 
 ​
 Ví dụ
 ```
