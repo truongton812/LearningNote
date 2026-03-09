@@ -250,3 +250,20 @@ GRANT read_only_group TO ten_user;
 ```
 
 Với cách này, việc quản lý trở nên đơn giản hơn vì bạn chỉ cần thêm hoặc bớt quyền từ `read_only_group` và mọi thành viên của nhóm sẽ tự động được cập nhật.
+
+---
+
+### Lệnh làm việc với Postgres DB
+- \l : show các database hiện có trong PostgreSQL kèm thông tin owner, encoding, privileges
+- query để xem các db hiện có: `SELECT datname FROM pg_database;`
+- \c database_name : Lệnh chuyển database
+- \c myapp_db masteruser : Chuyển với username cụ thể
+- Tạo user có thể login (readonly) `CREATE USER app_user WITH PASSWORD 'SecurePass123!';`
+- Tạo user với quyền cụ thể
+  - CREATE USER app_user WITH PASSWORD 'SecurePass123!' CREATEDB; -> có quyền tạo database
+- Grant quyền vào database cụ thể `GRANT ALL PRIVILEGES ON DATABASE myapp_db TO app_user;`
+- List tất cả user/role: \du
+- Xem chi tiết quyền role=based của các user hiện có: `SELECT rolname FROM pg_roles;` thêm WHERE rolname = '<username>' để xem cụ thể 1 user
+- \du <username>: xem quyền của một user cụ thể 
+Lưu ý User bạn tạo bằng CREATE USER chính là username + password để đăng nhập vào database qua psql
+`psql -h your-rds-endpoint -U app_user -d myapp_db`
