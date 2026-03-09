@@ -208,8 +208,16 @@ variable "example_map" {
 - Gọi các phần tử của map:
 ```
 resource local_file my-pet {
-  content = var.example_map["dev"]
+  content = var.example_map["dev"] #dùng khi Key có ký tự đặc biệt (-, /, space...)
 ```
+
+Hoặc 
+
+```
+resource local_file my-pet {
+  content = var.example_map.dev
+```
+
 - Lấy danh sách các giá trị từ map:
 ```
 locals {
@@ -545,7 +553,6 @@ resource "aws_instance" "sandbox" {
   }
 }
 ```
-
 **Nhược điểm khi sử dụng Count**
 
 - Nếu một phần tử ở đầu hoặc giữa list mà count﻿ dùng để tạo các bản sao resource bị xóa, các bản sao resource phía sau sẽ bị dịch chuyển index xuống, dẫn đến việc Terraform phá hủy và tạo lại các tài nguyên đó không cần thiết. Hiện tượng này gọi là "index shifting problem", làm tăng rủi ro gián đoạn và không ổn định cho hạ tầng.​
@@ -1587,6 +1594,31 @@ Syntax: `try(expression1, expression2, ..., default_value)` -> thử expression1
 
 Lưu ý try() trả về giá trị thực tế, khác với can() trả về boolean. Ví dụ `try(var.my_var, false)` sẽ trả về giá trị của biến `my_var`
 
+#### 6. Lookup
+
+Syntax `lookup(MAP, KEY, DEFAULT_VALUE)`
+
+Trong đó:
+- MAP: Map/object cần tìm
+- KEY: Key muốn lấy value
+- DEFAULT_VALUE: Giá trị trả về nếu key không tồn tại
+
+Hàm lookup trả về giá trị của key hoặc default value
+
+Ví du: 
+
+task_definition_map = {
+  "admin"  = { port = 3000, health_check_path = "/god-mode/index.html" }
+  "worker" = { port = 8000 } 
+}
+
+=> `lookup(var.task_definition_map["admin"], "health_check_path", null)`
+
+Kết quả: "/god-mode/index.html"
+
+=> `lookup(var.task_definition_map["worker"], "health_check_path", null) `
+
+Kết quả: null
 ---
 
 ### Condition trong terraform
