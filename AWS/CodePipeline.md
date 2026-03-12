@@ -225,6 +225,13 @@ artifacts:
 
 ```
 
+Giải thích trường name trong phần artifacts của file buildspec.yml (AWS CodeBuild) dùng để chỉ định tên cho artifact đầu ra được tạo ra sau khi build. Tên này có thể được tính toán động tại thời điểm build bằng shell commands hoặc biến môi trường, giúp đảm bảo tính duy nhất khi build nhiều lần. VD:  `name: myapp-$(date +%Y-%m-%d)-$AWS_REGION` -> Tên artifact sẽ là myapp-2026-03-08-us-east-1 (ví dụ), tránh ghi đè file cũ.
+​
+
+Tên artifact được định nghĩa động qua name trong buildspec.yml của CodeBuild vẫn có thể sử dụng bình thường cho các stage sau trong CodePipeline, vì CodePipeline quản lý artifact qua identifier (không phụ thuộc tên file S3 cụ thể. Do CodePipeline truyền artifact từ stage trước làm input cho stage sau bằng tên artifact (ví dụ: "MyBuildArtifact") được khai báo trong định nghĩa pipeline . Tên file vật lý trong S3 (do name trong buildspec tạo) bị CodePipeline ẩn đi và tự quản lý; chỉ cần bật OverrideArtifactName (semantic versioning) ở project CodeBuild để buildspec override tên được.
+​
+
+
 Trên giao diện CodeBuild cũng có khai báo Artifact với 2 lựa chọn là `No artifacts` và `S3`
 - Nếu chọn `No artifacts` : sẽ không lưu artifact vào đâu cả
 - Nếu chọn `S3`: chỉ định S3 bucket để chứa artifact, cần khai báo: Bucket, Name (tên S3 object), Path (prefix trong bucket). Nếu không khai báo thì CodePipeline sẽ tự tạo bucket để quản lý
@@ -241,12 +248,12 @@ Nếu trong buildspec.yaml có khai báo artifacts nhưng trên GUI chọn là `
 
 ---
 
-AWS CodeBuild artifacts là các tệp đầu ra được tạo ra sau quá trình build trong AWS CodeBuild. Artifacts có các loại chính: S3 (lưu vào bucket cụ thể với path, name, namespaceType như BUILD_ID), CODEPIPELINE (tích hợp với CodePipeline), hoặc NO_ARTIFACTS (không tạo output).
-​
+AWS CodeBuild artifacts là các tệp đầu ra được tạo ra sau quá trình build trong AWS CodeBuild. Artifacts có các loại chính: S3 (lưu vào bucket cụ thể với path, name, namespaceType như BUILD_ID), CODEPIPELINE (tích hợp với CodePipeline), hoặc NO_ARTIFACTS (không tạo output). 
 
-Type CODEPIPELINE trong AWS CodeBuild là loại artifact được thiết kế đặc biệt để tích hợp với AWS CodePipeline, giúp tự động quản lý việc lưu trữ và truyền artifacts giữa các stage trong pipeline CI/CD. Khi CodeBuild project được cấu hình artifacts: type: CODEPIPELINE, CodeBuild không cần chỉ định S3 bucket cụ thể vì CodePipeline sẽ tự động xử lý việc upload/download artifacts vào bucket artifact của pipeline (thường tên codepipeline-<region>-<account>). Artifacts được zip tự động và truyền trực tiếp làm input cho stage tiếp theo (như Deploy), đảm bảo tính liền mạch mà không cần can thiệp thủ công.
-​
+Type CODEPIPELINE trong AWS CodeBuild là loại artifact được thiết kế đặc biệt để tích hợp với AWS CodePipeline, giúp tự động quản lý việc lưu trữ và truyền artifacts giữa các stage trong pipeline CI/CD. Khi CodeBuild project được cấu hình artifacts: type: CODEPIPELINE, CodeBuild không cần chỉ định S3 bucket cụ thể vì CodePipeline sẽ tự động xử lý việc upload/download artifacts vào bucket artifact của pipeline (thường tên codepipeline-<region>-<account>). Artifacts được zip tự động và truyền trực tiếp làm input cho stage tiếp theo (như Deploy), đảm bảo tính liền mạch mà không cần can thiệp thủ công. ​ 
+
 Lưu ý: dùng type CODEPIPELINE khi CodeBuild là action trong CodePipeline; nếu chạy standalone, chuyển sang S3.
+
 ​​
 ---
 
