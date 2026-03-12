@@ -1619,6 +1619,43 @@ Kết quả: "/god-mode/index.html"
 => `lookup(var.task_definition_map["worker"], "health_check_path", null) `
 
 Kết quả: null
+
+#### 7 template()
+
+Hàm templatefile trong Terraform là một function giúp đọc nội dung từ một file template (thường có extension .tftpl hoặc .template), thay thế các placeholder ${tên_biến} bằng giá trị thực tế bạn truyền vào, rồi trả về một string đã được render hoàn chỉnh. Đúng vậy, bạn không cần tạo trước file .env tĩnh - chỉ cần tạo file template với placeholder, Terraform sẽ generate nội dung động tại plan/apply time.
+​
+Syntax: templatefile(đường_dẫn_file, vars_map)
+
+- Trong đó tham số 1 là Đường dẫn tới file template (relative path so với path.module).
+- Tham số 2: Object/map chứa các biến (key-value), có thể là variable, local, resource attribute.
+
+
+Ví Dụ Minh Họa
+```
+#File env.template (tạo mới, không cần .env thật):
+
+DB_HOST=${db_endpoint}
+DB_PORT=${db_port}
+DB_CONNECTION_STRING=Server=${db_endpoint};Port=${db_port};Database=${db_name};Uid=${db_user};Pwd=${db_pass};
+API_KEY=${api_key}
+
+
+# File main.tf
+resource "aws_s3_object" "app_env" {
+  bucket = "my-app-bucket"
+  key    = "config/.env"
+  content = templatefile("${path.module}/env.template", {
+    db_endpoint = aws_db_instance.main.endpoint
+    db_port     = aws_db_instance.main.port
+    db_name     = aws_db_instance.main.db_name
+    db_user     = "admin"
+    db_pass     = var.db_password  # Từ variable/secrets
+    api_key     = random_string.api_key.result
+  })
+}
+Terraform sẽ render thành file .env thực với giá trị DB endpoint/port chỉ biết sau khi resource DB tạo xon
+
+Note: path.module là một hàm built-in của Terraform trả về đường dẫn filesystem tới thư mục chứa file .tf hiện tại (module directory)
 ---
 
 ### Condition trong terraform
