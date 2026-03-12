@@ -185,8 +185,21 @@ Luồng sử dụng envelope encryption với KMS data keys để mã hóa/giả
    decrypt(encrypted_secret) → "MyDBPass123"
    
 4. Xóa plaintext_data_key
-   
+
 5. Trả plaintext secret → ECS Agent
    
 6. ECS Agent inject vào container env var: DB_PASSWORD=MyDBPass123
 ```
+
+---
+
+Trong AWS KMS, KeyUsage=SIGN_VERIFY là thuộc tính của KMS key bất đối xứng (asymmetric key) dùng để ký số (sign) và xác minh chữ ký (verify) dữ liệu.
+​
+Khi tạo Key này sẽ cho phép sử dụng khóa riêng (private key) để tạo chữ ký số qua API Sign, đảm bảo tính toàn vẹn và nguồn gốc dữ liệu; khóa công khai (public key) dùng để verify qua API Verify hoặc bên ngoài KMS
+
+Cơ chế hoạt động của SIGN_VERIFY trong AWS KMS dựa trên chữ ký số bất đối xứng (asymmetric cryptography), sử dụng cặp khóa private/public để ký và xác minh dữ liệu mà không lộ private key:
+- Private key (lưu an toàn trong KMS HSM) ký message hoặc hash của nó bằng thuật toán như RSA/ECDSA, tạo signature. Singer gọi api kms:Sign để ký message
+- Public key (export được) dùng để verify: kiểm tra signature khớp với message gốc, đảm bảo message không thay đổi và từ nguồn đáng tin. Có 2 cách để verifier chứng thực message
+  - Gọi API kms:Verify để yêu cầu KMS xác nhận
+  - Gọi API kms:GetPublicKey để lấy public key về và tự xác thực (không cần gọi KMS nữa)
+
