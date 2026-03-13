@@ -539,3 +539,15 @@ Nếu dùng << 'EOF', cd "${APP_PATH}" sẽ được gửi nguyên xi, mà nếu
 EOF → expand biến (GitLab CI / shell local thay thế trước).
 
 'EOF' → không expand, giữ nội dung như string literal.
+
+---
+
+Truyền file giữa các stage trong gitlabci
+
+Dùng artifact
+
+```
+  artifacts:
+    paths:
+      - build/
+```
