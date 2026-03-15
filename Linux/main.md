@@ -291,4 +291,23 @@ du -sh / chỉ hiển thị tổng kích thước duy nhất của toàn bộ fi
 
 Dùng lệnh sudo du -h --max-depth=1 / | sort -rh cũng tương tự
 
+Để quét toàn bộ root: sudo du -h --max-depth=1 / | sort -rh | head -10 (giới hạn độ sâu 1 cấp để nhanh).
+
+Tìm file lớn: find /path -type f -exec du -Sh {} + | sort -rh | head -10.
+
 ls -t | head -n -10 | xargs rm -v -> xóa hết file trong một thư mục và chỉ giữ lại 10 file mới nhất (dựa trên thời gian sửa đổi). Thay rm -v bằng echo rm -v để xem danh sách sẽ xóa.
+
+df (disk free) hiển thị dung lượng tổng, đã dùng và còn trống của các filesystem (ví dụ: /dev/sda1) đã mount, dựa trên siêu khối (superblock).
+
+du (disk usage) tính toán kích thước thực tế của file/thư (ví dụ: du -sh /home) mục cụ thể bằng cách quét từng inode. du chậm hơn vì quét đệ quy.
+
+
+
+ls -t | head -n -10 | xargs rm -v ->  xóa hết file trong một thư mục và chỉ giữ lại 10 file mới nhất (dựa trên thời gian sửa đổi). Trong đó:
+- ls -t: Liệt kê file theo thời gian mới nhất trước.
+- head -n -10: Bỏ qua 10 dòng cuối (10 file mới nhất).
+- xargs rm -v: Xóa các file còn lại (v: verbose hiển thị tên file đã xóa).
+
+ls -t /path/to/dir/ | head -n -10 | xargs -I {} rm "/path/to/dir/{}" -> xóa hết file trong một thư mục cụ thể chỉ giữ lại 10 file mới nhất (dựa trên thời gian sửa đổi)
+
+Để test lệnh mà không xóa thật, thay phần cuối xargs rm -v bằng xargs echo rm -v. Lệnh này sẽ hiển thị các lệnh rm sẽ chạy (danh sách file sẽ xóa) mà không thực hiện xóa.
