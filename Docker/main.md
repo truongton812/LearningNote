@@ -391,3 +391,14 @@ services:
     # Hoặc env_file: .env.prod
 docker-compose up tự load.
 ```
+
+---
+
+Nếu trong Dockerfile ta khai báo 
+```
+ARG NEXT_PUBLIC_API_URL        # 1️⃣ Build-time: Nhận từ --build-arg
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL  # 2️⃣ Build + Runtime: Copy từ ARG
+```
+Thì khi chạy lệnh docker build với option --build-arg, build-time sẽ có biến NEXT_PUBLIC_API_URL, đồng thời runtime cũng có do copy từ build time sang
+
+Còn nếu trong Dockerfile không khai báo `ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL` thì runtime sẽ không có biến NEXT_PUBLIC_API_URL. Nếu muốn runtime có biến đấy thì ta phải chạy lệnh `docker run -e NEXT_PUBLIC_API_URL=https://dev.com myapp` để override tạo ENV
