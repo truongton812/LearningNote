@@ -254,6 +254,10 @@ Với cách này, việc quản lý trở nên đơn giản hơn vì bạn chỉ
 ---
 
 ### Lệnh làm việc với Postgres DB
+- CREATE DATABASE ten_database -> tạo database với các thiết lập mặc định (clone từ template1).
+- Chỉ định owner: CREATE DATABASE mydb OWNER myuser;
+- Đặt encoding: CREATE DATABASE mydb ENCODING 'UTF8';
+- Template khác: CREATE DATABASE mydb TEMPLATE template0;
 - \l : show các database hiện có trong PostgreSQL kèm thông tin owner, encoding, privileges
 - query để xem các db hiện có: `SELECT datname FROM pg_database;`
 - \c database_name : Lệnh chuyển database
