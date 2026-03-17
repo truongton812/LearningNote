@@ -23,6 +23,11 @@ maven:3.5.3-jdk8-alpine: Sử dụng image Docker của Maven phiên bản 3.5.3
 
 mvn install -DskipTests=true: Thực thi lệnh Maven install để biên dịch và đóng gói dự án, trong đó tham số -DskipTests=true chỉ thị Maven bỏ qua bước chạy các tests.
 
+- docker system prune -a -f --volumes
+- docker builder prune -a -f
+
+=> Các lệnh này xóa tất cả không dùng (images, containers stopped, volumes unused, build cache).
+
 ---
 
 daemon của Docker (dockerd) chạy với quyền root trên hệ thống” nghĩa là tiến trình chính của Docker (dockerd) được khởi động bởi user root và hoạt động với toàn quyền truy cập hệ thống giống như tài khoản root trên Linux. Điều này có nghĩa là dockerd có thể thao tác, sửa đổi file hệ thống, network, cấp phát resource, v.v... không bị giới hạn bởi cơ chế bảo vệ quyền Linux thông thường.
