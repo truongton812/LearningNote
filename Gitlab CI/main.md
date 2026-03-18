@@ -379,13 +379,11 @@ Ví dụ:
 
 Nếu bạn chỉ định tag: linux và image: nginx trong GitLab CI, thì:
 - tag: linux nghĩa là job sẽ chỉ chạy trên các GitLab runner nào được gắn tag là "linux" (tức là runner đó được cấu hình để xử lý các job cần môi trường Linux).
-- image: nginx nghĩa là job sẽ chạy trong một container Docker sử dụng image nginx làm môi trường thực thi, tức là các bước trong job sẽ được thực hiện bên trong một container nginx
+- image: nginx nghĩa là job sẽ chạy trong một container Docker sử dụng image nginx làm môi trường thực thi, tức là các bước trong job sẽ được thực hiện bên trong một container nginx. Trường này chỉ có ý nghĩa khi runner dùng executor là docker
 
-
-**nếu chỉ định tag nhưng không chỉ định image trong GitLab CI, thì job sẽ được chạy trên host (máy chủ cài runner) chứ không phải trong container Docker, nhưng điều này chỉ xảy ra nếu runner được cấu hình dùng executor là shell.**
 ​
 - Nếu runner dùng executor là docker, thì job luôn chạy trong container, và nếu không chỉ định image, runner sẽ dùng image mặc định được cấu hình trong file config.toml hoặc image mặc định của GitLab (thường là một image cơ bản như alpine).
-​- Nếu runner dùng executor là shell, job sẽ chạy trực tiếp trên host mà không qua container, và việc chỉ định tag chỉ giúp chọn runner phù hợp. Nếu runner dùng executor là shell mà bạn chỉ định image trong file .gitlab-ci.yml, thì runner sẽ bỏ qua phần image và job vẫn sẽ chạy trực tiếp trên host (máy chủ), không chạy trong container Docker.
+- Nếu runner dùng executor là shell, job sẽ chạy trực tiếp trên host mà không qua container, và việc chỉ định tag chỉ giúp chọn runner phù hợp. Nếu runner dùng executor là shell mà bạn chỉ định image trong file .gitlab-ci.yml, thì runner sẽ bỏ qua phần image và job vẫn sẽ chạy trực tiếp trên host (máy chủ), không chạy trong container Docker.
 
 Nếu bạn viết GitLab CI mà không chỉ định tags trong job, thì job đó sẽ có thể được chạy bởi bất kỳ runner nào có sẵn và không bị giới hạn bởi tag cụ thể nào​
 
