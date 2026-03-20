@@ -303,3 +303,80 @@ location ~* \.(woff|woff2|ttf|eot|otf)$ {
     access_log off;
 }
 ```
+
+---
+
+
+<img width="869" height="639" alt="image" src="https://github.com/user-attachments/assets/04bc9356-29bf-43fb-9cc1-23df8fa9d3fd" />
+
+Origin = scheme + domain + port. VD http://app.com thì scheme là http, domain là app.com và port là 80. Lưu ý app.com/api có cùng orgin với app.com/auth, do origin không tính đến Path, query string (?foo=bar), và fragment (#section). Còn app.example.com và api.example.com khác origin tuy cùng domain gốc example.com, nhưng subdomain khác nhau → hostname khác
+
+
+Cross-origin request là tình huống rất phổ biến trong thực tế. Ví dụ 
+- Frontend (app.example.com) và backend (api.other.com) chạy trên domain khác nhau. Người dùng mở app.example.com, JavaScript trên trang đó gọi fetch("https://api.other.com/users") để lấy dữ liệu
+- Trang web dùng API của bên thứ ba — ví dụ myshop.com gọi đến api.stripe.com để xử lý thanh toán.
+- Microservices — app.com gọi đến auth.app.com, payment.app.com (subdomain khác = khác origin).
+- Môi trường dev/prod tách biệt — frontend chạy ở localhost:3000 gọi đến backend ở localhost:8080 (cùng hostname nhưng khác port = khác origin).
+
+
+Mặc định trình duyệt chặn tất cả cross-origin request. Đây là cơ chế bảo vệ người dùng, tránh trường hợp một trang web độc hại tự động gọi API ngân hàng của bạn bằng cookie đang đăng nhập.
+
+
+CORS (Cross-Origin Resource Sharing) là cơ chế bảo mật của trình duyệt, kiểm soát việc một trang web có thể yêu cầu tài nguyên từ một domain khác hay không.
+
+
+Khi gửi trình duyệt gửi cross-origin request, nó sẽ tự động đính kèm vào header trường Origin để báo cho server biết request đến từ đâu. Đây là "forbidden header" được trình duyệt kiểm soát hoàn toàn, không thể xóa hay sửa và chỉ xuất hiện khi gửi cross-origin request
+```
+httpGET /api/users HTTP/1.1
+Host: api.other.com
+Origin: http://app.example.com
+```
+
+Server nhận request, kiểm tra Origin trong header và đối chiếu với danh sách cho phép, rồi trả về `Access-Control-Allow-Origin: http://app.example.com` để cho phép hoặc không trả về header này → trình duyệt chặn response.
+
+Lưu ý bảo mật: Origin giúp server biết request đến từ đâu, nhưng không nên dùng làm cơ chế xác thực duy nhất vì nó chỉ đáng tin khi đến từ trình duyệt — curl hay Postman có thể giả mạo Origin tùy ý. Vì vậy không nên dùng CORS thay thế cho xác thực API thật sự.
+
+Có 2 loại request:
+- Request đơn giản — GET, HEAD, hoặc POST với content-type thông thường. Trình duyệt gửi thẳng, kèm header Origin. Server trả về Access-Control-Allow-Origin để cho phép hoặc không.
+- Preflight request — các method "nguy hiểm" như PUT, DELETE, hoặc request có custom header. Trình duyệt gửi request OPTIONS hỏi server trước ("tôi có được phép gửi PUT không?"). Nếu server đồng ý mới gửi request thật.
+
+
+Các header Server có thể trả về:
+- Access-Control-Allow-Origin: Domain nào được phép (* = tất cả)
+- Access-Control-Allow-Methods: Methods được phép (GET, POST, PUT...)
+- Access-Control-Allow-Headers: Custom headers được phép
+- Access-Control-Allow-Credentials: Có cho phép cookie/auth không
+
+Nginx thường đóng vai trò reverse proxy — đứng trước server thật và xử lý CORS thay cho backend.
+Để xử lý CORS có 2 cách:
+- Cách 1: Backend tự gắn CORS header và trả về cho trình duyệt
+- Cách 2 — Nginx xử lý CORS thay backend
+
+Nginx chỉ cần thêm config để tự động gắn Access-Control-* header vào mọi response:
+```
+server {
+    listen 80;
+    server_name api.other.com;
+
+    location /api/ {
+        # Cho phép origin cụ thể
+        add_header Access-Control-Allow-Origin "http://app.example.com";
+        add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE";
+        add_header Access-Control-Allow-Headers "Authorization, Content-Type";
+
+        # Xử lý preflight request. 
+        if ($request_method = OPTIONS) { #Preflight (OPTIONS) được Nginx trả lời luôn, không cần chuyển vào backend.
+            add_header Access-Control-Max-Age 3600;
+            return 204;
+        }
+
+        proxy_pass http://backend:8080;
+    }
+}
+```
+
+
+Lợi ích khi dùng nginx để xử lý CORS:
+- Tách biệt trách nhiệm — backend chỉ lo business logic, Nginx lo networking/security.
+- Một chỗ duy nhất — nếu có nhiều backend service (Node.js, Python, Go...), chỉ cần config CORS ở Nginx một lần thay vì sửa từng service.
+- Hiệu năng — preflight OPTIONS được Nginx trả lời ngay, không tốn tài nguyên backend.
