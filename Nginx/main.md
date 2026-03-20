@@ -384,3 +384,6 @@ Lợi ích khi dùng nginx để xử lý CORS:
 - Tách biệt trách nhiệm — backend chỉ lo business logic, Nginx lo networking/security.
 - Một chỗ duy nhất — nếu có nhiều backend service (Node.js, Python, Go...), chỉ cần config CORS ở Nginx một lần thay vì sửa từng service.
 - Hiệu năng — preflight OPTIONS được Nginx trả lời ngay, không tốn tài nguyên backend.
+
+
+Lưu  ý 2: font luôn trigger CORS check (dù cho cùng hay khác origin), khác với <img> hoặc CSS thông thường chỉ cần CORS khi khác origin. Đây là font-specific security feature của browser.
