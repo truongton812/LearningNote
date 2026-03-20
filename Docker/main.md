@@ -359,7 +359,7 @@ docker buildx install
 
 Dùng docker run -e hoặc --env-file để override ENV trong Dockerfile và host env.
 
-Cách override cơ bản
+Cách override cơ bản. Lưu ý khi dùng option -e sẽ có risk là ai có quyền chạy `docker inspect` trên host đều thấy toàn bộ env vars dưới dạng plain text
 ```
 docker run -p 8080:80 \
   -e NEXT_PUBLIC_API_URL=https://api.prod.com \
@@ -404,7 +404,7 @@ Nếu trong Dockerfile ta khai báo
 ARG NEXT_PUBLIC_API_URL        # 1️⃣ Build-time: Nhận từ --build-arg
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL  # 2️⃣ Build + Runtime: Copy từ ARG
 ```
-Thì khi chạy lệnh docker build với option --build-arg, build-time sẽ có biến NEXT_PUBLIC_API_URL, đồng thời runtime cũng có do copy từ build time sang
+Thì khi chạy lệnh docker build với option --build-arg, build-time sẽ có biến NEXT_PUBLIC_API_URL, đồng thời runtime cũng có do copy từ build time sang -> cách này giúp cho runtime có biến để chạy mà không làm lộ env giống khi dùng docker run -e
 
 Còn nếu trong Dockerfile không khai báo `ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL` thì runtime sẽ không có biến NEXT_PUBLIC_API_URL. Nếu muốn runtime có biến đấy thì ta phải chạy lệnh `docker run -e NEXT_PUBLIC_API_URL=https://dev.com myapp` để override tạo ENV
 
@@ -413,3 +413,48 @@ Còn nếu trong Dockerfile không khai báo `ENV NEXT_PUBLIC_API_URL=$NEXT_PUBL
 Có 2 cách để đưa biến vào buildtime và runtime
 - Khai báo trực tiếp trong Dockerfile bằng chỉ thị ENV (sẽ tồn tại cả build-time và runtime trong container) và ARG (chỉ tồn tại ở build-time)
 - Chỉ định lúc build và run bằng option -e và -build-arg. Nếu trong Dockerfile có ENV và ARG thì sẽ bị 2 option đấy ghi đè, còn nếu không có thì -e và -build-arg vẫn set biến runtime và buildtime bình thường
+
+---
+
+Ví dụ docker-compose đọc env từ file .env
+```
+# docker-compose.yml
+version: '3.8'
+services:
+  app:
+    image: myapp
+    env_file: .env  # Optional, vì Compose tự đọc .env
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    ports:
+    - "80:80"
+    environment:
+    - REDIS_HOST=redis
+    - REDIS_PORT=6379
+```
+
+File .env:
+
+```
+DB_HOST=localhost
+DB_PORT=5432
+SECRET_KEY=your-secret
+```
+
+---
+
+Build time vs Runtime
+- Build time = env được "đóng băng" vào trong image lúc docker build
+- Runtime = env được inject lúc docker run, app đọc khi khởi động
+
+Khi nào cần Build time: Chủ yếu là frontend frameworks khi build ra static files. Lý do bắt buộc phải build time với frontend là do lúc build, bundler (webpack/vite) sẽ REPLACE thẳng vào code. Ví dụ: Trong code là `const url = process.env.NEXT_PUBLIC_API_URL` thì sẽ biên dịch thành → `const url = "https://api.example.com"`  (hardcode luôn trong bundle). Một khi đã compile rồi thì không đọc lại env nữa.
+
+Khi nào cần Runtime: Backend và các case sau nên dùng runtime:
+- Database credentials       → thay đổi không cần rebuild
+- API keys, secrets          → rotate không cần rebuild  
+- Feature flags động         → bật/tắt không cần rebuild
+- Config theo môi trường     → dùng 1 image cho dev/staging/prod
+- Port, host, region         → flexible khi deploy
+  
+Nguyên tắc cốt lõi là 1 image - nhiều môi trường. Nếu inject build time thì bạn phải build nhiều image riêng cho từng môi trường, rất lãng phí và dễ sai.
