@@ -325,14 +325,18 @@ Mặc định trình duyệt chặn tất cả cross-origin request. Đây là c
 CORS (Cross-Origin Resource Sharing) là cơ chế bảo mật của trình duyệt, kiểm soát việc một trang web có thể yêu cầu tài nguyên từ một domain khác hay không.
 
 
-Khi gửi trình duyệt gửi cross-origin request, nó sẽ tự động đính kèm vào header trường Origin để báo cho server biết request đến từ đâu. Đây là "forbidden header" được trình duyệt kiểm soát hoàn toàn, không thể xóa hay sửa và chỉ xuất hiện khi gửi cross-origin request
+Khi gửi trình duyệt gửi cross-origin request, nó sẽ tự động thêm header Origin (1 request có thể có nhiều header) vào request để báo cho server biết request đến từ đâu. Đây là "forbidden header" được trình duyệt kiểm soát hoàn toàn, không thể xóa hay sửa và chỉ xuất hiện khi gửi cross-origin request
 ```
-httpGET /api/users HTTP/1.1
-Host: api.other.com
-Origin: http://app.example.com
+GET /api/users HTTP/1.1
+Host: api.other.com                        # Header 1
+Origin: http://app.example.com               # Header 2  
+User-Agent: Mozilla/5.0...                 # Header 3
+Accept: font/ttf,*/*;q=0.9                # Header 4
+Referer: https://bot3-admin...             # Header 5
+Cache-Control: max-age=0                  # Header 6
 ```
 
-Server nhận request, kiểm tra Origin trong header và đối chiếu với danh sách cho phép, rồi trả về `Access-Control-Allow-Origin: http://app.example.com` để cho phép hoặc không trả về header này → trình duyệt chặn response.
+Server nhận request, kiểm tra header Origin và đối chiếu với danh sách cho phép, rồi trả về header `Access-Control-Allow-Origin: <allowed_origin>` để cho phép hoặc không trả về header `Access-Control-Allow-Origin` → trình duyệt chặn response.
 
 Lưu ý bảo mật: Origin giúp server biết request đến từ đâu, nhưng không nên dùng làm cơ chế xác thực duy nhất vì nó chỉ đáng tin khi đến từ trình duyệt — curl hay Postman có thể giả mạo Origin tùy ý. Vì vậy không nên dùng CORS thay thế cho xác thực API thật sự.
 
