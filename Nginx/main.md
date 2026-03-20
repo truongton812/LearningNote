@@ -254,3 +254,52 @@ certbot certificates -d <domain> -> check status cua cert
     - Sau lần chạy đó, file renewal được cập nhật sang authenticator = webroot + lưu webroot path, nên về sau certbot renew tự chạy ổn, không còn phụ thuộc parser của plugin nginx nữa.
 
 - Như vậy, lỗi gốc là do Certbot không “hiểu” được cấu hình nginx phức tạp để dùng plugin nginx, và bạn đã fix bằng cách tách hẳn sang cơ chế webroot đơn giản, rõ ràng, giúp việc renew ổn định và ít phụ thuộc vào cấu hình nội bộ của Nginx.
+
+---
+
+Ví dụ cấu hình nginx để forward request đến localhost:3000 và redirect từ http sang https
+```
+server {
+    server_name integration.googames.io;
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    listen 443 ssl; # managed by Certbot
+    ssl_certificate /etc/letsencrypt/live/integration.googames.io/fullchain.pem; # managed by Certbot
+    ssl_certificate_key /etc/letsencrypt/live/integration.googames.io/privkey.pem; # managed by Certbot
+    include /etc/letsencrypt/options-ssl-nginx.conf; # managed by Certbot
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem; # managed by Certbot
+
+}
+
+server {
+    if ($host = integration.googames.io) {
+        return 301 https://$host$request_uri;
+    } # managed by Certbot
+
+
+    listen 80;
+    server_name integration.googames.io;
+    return 404; # managed by Certbot
+```
+
+---
+
+Ví dụ tắt cors trên nginx
+```
+location ~* \.(woff|woff2|ttf|eot|otf)$ {
+    proxy_pass http://127.0.0.1:9084;  # Proxy qua backend CÓ file
+    proxy_hide_header Access-Control-Allow-Origin;
+    
+    add_header Access-Control-Allow-Origin * always;
+    add_header Access-Control-Allow-Methods "GET, OPTIONS" always;
+    expires 1y;
+    access_log off;
+}
+```
