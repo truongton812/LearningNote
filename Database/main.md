@@ -254,20 +254,26 @@ Với cách này, việc quản lý trở nên đơn giản hơn vì bạn chỉ
 ---
 
 ### Lệnh làm việc với Postgres DB
+- Để thực hiện lệnh mà không cần vào terminal của db dùng option -c . VD psql -U postgres -c "CREATE DATABASE mydb OWNER myuser;"
+- psql -U postgres -h localhost -d <db_name> -> kết nối vào db
 - CREATE DATABASE ten_database -> tạo database với các thiết lập mặc định (clone từ template1).
 - Chỉ định owner: CREATE DATABASE mydb OWNER myuser;
 - Đặt encoding: CREATE DATABASE mydb ENCODING 'UTF8';
 - Template khác: CREATE DATABASE mydb TEMPLATE template0;
 - \l : show các database hiện có trong PostgreSQL kèm thông tin owner, encoding, privileges
+- \l <db_name> : xem cụ thể 1 db
 - query để xem các db hiện có: `SELECT datname FROM pg_database;`
 - \c database_name : Lệnh chuyển database
 - \c myapp_db masteruser : Chuyển với username cụ thể
 - Tạo user có thể login (readonly) `CREATE USER app_user WITH PASSWORD 'SecurePass123!';`
-- Tạo user với quyền cụ thể
-  - CREATE USER app_user WITH PASSWORD 'SecurePass123!' CREATEDB; -> có quyền tạo database
+- Tạo user với quyền cụ thể: CREATE USER app_user WITH PASSWORD 'SecurePass123!' CREATEDB LOGIN; -> có quyền tạo database và login
+- ALTER ROLE <user> WITH LOGIN; -> gán thêm quyền cho user (? check lại role hay user)
 - Grant quyền vào database cụ thể `GRANT ALL PRIVILEGES ON DATABASE myapp_db TO app_user;`
 - List tất cả user/role: \du
 - Xem chi tiết quyền role=based của các user hiện có: `SELECT rolname FROM pg_roles;` thêm WHERE rolname = '<username>' để xem cụ thể 1 user
-- \du <username>: xem quyền của một user cụ thể 
-Lưu ý User bạn tạo bằng CREATE USER chính là username + password để đăng nhập vào database qua psql
-`psql -h your-rds-endpoint -U app_user -d myapp_db`
+- \du <username>: xem quyền của một user cụ thể. Lưu ý User bạn tạo bằng CREATE USER chính là username + password để đăng nhập vào database qua psql `psql -h your-rds-endpoint -U app_user -d myapp_db`
+- SELECT pg_terminate_backend(pg_stat_activity.pid) FROM pg_stat_activity WHERE pg_stat_activity.datname = <db_name> AND pid <> pg_backend_pid(); -> kill tất cả session đang connect vào database
+- DROP DATABASE IF EXISTS mydb; -> xóa database. IF EXISTS để Tránh lỗi nếu DB không tồn tại. Lưu ý phải là superuser hoặc owner của DB.
+- SELECT datname, pg_get_userbyid(datdba) AS owner FROM pg_database WHERE datname = '<db_name'; -> kiểm tra owner của db
+- ALTER DATABASE <db_name> OWNER TO <user>; -> đổi owner của db
+
