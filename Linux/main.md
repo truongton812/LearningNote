@@ -311,3 +311,10 @@ ls -t | head -n -10 | xargs rm -v ->  xóa hết file trong một thư mục và
 ls -t /path/to/dir/ | head -n -10 | xargs -I {} rm "/path/to/dir/{}" -> xóa hết file trong một thư mục cụ thể chỉ giữ lại 10 file mới nhất (dựa trên thời gian sửa đổi)
 
 Để test lệnh mà không xóa thật, thay phần cuối xargs rm -v bằng xargs echo rm -v. Lệnh này sẽ hiển thị các lệnh rm sẽ chạy (danh sách file sẽ xóa) mà không thực hiện xóa.
+
+---
+##### 20. nc/curl/telnet và dev/tcp để check kết nối
+
+- nc -zv host:port : check kết nối đến host:port. Lưu ý nếu nc nhận được phản hồi RST (Reset) thì vẫn trả về kết quả "open". nc chỉ check "có ai ở đầu kia không" chứ không phân biệt RST hay SYN-ACK. Nên có thể xảy ra trường hợp AWS Security group chặn kết nối và trả về bản tin RST thì nc vẫn coi là thành công. Kể cả khi đầu kia không có port đang listen vẫn thành côn
+- Dùng curl để test port, chính xác hơn nc: curl -v telnet://plane-redis:6379
+- Hoặc dùng timeout + bash `timeout 3 bash -c "echo > /dev/tcp/plane-redis/6379" && echo "open" || echo "closed"` .
