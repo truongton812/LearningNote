@@ -458,3 +458,11 @@ Khi nào cần Runtime: Backend và các case sau nên dùng runtime:
 - Port, host, region         → flexible khi deploy
   
 Nguyên tắc cốt lõi là 1 image - nhiều môi trường. Nếu inject build time thì bạn phải build nhiều image riêng cho từng môi trường, rất lãng phí và dễ sai.
+
+---
+### Lấy danh sách services rồi build từng cái
+```
+for service in $(docker compose config --services); do
+  docker compose build $service
+done
+```
