@@ -176,7 +176,8 @@ Nếu bạn muốn pod chỉ dùng mạng dbnet hoàn toàn, thì bạn phải c
 
 ---
 
-Intra-node Container Networking là giao tiếp giữa các container trong cùng một node. Lúc này Linux kernel sẽ xử lý toàn bộ traffic, không cần đi qua NIC vật lý.
+### Intra-node Container Networking 
+- là giao tiếp giữa các container trong cùng một node. Lúc này Linux kernel sẽ xử lý toàn bộ traffic, không cần đi qua NIC vật lý.
 
 ```
 [ Container A ]     [ Container B ]
@@ -189,116 +190,383 @@ Intra-node Container Networking là giao tiếp giữa các container trong cùn
   └─────────────────────────────┘
 ```
 
-Bridge thực hiện MAC-based forwarding (L2), hoặc kernel routing nếu khác subnet (L3). Ưu điểm là latency rất thấp vì chỉ là memory copy giữa các network namespace.
+- Bridge thực hiện MAC-based forwarding (L2), hoặc kernel routing nếu khác subnet (L3). Ưu điểm là latency rất thấp vì chỉ là memory copy giữa các network namespace.
 
-Trong Kubernetes: bridge thường là cni0, do CNI plugin tạo ra.
+- Trong Kubernetes: bridge thường là cni0, do CNI plugin tạo ra.
 
-🟠 Inter-node Container Networking
-Các container giao tiếp khác node
-Phức tạp hơn vì packet phải đi qua mạng vật lý (underlay). Có nhiều cách để giải quyết bài toán này:
-
-1. Overlay Network (VXLAN / Geneve)
-Dùng bởi: Flannel VXLAN, Calico VXLAN, Cilium
-Node 1                              Node 2
-┌──────────────────────┐           ┌──────────────────────┐
-│ Pod A (10.244.1.5)   │           │ Pod B (10.244.2.7)   │
-│   │                  │           │   │                  │
-│  cni0 bridge         │           │  cni0 bridge         │
-│   │                  │           │   │                  │
-│  flannel.1 (VTEP)    │           │  flannel.1 (VTEP)    │
-│   │  encap VXLAN     │           │   │  decap VXLAN     │
-└───┼──────────────────┘           └───┼──────────────────┘
-    │   UDP/4789 trên underlay IP       │
-    └──────────── Physical Network ─────┘
-
-Pod IP packet được đóng gói (encapsulate) vào UDP frame trước khi gửi qua mạng vật lý.
-Node đích decapsulate để lấy lại packet gốc.
-Ưu điểm: Không yêu cầu cấu hình router/switch phức tạp.
-Nhược điểm: Overhead encap/decap, MTU phải giảm (~50 bytes cho VXLAN header).
+### Inter-node Container Networking
+- Là trường hợp các container giao tiếp khác node, phức tạp hơn vì packet phải đi qua mạng vật lý (underlay). Có nhiều cách để giải quyết bài toán này:
+  - Overlay Network (VXLAN / Geneve): Dùng bởi Flannel VXLAN, Calico VXLAN, Cilium. Pod IP packet được đóng gói (encapsulate) vào UDP frame trước khi gửi qua mạng vật lý. Ưu điểm: Không yêu cầu cấu hình router/switch phức tạp. Nhược điểm: Overhead encap/decap, MTU phải giảm (~50 bytes cho VXLAN header).
+  - Native Routing (BGP / Direct Route): Dùng bởi: Calico BGP, Cilium native routing, Flannel host-gw. Ưu điểm: Performance tốt nhất, không MTU overhead, dễ debug. Nhược điểm: Yêu cầu router/switch hỗ trợ, hoặc tất cả node phải cùng L2 segment (với host-gw).
+  - eBPF Datapath: Dùng bởi: Cilium
 
 
-2. Native Routing (BGP / Direct Route)
-Dùng bởi: Calico BGP, Cilium native routing, Flannel host-gw
-Node 1 (192.168.1.10)              Node 2 (192.168.1.11)
-┌──────────────────────┐           ┌──────────────────────┐
-│ Pod A (10.244.1.5)   │           │ Pod B (10.244.2.7)   │
-│   │                  │           │   │                  │
-│  eth0                │           │  eth0                │
-└───┼──────────────────┘           └───┼──────────────────┘
-    │                                   │
-    └───── L3 Router / BGP Peering ─────┘
-           Route: 10.244.2.0/24 → 192.168.1.11
+### Linux bridge 
+- là một virtual network switch được implement trong Linux kernel — hoạt động giống hệt một con switch vật lý Layer 2, nhưng hoàn toàn bằng software. Thay vì port vật lý, bridge có các network interface gắn vào làm port.
+- Cách hoạt động: Bridge duy trì một Forwarding Database (FDB) — bảng ánh xạ MAC address → port, giống MAC table của switch thật.
+- Xem FDB của bridge bằng lênhk `bridge fdb show br docker0`
+  ```
+  aa:bb:cc:dd:ee:01  dev veth0   # Container A ở port veth0
+  aa:bb:cc:dd:ee:02  dev veth1   # Container B ở port veth1
+  ```
+- Khi container A gửi packet đến container B:
+  - Packet đi qua veth pair vào bridge
+  - Bridge tra FDB theo MAC đích
+  - Forward ra đúng port → vào veth pair của container B. Toàn bộ quá trình xảy ra trong kernel memory, không ra NIC vật lý
 
-Không có encapsulation — packet đi thẳng qua router.
-Mỗi node quảng bá Pod CIDR của mình qua BGP (hoặc static route).
-Ưu điểm: Performance tốt nhất, không MTU overhead, dễ debug.
-Nhược điểm: Yêu cầu router/switch hỗ trợ, hoặc tất cả node phải cùng L2 segment (với host-gw).
-
-
-3. eBPF Datapath
-Dùng bởi: Cilium
-Bypass iptables và bridge hoàn toàn. eBPF program được attach trực tiếp vào NIC, xử lý routing/NAT/policy tại kernel level mà không cần veth hay bridge.
-
-So sánh nhanh
-Intra-nodeInter-node OverlayInter-node NativePathveth → bridgeveth → bridge → VTEP → NICveth → bridge → NICEncapsulationKhôngCó (VXLAN/Geneve)KhôngLatencyThấp nhấtTrung bìnhThấpYêu cầu networkKhôngKhôngCó (BGP/L2)DebugDễKhó hơnDễ
-
-Tóm lại: Intra-node đơn giản vì kernel tự lo, chỉ cần bridge + veth. Inter-node phức tạp hơn vì phải quyết định encap hay route — tùy vào môi trường (on-prem, cloud, bare-metal) mà chọn CNI plugin phù hợp.Linux bridge là gì12:12Chuẩn bị giải thích khái niệm Linux bridge một cách đơn giảnChuẩn bị giải thích khái niệm Linux bridge một cách đơn giảnLinux Bridge
-Linux bridge là một virtual network switch được implement trong Linux kernel — hoạt động giống hệt một con switch vật lý Layer 2, nhưng hoàn toàn bằng software.
-
-Hình dung đơn giản
-Physical world:          Linux world:
-┌─────────────┐         ┌─────────────────────────┐
-│   Switch    │   ≈     │      Linux Bridge        │
-│  [port1]    │         │  [veth0] [veth1] [eth0]  │
-│  [port2]    │         │                          │
-│  [port3]    │         │   MAC table (FDB)        │
-└─────────────┘         └─────────────────────────┘
-Thay vì port vật lý, bridge có các network interface gắn vào làm port.
-
-Cách hoạt động
-Bridge duy trì một Forwarding Database (FDB) — bảng ánh xạ MAC address → port, giống MAC table của switch thật.
-# Xem FDB của bridge
-bridge fdb show br docker0
-
-aa:bb:cc:dd:ee:01  dev veth0   # Container A ở port veth0
-aa:bb:cc:dd:ee:02  dev veth1   # Container B ở port veth1
-Khi container A gửi packet đến container B:
-
-Packet đi qua veth pair vào bridge
-Bridge tra FDB theo MAC đích
-Forward ra đúng port → vào veth pair của container B
-Toàn bộ quá trình xảy ra trong kernel memory, không ra NIC vật lý
-
-
-Tạo bridge thủ công
-bash# Tạo bridge
+- Tạo bridge thủ công
+```
 ip link add name br0 type bridge
 ip link set br0 up
+```
 
-# Gắn interface vào bridge (làm "port")
+- Gắn interface vào bridge (làm "port")
+```
 ip link set eth1 master br0
 ip link set veth0 master br0
-
-# Đặt IP cho bridge (để host giao tiếp được)
+```
+- Đặt IP cho bridge (để host giao tiếp được)
+```
 ip addr add 192.168.1.1/24 dev br0
 ```
 
----
 
-### Trong Docker / Kubernetes
+- Trong Docker / Kubernetes
 
 | | Docker | Kubernetes |
 |---|---|---|
 | Bridge name | `docker0` | `cni0` (do CNI tạo) |
 | Tạo bởi | Docker daemon | CNI plugin (Flannel, Calico...) |
 | Mỗi container có | 1 veth pair | 1 veth pair |
+
+---
+
+Khi 1 pod trong cụm k8s được tạo ra thì interface của nó sẽ được gắn với linux bridge hoặc tùy thuôc CNI plugin. Với đa số CNI phổ biến thì có bridge
+
+Flow khi Pod được tạo (với CNI dùng bridge)
 ```
-docker0 / cni0 (bridge)
-├── vethABC123   ← container 1
-├── vethDEF456   ← container 2
-└── vethGHI789   ← container 3
+kubelet tạo Pod
+      │
+      ▼
+Container Runtime (containerd/cri-o)
+tạo network namespace cho Pod
+      │
+      ▼
+kubelet gọi CNI plugin
+(ví dụ: flannel, calico, weave)
+      │
+      ▼
+CNI plugin thực hiện:
 
-Bridge vs Switch vật lý
-Linux BridgeSwitch vật lýPortVirtual interfaceRJ45/SFPMAC learningCó (FDB)CóSTPCóCóVLANCóCóTốc độGiới hạn bởi CPUASIC (nhanh hơn nhiều)
+1. Tạo veth pair
+   vethXXXXXX  ◄────────────►  eth0
+   (host side)                (pod side, nằm trong pod netns)
 
-Tóm lại: Linux bridge = software switch chạy trong kernel. Container cắm veth vào bridge giống như bạn cắm dây mạng vào switch — bridge lo việc forward frame dựa trên MAC address.
+2. Gắn vethXXXXXX vào bridge
+   cni0 (bridge)
+   └── vethXXXXXX  ← pod mới
+
+3. Gán IP cho eth0 của pod
+   (lấy từ IPAM - IP Address Management)
+
+4. Cấu hình route trong pod netns
+```
+
+Kết quả sau khi pod chạy
+- Trên host, thấy bridge và các veth
+```
+ip link show type bridge
+# → cni0
+
+bridge link show
+# → vethABC  master cni0    ← pod 1
+# → vethDEF  master cni0    ← pod 2
+# → vethGHI  master cni0    ← pod mới vừa tạo
+
+# Bên trong pod
+kubectl exec -it <pod> -- ip addr
+# → eth0: 10.244.1.5/24    ← đầu còn lại của veth pair
+```
+
+Lưu ý không phải lúc nào cũng có bridge. Với Calico, thay vì bridge, Calico gắn veth trực tiếp vào **routing table của host**:
+
+| CNI Plugin | Có dùng bridge? | Cơ chế |
+|---|---|---|
+| Flannel (VXLAN) | ✅ Có | `cni0` bridge + flannel.1 VTEP |
+| Flannel (host-gw) | ✅ Có | `cni0` bridge + static route |
+| Calico | ❌ Không | Dùng **routing thuần L3**, veth gắn thẳng vào routing table |
+| Cilium | ❌ Không | **eBPF**, không cần bridge hay veth truyền thống |
+| Weave | ✅ Có | `weave` bridge |
+
+---
+
+
+```
+Pod eth0 ──── vethXXX (host) ──── kernel routing table
+                                        │
+                              route: 10.244.1.5 → vethXXX
+```
+
+Không có bridge ở giữa — packet đến host được route thẳng vào đúng veth của pod. Ít overhead hơn, nhưng cần kernel xử lý L3 routing cho từng pod.
+
+Tóm lại: Với Flannel/Weave thì có bridge (cni0). Với Calico/Cilium thì không có bridge — họ dùng L3 routing hoặc eBPF để hiệu quả hơn.
+
+ovs có tương đương linux bridge ko, hay là 1 lớp trên nữa
+
+14:28
+
+Phân tích mối quan hệ giữa OVS và Linux bridge
+Phân tích mối quan hệ giữa OVS và Linux bridge
+OVS vs Linux Bridge
+OVS không phải lớp trên Linux bridge — nó là một thay thế hoàn toàn cho Linux bridge, nhưng với nhiều tính năng hơn nhiều.
+
+Vị trí trong stack
+┌─────────────────────────────────────────────┐
+│              Applications / Pods             │
+├─────────────────────────────────────────────┤
+│           veth / tap interfaces              │
+├───────────────────┬─────────────────────────┤
+│   Linux Bridge    │      Open vSwitch        │  ← cùng tầng
+│   (kernel only)   │   (kernel + userspace)   │
+├───────────────────┴─────────────────────────┤
+│              Linux Kernel Network Stack      │
+├─────────────────────────────────────────────┤
+│              Physical NIC                    │
+└─────────────────────────────────────────────┘
+Cả hai đều là virtual switch Layer 2, đều nhận veth/interface gắn vào làm port — nhưng OVS làm được nhiều hơn hẳn.
+
+Kiến trúc OVS
+Linux bridge chỉ có kernel module. OVS có 3 thành phần:
+
+┌─────────────────────────────────────────────┐
+│              Userspace                        │
+│                                               │
+│  ovs-vswitchd  ←→  ovsdb-server              │
+│  (daemon xử lý)     (config database)        │
+├─────────────────────────────────────────────┤
+│              Kernel Space                     │
+│                                               │
+│         openvswitch.ko                        │
+│     (fast path - datapath)                   │
+└─────────────────────────────────────────────┘
+ovsdb-server: lưu config (bridges, ports, flows)
+ovs-vswitchd: xử lý control plane, cài flow vào kernel
+openvswitch.ko: fast path, forward packet theo flow table
+Packet đầu tiên lên userspace để tạo flow, các packet sau được kernel xử lý trực tiếp theo flow đã cache → gần bằng tốc độ Linux bridge.
+
+So sánh tính năng
+Tính năng	Linux Bridge	OVS
+L2 forwarding (MAC)	✅	✅
+VLAN	✅ cơ bản	✅ đầy đủ (802.1Q, trunk, access)
+STP	✅	✅ + RSTP
+VXLAN / GRE / Geneve tunnel	❌	✅ native
+OpenFlow support	❌	✅ (flow-based programming)
+QoS / rate limiting	❌	✅
+Port mirroring	❌	✅
+Bonding / LAG	❌	✅
+DPDK (kernel bypass)	❌	✅
+Quản lý bằng SDN controller	❌	✅ (OpenDaylight, ONOS...)
+OVS làm tunnel native
+Đây là điểm khác biệt lớn nhất. Linux bridge cần thêm flannel.1 VTEP bên ngoài để làm VXLAN:
+
+# Linux bridge cần interface riêng cho tunnel
+cni0 (bridge) → flannel.1 (VTEP) → eth0
+
+# OVS tự làm tunnel ngay trong switch
+ovs-br0 (OVS bridge)
+├── veth0  ← pod 1
+├── veth1  ← pod 2
+└── vxlan0 ← tunnel port (OVS tự encap/decap)
+Ai dùng OVS trong k8s?
+OpenShift (OVN-Kubernetes)   → OVS + OVN (Open Virtual Network)
+Antrea CNI                   → OVS làm dataplane
+OpenStack Neutron            → OVS là default
+OVN (Open Virtual Network) là lớp abstraction bên trên OVS — nếu OVS là switch, thì OVN là cả một virtual network fabric (router, switch, ACL, load balancer).
+
+OVN (logical network)
+  └── OVS (physical dataplane)
+        └── openvswitch.ko (kernel fast path)
+Tóm lại: OVS ngang hàng với Linux bridge (cùng thay thế switch vật lý), không phải lớp trên. Nhưng OVS mạnh hơn nhiều — hỗ trợ tunnel native, OpenFlow, SDN controller, DPDK. Linux bridge đơn giản và nhẹ hơn, đủ dùng cho k8s thông thường.
+
+trong openstack, khi tôi tạo VM rồi tạo pod thì pod là thành phần nằm trong VM hay ngang hàng với VM
+
+14:30
+
+Phân tích mối quan hệ giữa VM và Pod trong OpenStack
+Phân tích mối quan hệ giữa VM và Pod trong OpenStack
+Pod nằm bên trong VM — không ngang hàng
+OpenStack và Kubernetes là hai lớp hoàn toàn khác nhau:
+
+┌─────────────────────────────────────────────┐
+│              OpenStack (IaaS)                │
+│                                              │
+│  ┌──────────────┐    ┌──────────────┐        │
+│  │     VM 1     │    │     VM 2     │        │
+│  │  (Nova)      │    │  (Nova)      │        │
+│  │              │    │              │        │
+│  │  ┌────────┐  │    │  ┌────────┐  │        │
+│  │  │ Pod A  │  │    │  │ Pod C  │  │        │
+│  │  ├────────┤  │    │  ├────────┤  │        │
+│  │  │ Pod B  │  │    │  │ Pod D  │  │        │
+│  │  └────────┘  │    │  └────────┘  │        │
+│  │   k8s node   │    │   k8s node   │        │
+│  └──────────────┘    └──────────────┘        │
+└─────────────────────────────────────────────┘
+VM do OpenStack quản lý, còn Pod chạy bên trong VM đó — VM đóng vai trò là Kubernetes node.
+
+Luồng tạo thực tế
+1. OpenStack tạo VM (Nova)
+         │
+         ▼
+2. VM boot lên, cài containerd + kubelet
+         │
+         ▼
+3. VM join vào Kubernetes cluster
+   → VM trở thành k8s Worker Node
+         │
+         ▼
+4. kubectl tạo Pod
+   → Pod chạy bên trong VM đó
+Hai lớp networking hoàn toàn tách biệt
+┌─────────────────────────────────────────────────┐
+│  Pod Network (Kubernetes - CNI)                  │
+│  10.244.0.0/16                                   │
+│                                                  │
+│   Pod A (10.244.1.5) ──── Pod B (10.244.1.6)    │
+│        │                        │                │
+│       eth0                     eth0              │
+│   ════════════ cni0 bridge ════════════          │
+│        │          (inside VM)                    │
+├────────┼─────────────────────────────────────────┤
+│  VM Network (OpenStack - Neutron)                │
+│  192.168.1.0/24                                  │
+│                                                  │
+│   VM 1 (192.168.1.10) ──── VM 2 (192.168.1.11)  │
+│        │                        │                │
+│    tap interface             tap interface        │
+│   ════════════ OVS bridge ═════════════          │
+│              (on hypervisor)                     │
+└─────────────────────────────────────────────────┘
+Neutron quản lý network giữa các VM → VM thấy nhau qua 192.168.x.x
+CNI plugin quản lý network giữa các Pod → Pod thấy nhau qua 10.244.x.x
+Pod muốn ra ngoài VM phải đi qua eth0 của VM (gateway của pod network)
+Inter-node Pod traffic thực ra đi qua VM network
+Khi Pod A (VM1) nói chuyện với Pod B (VM2):
+
+Pod A (10.244.1.5)
+  │  cni0 bridge
+  │  eth0 của VM1 (192.168.1.10)   ← lớp Neutron
+  │  Neutron router / OVS
+  │  eth0 của VM2 (192.168.1.11)
+  │  cni0 bridge
+Pod B (10.244.2.7)
+Pod traffic phải đi xuyên qua VM network của OpenStack — đây là lý do khi dùng Overlay (VXLAN) trong k8s trên OpenStack sẽ bị double encapsulation: VXLAN của CNI nằm trong VXLAN của Neutron.
+
+Tóm lại: Pod nằm trong VM, VM là k8s node. OpenStack quản lý VM (infrastructure layer), Kubernetes quản lý Pod (application layer) — hai lớp độc lập, lồng vào nhau.
+
+có cách nào để pod trong VM connect thẳng tới OVS, không qua cni0 bridge ko
+
+14:31
+
+Surveyed multiple networking architectures bypassing standard bridge
+Surveyed multiple networking architectures bypassing standard bridge
+Có — dùng OVS-CNI Plugin
+Đây chính xác là use case này sinh ra. Thay vì CNI tạo bridge cni0 rồi mới ra OVS, pod gắn veth trực tiếp vào OVS bridge.
+
+So sánh flow
+# Bình thường (có cni0)
+Pod eth0 ── veth ── cni0 (linux bridge) ── OVS bridge ── physical
+
+# Với OVS-CNI (bỏ cni0)
+Pod eth0 ── veth ── OVS bridge ── physical
+Cách thực hiện: Multus + OVS-CNI
+Thường dùng Multus để quản lý nhiều CNI, kết hợp với ovs-cni:
+
+┌─────────────────────────────────────────────┐
+│                    VM (k8s node)             │
+│                                              │
+│  ┌──────────────────────────────────────┐   │
+│  │              Pod                     │   │
+│  │  eth0 (primary)   net1 (secondary)   │   │
+│  │    │                   │             │   │
+│  └────┼───────────────────┼─────────────┘   │
+│       │                   │                 │
+│   flannel/calico      veth pair             │
+│   (normal CNI)             │                │
+│                        OVS Bridge           │
+│                        (br-int / br-ex)     │
+└─────────────────────────────────────────────┘
+Cấu hình NetworkAttachmentDefinition:
+
+yaml
+apiVersion: k8s.cni.cncf.io/v1
+kind: NetworkAttachmentDefinition
+metadata:
+  name: ovs-net
+  annotations:
+    k8s.v1.cni.cncf.io/resourceName: ovs-cni.network.kubevirt.io/br-int
+spec:
+  config: |
+    {
+      "cniVersion": "0.3.1",
+      "type": "ovs",
+      "bridge": "br-int",       ← tên OVS bridge trên host
+      "vlan": 100               ← optional
+    }
+Pod dùng annotation để request interface:
+
+yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  annotations:
+    k8s.v1.cni.cncf.io/networks: ovs-net   ← gắn thêm interface vào OVS
+spec:
+  containers:
+  - name: app
+    image: nginx
+Kết quả trong pod
+bash
+kubectl exec -it <pod> -- ip addr
+
+# eth0  → quản lý bởi CNI chính (flannel/calico)
+#         10.244.1.5/24
+
+# net1  → gắn thẳng vào OVS bridge br-int
+#         192.168.100.10/24  ← Neutron network
+```
+
+---
+
+### Tại sao lại muốn làm vậy?
+
+| Use case | Lý do |
+|---|---|
+| Pod cần kết nối thẳng vào Neutron network | Tránh double encapsulation |
+| Network Function (VNF/CNF) | Cần control plane trực tiếp trên OVS |
+| Low latency networking | Bỏ một lớp bridge = giảm overhead |
+| KubeVirt (VM trong k8s) | VM-in-pod cần gắn vào OVS như VM thật |
+
+---
+
+### Double encapsulation problem giải quyết được
+```
+# Trước (double encap)
+Pod → cni0 → VXLAN (k8s) → eth0 VM → VXLAN (Neutron) → physical
+
+# Sau (OVS-CNI, single encap)
+Pod → OVS br-int → VXLAN (Neutron only) → physical
+```
+
+Bỏ hoàn toàn lớp encapsulation của k8s CNI, chỉ còn Neutron lo.
+
+---
+
+### Một cách khác: SR-IOV
+
+Nếu cần **performance cực cao**, dùng SR-IOV để bypass cả OVS:
+```
+Pod net1 ── VF (Virtual Function) ── PF (Physical NIC) ── physical
+Packet đi thẳng từ pod ra NIC, không qua kernel network stack. Nhưng cần hardware hỗ trợ SR-IOV và phức tạp hơn nhiều.
+
+Tóm lại: Dùng Multus + OVS-CNI là cách phổ biến nhất để pod gắn trực tiếp vào OVS bridge, bỏ qua cni0. Đặc biệt hữu ích khi chạy k8s trên OpenStack để tránh double encapsulation.
