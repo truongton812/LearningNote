@@ -173,3 +173,132 @@ metadata:
 → Khi pod chạy: Interface chính (eth0) do CNI mặc định (Calico/Cilium…) tạo. Interface thứ hai (ví dụ: net1) sẽ thuộc mạng dbnet (nếu dùng Multus kết hợp CNI mặc định).
 
 Nếu bạn muốn pod chỉ dùng mạng dbnet hoàn toàn, thì bạn phải cấu hình Multus để đặt dbnet làm interface chính (thay đổi cấu hình Multus trên node).
+
+---
+
+Intra-node Container Networking là giao tiếp giữa các container trong cùng một node. Lúc này Linux kernel sẽ xử lý toàn bộ traffic, không cần đi qua NIC vật lý.
+
+```
+[ Container A ]     [ Container B ]
+  eth0 (veth0)        eth0 (veth1)
+       |                   |
+  veth0 <pair>        veth1 <pair>
+  ┌────┴───────────────────┴────┐
+  │        Linux Bridge         │  ← docker0 / cni0 / cbr0
+  │     (Layer 2 switching)     │
+  └─────────────────────────────┘
+```
+
+Bridge thực hiện MAC-based forwarding (L2), hoặc kernel routing nếu khác subnet (L3). Ưu điểm là latency rất thấp vì chỉ là memory copy giữa các network namespace.
+
+Trong Kubernetes: bridge thường là cni0, do CNI plugin tạo ra.
+
+🟠 Inter-node Container Networking
+Các container giao tiếp khác node
+Phức tạp hơn vì packet phải đi qua mạng vật lý (underlay). Có nhiều cách để giải quyết bài toán này:
+
+1. Overlay Network (VXLAN / Geneve)
+Dùng bởi: Flannel VXLAN, Calico VXLAN, Cilium
+Node 1                              Node 2
+┌──────────────────────┐           ┌──────────────────────┐
+│ Pod A (10.244.1.5)   │           │ Pod B (10.244.2.7)   │
+│   │                  │           │   │                  │
+│  cni0 bridge         │           │  cni0 bridge         │
+│   │                  │           │   │                  │
+│  flannel.1 (VTEP)    │           │  flannel.1 (VTEP)    │
+│   │  encap VXLAN     │           │   │  decap VXLAN     │
+└───┼──────────────────┘           └───┼──────────────────┘
+    │   UDP/4789 trên underlay IP       │
+    └──────────── Physical Network ─────┘
+
+Pod IP packet được đóng gói (encapsulate) vào UDP frame trước khi gửi qua mạng vật lý.
+Node đích decapsulate để lấy lại packet gốc.
+Ưu điểm: Không yêu cầu cấu hình router/switch phức tạp.
+Nhược điểm: Overhead encap/decap, MTU phải giảm (~50 bytes cho VXLAN header).
+
+
+2. Native Routing (BGP / Direct Route)
+Dùng bởi: Calico BGP, Cilium native routing, Flannel host-gw
+Node 1 (192.168.1.10)              Node 2 (192.168.1.11)
+┌──────────────────────┐           ┌──────────────────────┐
+│ Pod A (10.244.1.5)   │           │ Pod B (10.244.2.7)   │
+│   │                  │           │   │                  │
+│  eth0                │           │  eth0                │
+└───┼──────────────────┘           └───┼──────────────────┘
+    │                                   │
+    └───── L3 Router / BGP Peering ─────┘
+           Route: 10.244.2.0/24 → 192.168.1.11
+
+Không có encapsulation — packet đi thẳng qua router.
+Mỗi node quảng bá Pod CIDR của mình qua BGP (hoặc static route).
+Ưu điểm: Performance tốt nhất, không MTU overhead, dễ debug.
+Nhược điểm: Yêu cầu router/switch hỗ trợ, hoặc tất cả node phải cùng L2 segment (với host-gw).
+
+
+3. eBPF Datapath
+Dùng bởi: Cilium
+Bypass iptables và bridge hoàn toàn. eBPF program được attach trực tiếp vào NIC, xử lý routing/NAT/policy tại kernel level mà không cần veth hay bridge.
+
+So sánh nhanh
+Intra-nodeInter-node OverlayInter-node NativePathveth → bridgeveth → bridge → VTEP → NICveth → bridge → NICEncapsulationKhôngCó (VXLAN/Geneve)KhôngLatencyThấp nhấtTrung bìnhThấpYêu cầu networkKhôngKhôngCó (BGP/L2)DebugDễKhó hơnDễ
+
+Tóm lại: Intra-node đơn giản vì kernel tự lo, chỉ cần bridge + veth. Inter-node phức tạp hơn vì phải quyết định encap hay route — tùy vào môi trường (on-prem, cloud, bare-metal) mà chọn CNI plugin phù hợp.Linux bridge là gì12:12Chuẩn bị giải thích khái niệm Linux bridge một cách đơn giảnChuẩn bị giải thích khái niệm Linux bridge một cách đơn giảnLinux Bridge
+Linux bridge là một virtual network switch được implement trong Linux kernel — hoạt động giống hệt một con switch vật lý Layer 2, nhưng hoàn toàn bằng software.
+
+Hình dung đơn giản
+Physical world:          Linux world:
+┌─────────────┐         ┌─────────────────────────┐
+│   Switch    │   ≈     │      Linux Bridge        │
+│  [port1]    │         │  [veth0] [veth1] [eth0]  │
+│  [port2]    │         │                          │
+│  [port3]    │         │   MAC table (FDB)        │
+└─────────────┘         └─────────────────────────┘
+Thay vì port vật lý, bridge có các network interface gắn vào làm port.
+
+Cách hoạt động
+Bridge duy trì một Forwarding Database (FDB) — bảng ánh xạ MAC address → port, giống MAC table của switch thật.
+# Xem FDB của bridge
+bridge fdb show br docker0
+
+aa:bb:cc:dd:ee:01  dev veth0   # Container A ở port veth0
+aa:bb:cc:dd:ee:02  dev veth1   # Container B ở port veth1
+Khi container A gửi packet đến container B:
+
+Packet đi qua veth pair vào bridge
+Bridge tra FDB theo MAC đích
+Forward ra đúng port → vào veth pair của container B
+Toàn bộ quá trình xảy ra trong kernel memory, không ra NIC vật lý
+
+
+Tạo bridge thủ công
+bash# Tạo bridge
+ip link add name br0 type bridge
+ip link set br0 up
+
+# Gắn interface vào bridge (làm "port")
+ip link set eth1 master br0
+ip link set veth0 master br0
+
+# Đặt IP cho bridge (để host giao tiếp được)
+ip addr add 192.168.1.1/24 dev br0
+```
+
+---
+
+### Trong Docker / Kubernetes
+
+| | Docker | Kubernetes |
+|---|---|---|
+| Bridge name | `docker0` | `cni0` (do CNI tạo) |
+| Tạo bởi | Docker daemon | CNI plugin (Flannel, Calico...) |
+| Mỗi container có | 1 veth pair | 1 veth pair |
+```
+docker0 / cni0 (bridge)
+├── vethABC123   ← container 1
+├── vethDEF456   ← container 2
+└── vethGHI789   ← container 3
+
+Bridge vs Switch vật lý
+Linux BridgeSwitch vật lýPortVirtual interfaceRJ45/SFPMAC learningCó (FDB)CóSTPCóCóVLANCóCóTốc độGiới hạn bởi CPUASIC (nhanh hơn nhiều)
+
+Tóm lại: Linux bridge = software switch chạy trong kernel. Container cắm veth vào bridge giống như bạn cắm dây mạng vào switch — bridge lo việc forward frame dựa trên MAC address.
