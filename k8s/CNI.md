@@ -311,93 +311,49 @@ Không có bridge ở giữa — packet đến host được route thẳng vào 
 
 Tóm lại: Với Flannel/Weave thì có bridge (cni0). Với Calico/Cilium thì không có bridge — họ dùng L3 routing hoặc eBPF để hiệu quả hơn.
 
-ovs có tương đương linux bridge ko, hay là 1 lớp trên nữa
+---
 
-14:28
-
-Phân tích mối quan hệ giữa OVS và Linux bridge
-Phân tích mối quan hệ giữa OVS và Linux bridge
 OVS vs Linux Bridge
-OVS không phải lớp trên Linux bridge — nó là một thay thế hoàn toàn cho Linux bridge, nhưng với nhiều tính năng hơn nhiều.
 
-Vị trí trong stack
+- OVS là virtual switch Layer 2 giống Linux bridge nhưng nhiều tính năng hơn
+- Linux bridge chỉ có kernel module. OVS có 3 thành phần:
+```
 ┌─────────────────────────────────────────────┐
-│              Applications / Pods             │
+│              Userspace                      │
+│                                             │
+│  ovs-vswitchd  ←→  ovsdb-server             │
+│  (daemon xử lý)     (config database)       │
 ├─────────────────────────────────────────────┤
-│           veth / tap interfaces              │
-├───────────────────┬─────────────────────────┤
-│   Linux Bridge    │      Open vSwitch        │  ← cùng tầng
-│   (kernel only)   │   (kernel + userspace)   │
-├───────────────────┴─────────────────────────┤
-│              Linux Kernel Network Stack      │
-├─────────────────────────────────────────────┤
-│              Physical NIC                    │
+│              Kernel Space                   │
+│                                             │
+│         openvswitch.ko                      │
+│     (fast path - datapath)                  │
 └─────────────────────────────────────────────┘
-Cả hai đều là virtual switch Layer 2, đều nhận veth/interface gắn vào làm port — nhưng OVS làm được nhiều hơn hẳn.
+```
+  - ovsdb-server: lưu config (bridges, ports, flows)
+  - ovs-vswitchd: xử lý control plane, cài flow vào kernel
+  - openvswitch.ko: fast path, forward packet theo flow table
 
-Kiến trúc OVS
-Linux bridge chỉ có kernel module. OVS có 3 thành phần:
-
-┌─────────────────────────────────────────────┐
-│              Userspace                        │
-│                                               │
-│  ovs-vswitchd  ←→  ovsdb-server              │
-│  (daemon xử lý)     (config database)        │
-├─────────────────────────────────────────────┤
-│              Kernel Space                     │
-│                                               │
-│         openvswitch.ko                        │
-│     (fast path - datapath)                   │
-└─────────────────────────────────────────────┘
-ovsdb-server: lưu config (bridges, ports, flows)
-ovs-vswitchd: xử lý control plane, cài flow vào kernel
-openvswitch.ko: fast path, forward packet theo flow table
 Packet đầu tiên lên userspace để tạo flow, các packet sau được kernel xử lý trực tiếp theo flow đã cache → gần bằng tốc độ Linux bridge.
 
-So sánh tính năng
-Tính năng	Linux Bridge	OVS
-L2 forwarding (MAC)	✅	✅
-VLAN	✅ cơ bản	✅ đầy đủ (802.1Q, trunk, access)
-STP	✅	✅ + RSTP
-VXLAN / GRE / Geneve tunnel	❌	✅ native
-OpenFlow support	❌	✅ (flow-based programming)
-QoS / rate limiting	❌	✅
-Port mirroring	❌	✅
-Bonding / LAG	❌	✅
-DPDK (kernel bypass)	❌	✅
-Quản lý bằng SDN controller	❌	✅ (OpenDaylight, ONOS...)
-OVS làm tunnel native
-Đây là điểm khác biệt lớn nhất. Linux bridge cần thêm flannel.1 VTEP bên ngoài để làm VXLAN:
+- Điểm khác biệt chính giữa OVS và Linux bridge là OVS làm tunnel native, còn Linux bridge cần thêm flannel.1 VTEP bên ngoài để làm VXLAN:
+  - Linux bridge cần interface riêng cho tunnel: cni0 (bridge) → flannel.1 (VTEP) → eth0
+  - OVS tự làm tunnel ngay trong switch
+  ```
+  ovs-br0 (OVS bridge)
+  ├── veth0  ← pod 1
+  ├── veth1  ← pod 2
+  └── vxlan0 ← tunnel port (OVS tự encap/decap)
+  ```
+- Ai dùng OVS trong k8s?
+  - OpenStack Neutron            → OVS là default
+  - OVN (Open Virtual Network) là lớp abstraction bên trên OVS — nếu OVS là switch, thì OVN là cả một virtual network fabric (router, switch, ACL, load balancer).
 
-# Linux bridge cần interface riêng cho tunnel
-cni0 (bridge) → flannel.1 (VTEP) → eth0
 
-# OVS tự làm tunnel ngay trong switch
-ovs-br0 (OVS bridge)
-├── veth0  ← pod 1
-├── veth1  ← pod 2
-└── vxlan0 ← tunnel port (OVS tự encap/decap)
-Ai dùng OVS trong k8s?
-OpenShift (OVN-Kubernetes)   → OVS + OVN (Open Virtual Network)
-Antrea CNI                   → OVS làm dataplane
-OpenStack Neutron            → OVS là default
-OVN (Open Virtual Network) là lớp abstraction bên trên OVS — nếu OVS là switch, thì OVN là cả một virtual network fabric (router, switch, ACL, load balancer).
-
-OVN (logical network)
-  └── OVS (physical dataplane)
-        └── openvswitch.ko (kernel fast path)
-Tóm lại: OVS ngang hàng với Linux bridge (cùng thay thế switch vật lý), không phải lớp trên. Nhưng OVS mạnh hơn nhiều — hỗ trợ tunnel native, OpenFlow, SDN controller, DPDK. Linux bridge đơn giản và nhẹ hơn, đủ dùng cho k8s thông thường.
-
-trong openstack, khi tôi tạo VM rồi tạo pod thì pod là thành phần nằm trong VM hay ngang hàng với VM
-
-14:30
-
-Phân tích mối quan hệ giữa VM và Pod trong OpenStack
-Phân tích mối quan hệ giữa VM và Pod trong OpenStack
-Pod nằm bên trong VM — không ngang hàng
-OpenStack và Kubernetes là hai lớp hoàn toàn khác nhau:
-
-┌─────────────────────────────────────────────┐
+---
+- Trong openstack, Pod là thành phần nằm bên trong VM. VM do OpenStack quản lý, còn Pod chạy bên trong VM đó — VM đóng vai trò là Kubernetes node.
+```
+┌──────────────────────────────────────────────┐
 │              OpenStack (IaaS)                │
 │                                              │
 │  ┌──────────────┐    ┌──────────────┐        │
@@ -411,23 +367,11 @@ OpenStack và Kubernetes là hai lớp hoàn toàn khác nhau:
 │  │  └────────┘  │    │  └────────┘  │        │
 │  │   k8s node   │    │   k8s node   │        │
 │  └──────────────┘    └──────────────┘        │
-└─────────────────────────────────────────────┘
-VM do OpenStack quản lý, còn Pod chạy bên trong VM đó — VM đóng vai trò là Kubernetes node.
+└──────────────────────────────────────────────┘
+```
 
-Luồng tạo thực tế
-1. OpenStack tạo VM (Nova)
-         │
-         ▼
-2. VM boot lên, cài containerd + kubelet
-         │
-         ▼
-3. VM join vào Kubernetes cluster
-   → VM trở thành k8s Worker Node
-         │
-         ▼
-4. kubectl tạo Pod
-   → Pod chạy bên trong VM đó
-Hai lớp networking hoàn toàn tách biệt
+- Hai lớp networking hoàn toàn tách biệt
+```
 ┌─────────────────────────────────────────────────┐
 │  Pod Network (Kubernetes - CNI)                  │
 │  10.244.0.0/16                                   │
@@ -447,47 +391,31 @@ Hai lớp networking hoàn toàn tách biệt
 │   ════════════ OVS bridge ═════════════          │
 │              (on hypervisor)                     │
 └─────────────────────────────────────────────────┘
-Neutron quản lý network giữa các VM → VM thấy nhau qua 192.168.x.x
-CNI plugin quản lý network giữa các Pod → Pod thấy nhau qua 10.244.x.x
-Pod muốn ra ngoài VM phải đi qua eth0 của VM (gateway của pod network)
-Inter-node Pod traffic thực ra đi qua VM network
-Khi Pod A (VM1) nói chuyện với Pod B (VM2):
+```
+  - Neutron quản lý network giữa các VM → VM thấy nhau qua 192.168.x.x
+  - CNI plugin quản lý network giữa các Pod → Pod thấy nhau qua 10.244.x.x
+  - Pod muốn ra ngoài VM phải đi qua eth0 của VM (gateway của pod network)
+  - Khi Pod A (VM1) nói chuyện với Pod B (VM2): Pod traffic phải đi xuyên qua VM network của OpenStack — đây là lý do khi dùng Overlay (VXLAN) trong k8s trên OpenStack sẽ bị double encapsulation: VXLAN của CNI nằm trong VXLAN của Neutron.
+  ```
+  Pod A (10.244.1.5)
+    │  cni0 bridge
+    │  eth0 của VM1 (192.168.1.10)   ← lớp Neutron
+    │  Neutron router / OVS
+    │  eth0 của VM2 (192.168.1.11)
+    │  cni0 bridge
+  Pod B (10.244.2.7)
+  ```
 
-Pod A (10.244.1.5)
-  │  cni0 bridge
-  │  eth0 của VM1 (192.168.1.10)   ← lớp Neutron
-  │  Neutron router / OVS
-  │  eth0 của VM2 (192.168.1.11)
-  │  cni0 bridge
-Pod B (10.244.2.7)
-Pod traffic phải đi xuyên qua VM network của OpenStack — đây là lý do khi dùng Overlay (VXLAN) trong k8s trên OpenStack sẽ bị double encapsulation: VXLAN của CNI nằm trong VXLAN của Neutron.
-
-Tóm lại: Pod nằm trong VM, VM là k8s node. OpenStack quản lý VM (infrastructure layer), Kubernetes quản lý Pod (application layer) — hai lớp độc lập, lồng vào nhau.
-
-có cách nào để pod trong VM connect thẳng tới OVS, không qua cni0 bridge ko
-
-14:31
-
-Surveyed multiple networking architectures bypassing standard bridge
-Surveyed multiple networking architectures bypassing standard bridge
-Có — dùng OVS-CNI Plugin
-Đây chính xác là use case này sinh ra. Thay vì CNI tạo bridge cni0 rồi mới ra OVS, pod gắn veth trực tiếp vào OVS bridge.
-
-So sánh flow
-# Bình thường (có cni0)
-Pod eth0 ── veth ── cni0 (linux bridge) ── OVS bridge ── physical
-
-# Với OVS-CNI (bỏ cni0)
-Pod eth0 ── veth ── OVS bridge ── physical
-Cách thực hiện: Multus + OVS-CNI
-Thường dùng Multus để quản lý nhiều CNI, kết hợp với ovs-cni:
-
+- OVS-CNI Plugin giúp giải quyết vấn đề, pod không cần phải qua cni0 bridge để ra ngoài. Thay vì CNI tạo bridge cni0 rồi mới ra OVS, pod gắn veth trực tiếp vào OVS bridge.
+- Cách thực hiện: dùng Multus + OVS-CNI. Multus là CNI cho phép gán nhiều network interfaces cho pod
+```
 ┌─────────────────────────────────────────────┐
 │                    VM (k8s node)             │
 │                                              │
 │  ┌──────────────────────────────────────┐   │
 │  │              Pod                     │   │
 │  │  eth0 (primary)   net1 (secondary)   │   │
+10.244.1.5/24          192.168.100.10/24
 │  │    │                   │             │   │
 │  └────┼───────────────────┼─────────────┘   │
 │       │                   │                 │
@@ -496,71 +424,12 @@ Thường dùng Multus để quản lý nhiều CNI, kết hợp với ovs-cni:
 │                        OVS Bridge           │
 │                        (br-int / br-ex)     │
 └─────────────────────────────────────────────┘
-Cấu hình NetworkAttachmentDefinition:
-
-yaml
-apiVersion: k8s.cni.cncf.io/v1
-kind: NetworkAttachmentDefinition
-metadata:
-  name: ovs-net
-  annotations:
-    k8s.v1.cni.cncf.io/resourceName: ovs-cni.network.kubevirt.io/br-int
-spec:
-  config: |
-    {
-      "cniVersion": "0.3.1",
-      "type": "ovs",
-      "bridge": "br-int",       ← tên OVS bridge trên host
-      "vlan": 100               ← optional
-    }
-Pod dùng annotation để request interface:
-
-yaml
-apiVersion: v1
-kind: Pod
-metadata:
-  annotations:
-    k8s.v1.cni.cncf.io/networks: ovs-net   ← gắn thêm interface vào OVS
-spec:
-  containers:
-  - name: app
-    image: nginx
-Kết quả trong pod
-bash
-kubectl exec -it <pod> -- ip addr
-
-# eth0  → quản lý bởi CNI chính (flannel/calico)
-#         10.244.1.5/24
-
-# net1  → gắn thẳng vào OVS bridge br-int
-#         192.168.100.10/24  ← Neutron network
 ```
 
----
+-> Double encapsulation problem giải quyết được
+- Trước (double encap) `Pod → cni0 → VXLAN (k8s) → eth0 VM → VXLAN (Neutron) → physical`
+- Sau (OVS-CNI, single encap) `Pod → OVS br-int → VXLAN (Neutron only) → physical`. Bỏ hoàn toàn lớp encapsulation của k8s CNI, chỉ còn Neutron lo.
 
-### Tại sao lại muốn làm vậy?
-
-| Use case | Lý do |
-|---|---|
-| Pod cần kết nối thẳng vào Neutron network | Tránh double encapsulation |
-| Network Function (VNF/CNF) | Cần control plane trực tiếp trên OVS |
-| Low latency networking | Bỏ một lớp bridge = giảm overhead |
-| KubeVirt (VM trong k8s) | VM-in-pod cần gắn vào OVS như VM thật |
-
----
-
-### Double encapsulation problem giải quyết được
-```
-# Trước (double encap)
-Pod → cni0 → VXLAN (k8s) → eth0 VM → VXLAN (Neutron) → physical
-
-# Sau (OVS-CNI, single encap)
-Pod → OVS br-int → VXLAN (Neutron only) → physical
-```
-
-Bỏ hoàn toàn lớp encapsulation của k8s CNI, chỉ còn Neutron lo.
-
----
 
 ### Một cách khác: SR-IOV
 
