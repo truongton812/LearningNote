@@ -549,3 +549,15 @@ Dùng artifact
     paths:
       - build/
 ```
+---
+
+GitLab không cho phép mask các variable chứa ký tự đặc biệt như newline (\n), space — mà SSH private key thì có đầy các ký tự đó.
+
+Giải pháp: Base64 encode SSH key trước khi lưu
+```
+#Encode
+cat ~/.ssh/id_rsa | base64 -w 0
+
+#Decode
+echo "$SSH_PRIVATE_KEY" | base64 -d > ~/.ssh/id_rsa (hoặc base64 --decode)
+```
