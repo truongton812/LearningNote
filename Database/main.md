@@ -18,6 +18,32 @@ PostgreSQL luôn tạo ba database hệ thống ban đầu: postgres (dùng kế
 
 Tương tự MySQL và MariaDB cũng tự động tạo db mysql: Database hệ thống chính chứa user, privileges (kết nối bằng mysql -u root -D mysql).
 
+### Giải thích phân cấp của database
+
+```
+PostgreSQL Server (instance)
+└── Database: myapp          ← toàn bộ dữ liệu của 1 ứng dụng
+    └── Schema: public        ← namespace/folder
+    │   ├── Table: users      ← lưu dữ liệu thực tế (rows & columns)
+    │   ├── Table: order 
+    │   └── Table: product 
+    ├── Schema: analytics       
+    │   └── Table: report 
+    └── Schema: audit       
+        └── Table: logss 
+```
+- Instance = 1 tiến trình PostgreSQL đang chạy trên server, lắng nghe ở 1 port (mặc định 5432). Nó quản lý toàn bộ mọi thứ bên dưới. Tạo instance thực chất là cài đặt + khởi động PostgreSQL (apt install postgresql). 1 server có thể chạy nhiều PostgreSQL instance, nhưng mỗi instance phải dùng port khác nhau. Thực tế ở môi trường production thường 1 server = 1 instance, tách môi trường bằng server/VM/container riêng thay vì nhiều instance trên cùng 1 máy.
+
+- Database: Là container lớn nhất, hoàn toàn độc lập với nhau. Mỗi app thường có 1 database riêng. Một công ty có thể có nhiều database. Không thể JOIN trực tiếp giữa 2 database khác nhau. Có user, permission riêng
+
+- Schema trong PostgreSQL: Schema giống như folder/namespace bên trong một database, dùng để nhóm các objects (tables, views, functions...) lại với nhau. Mặc định khi bạn tạo table mà không chỉ định schema, PostgreSQL sẽ đặt vào public. Mỗi database có schema public riêng hoàn toàn độc lập.
+
+- Table: Là nơi lưu dữ liệu thực tế, dạng hàng/cột (giống Excel sheet). Có thể JOIN với các table khác trong cùng database
+  
+- Role/User tồn tại ở cấp Instance, không phải cấp Database — nên 1 user có thể được grant quyền vào nhiều database khác nhau.
+
+
+
 ## Các lệnh làm việc với database
 
 Restore data using mysql command
@@ -276,4 +302,5 @@ Với cách này, việc quản lý trở nên đơn giản hơn vì bạn chỉ
 - DROP DATABASE IF EXISTS mydb; -> xóa database. IF EXISTS để Tránh lỗi nếu DB không tồn tại. Lưu ý phải là superuser hoặc owner của DB.
 - SELECT datname, pg_get_userbyid(datdba) AS owner FROM pg_database WHERE datname = '<db_name'; -> kiểm tra owner của db
 - ALTER DATABASE <db_name> OWNER TO <user>; -> đổi owner của db
-
+- GRANT USAGE, CREATE ON SCHEMA public TO <your_db_user>; -> gán quyền usage và create trên schema public. Nếu muốn toàn quyền thì thay bằng ALL. Lưu ý cần phải kết nối vào database trước. Từ PostgreSQL 15 trở đi, quyền CREATE trên schema public không còn được grant mặc định cho các user thường nữa (chỉ có superuser hoặc owner của schema mới có).
+- \dn -> xem danh sách schema
