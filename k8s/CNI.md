@@ -537,3 +537,111 @@ Bước 3: Pod request resource đó
 - So sánh path của packet
   - Khi không có SR-IOV (virtio thông thường): `Pod → tap device → OVS bridge (VM) → virtio → QEMU → OVS bridge (host) → Physical NIC` (7-8 lần copy/context switch)
   - Có SR-IOV: `Pod → VF → Wire` (Gần như native, 1-2 lần)
+
+---
+
+Tự viết CNI
+
+- Đặt cấu hình CNI vào /etc/cni/net.d/<ten_config> . Lưu ý CRI (container runtime io) sẽ load file cấu hình theo thứ tự alphabet. File cấu hình này sẽ trỏ đến plugin cần thực thi
+```
+{
+  "cniVersion": "1.0.0",
+  "name": "fromScratch",
+  "type": "demystifying" #trỏ đến file thực thi trong /opt/cni/bin/demystifying (phải cùng tên với type)
+}
+```
+- File thực thi đặt trong /opt/cni/bin/ có tác dụng (là gì?)
+
+Luồng hoạt động: kubelet nhận được yêu cầu tạo pod sẽ gọi đến CRI, CRI tạo network namespace và trigger CNI dựa trên file cấu hình trong /etc/cni/net.d (có thể truyền thêm các biến ở đây như CNI_COMMAND=ADD (ngoài ra còn có DELETE,...), CNI_NETNS=/var/run/netns/cni-fb34ac... (chỉ định network namespace được tạo ra), CNI_IFNAME=eth0 (tên của interface trong network ns)). CNI sẽ thực thi nhiệm vụ của nó (VD tạo veth pair bằng lệnh `ip link add veth_host type veth peer name veth_netns`, move 1 đầu vào container network ns bằng lệnh `ip link set veth_netns netns cni-fb34ac` , gán ip cho veth_netns bằng lệnh `ip -n cni-fb34ac addr add 10.244.0.20/24 dev veth_netns`, gán ip cho veth_host, đổi tên interface trong netns bằng lệnh `ip -n cni-fb34ac link set veth_netns name eth0`, tạo route để đi vào network ns bằng lệnh `ip route add 10.244.0.20 dev veth_host`,....hỏi thêm chatgpt)
+
+Sau khi CNI tạo xong các tài nguyên trên nó sẽ trả về kết quả dạng json cho CRI
+```
+{
+  "cniVersion": "1.0.0",
+  "interfaces": [
+    {
+      "name": "%s",
+      "mac": "%s"
+    },
+    {
+      "name": "%s",
+      "mac": "%s",
+      "sandbox": "%s"
+    }
+  ],
+  "ips": [
+    {
+      "address": "%s",
+      "interface": 1
+    }
+  ]
+}
+```
+
+
+Example file /opt/cni/bin/demystifying:
+```bash
+#!/usr/bin/env bash
+
+# create veth
+VETH_HOST=veth_host
+VETH_NETNS=veth_netns
+ip link add ${VETH_HOST} type veth peer name ${VETH_NETNS}
+
+# put one of the veth interfaces into the new network namespace
+NETNS=$(basename ${CNI_NETNS})
+ip link set ${VETH_NETNS} netns ${NETNS}
+
+# assign IP to veth interface inside the new network namespace
+IP_VETH_NETNS=10.244.0.20
+CIDR_VETH_NETNS=${IP_VETH_NETNS}/32
+ip -n ${NETNS} addr add ${CIDR_VETH_NETNS} dev ${VETH_NETNS}
+
+# assign IP to veth interface on the host
+IP_VETH_HOST=10.244.0.101
+CIDR_VETH_HOST=${IP_VETH_HOST}/32
+ip addr add ${CIDR_VETH_HOST} dev ${VETH_HOST}
+
+# rename veth interface inside the new network namespace
+ip -n ${NETNS} link set ${VETH_NETNS} name ${CNI_IFNAME}
+
+# ensure all interfaces are up
+ip link set ${VETH_HOST} up
+ip -n ${NETNS} link set ${CNI_IFNAME} up
+
+# add routes inside the new network namespace so that it knows how to get to the host
+ip -n ${NETNS} route add ${IP_VETH_HOST} dev eth0
+ip -n ${NETNS} route add default via ${IP_VETH_HOST} dev eth0
+
+# add route on the host to let it know how to reach the new network namespace
+ip route add ${IP_VETH_NETNS}/32 dev ${VETH_HOST} scope host
+
+# return a JSON via stdout
+RETURN_TEMPLATE='
+{
+  "cniVersion": "1.0.0",
+  "interfaces": [
+    {
+      "name": "%s",
+      "mac": "%s"
+    },
+    {
+      "name": "%s",
+      "mac": "%s",
+      "sandbox": "%s"
+    }
+  ],
+  "ips": [
+    {
+      "address": "%s",
+      "interface": 1
+    }
+  ]
+}'
+
+MAC_HOST_VETH=$(ip link show ${VETH_HOST} | grep link | awk '{print$2}')
+MAC_NETNS_VETH=$(ip -netns $nsname link show ${CNI_IFNAME} | grep link | awk '{print$2}')
+
+RETURN=$(printf "${RETURN_TEMPLATE}" "${VETH_HOST}" "${MAC_HOST_VETH}" "${CNI_IFNAME}" "${mac_netns_veth}" "${CNI_NETNS}" "${CIDR_VETH_NETNS}")
+echo ${RETURN}
+```
