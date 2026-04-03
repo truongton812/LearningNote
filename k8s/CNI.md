@@ -431,11 +431,109 @@ Packet đầu tiên lên userspace để tạo flow, các packet sau được ke
 - Sau (OVS-CNI, single encap) `Pod → OVS br-int → VXLAN (Neutron only) → physical`. Bỏ hoàn toàn lớp encapsulation của k8s CNI, chỉ còn Neutron lo.
 
 
-### Một cách khác: SR-IOV
-
-Nếu cần **performance cực cao**, dùng SR-IOV để bypass cả OVS:
+- Có cách khác là dùng SR-IOV. SR-IOV giúp bypass cả OVS -> performance cực cao
 ```
 Pod net1 ── VF (Virtual Function) ── PF (Physical NIC) ── physical
-Packet đi thẳng từ pod ra NIC, không qua kernel network stack. Nhưng cần hardware hỗ trợ SR-IOV và phức tạp hơn nhiều.
+```
 
-Tóm lại: Dùng Multus + OVS-CNI là cách phổ biến nhất để pod gắn trực tiếp vào OVS bridge, bỏ qua cni0. Đặc biệt hữu ích khi chạy k8s trên OpenStack để tránh double encapsulation.
+Packet đi thẳng từ pod ra NIC, không qua kernel network stack. Nhưng cần hardware hỗ trợ SR-IOV
+
+
+---
+
+
+eth0 của VM không gắn vào cni0 bridge
+
+eth0 đóng vai trò uplink/gateway, không phải một port của bridge.
+
+Thực tế cấu trúc bên trong VM
+┌─────────────────────────────────────────────┐
+│                   VM                         │
+│                                              │
+│  Pod A (10.244.1.5)   Pod B (10.244.1.6)    │
+│     │ eth0               │ eth0             │
+│     │ veth0              │ veth1            │
+│     └──────────┬─────────┘                  │
+│            cni0 bridge                       │
+│           10.244.1.1/24  ← IP của bridge     │
+│                │                             │
+│           kernel routing                     │
+│                │                             │
+│            eth0 (VM)                         │
+│          192.168.1.10    ← Neutron network   │
+└──────────────────────────────────────────────┘
+
+cni0 có IP riêng (thường là gateway của pod subnet), còn eth0 là interface riêng biệt — hai cái nối với nhau qua kernel routing table, không phải bridge membership.
+
+Kiểm chứng thực tế
+```
+#Xem bridge members - chỉ thấy veth, không thấy eth0
+bridge link show
+# veth0  master cni0
+# veth1  master cni0
+# (eth0 KHÔNG xuất hiện ở đây)
+
+# Routing table mới thấy mối liên hệ
+ip route
+# 10.244.1.0/24  dev cni0        ← pod subnet đi qua bridge
+# 0.0.0.0/0      via 192.168.1.1 dev eth0  ← traffic ra ngoài qua eth0
+```
+
+---
+
+### SR-IOV (Single Root I/O Virtualization)
+- SR-IOV là một tính năng phần cứng được implement trên NIC/GPU... cho phép một thiết bị vật lý (Physical Function) xuất hiện như nhiều thiết bị ảo riêng biệt (Virtual Functions) trực tiếp với các VM/container — bypassing hypervisor hoàn toàn.
+
+- Mô hình truyền thống khi VM muốn gửi packet: VM → Hypervisor (software bridge/vswitch) → NIC vật lý . Hypervisor phải xử lý mỗi packet → overhead lớn, latency cao.
+
+- SR-IOV giúp chia NIC vật lý thành 1 PF (Physical Function- có quyền cấu hình NIC, tạo/xóa VF) và nhiều VF (Virtual Function - chỉ xử lý data) gắn thẳng vào VM
+  - PF là "toàn bộ" NIC nhìn từ phía host/hypervisor, có full quyền: cấu hình NIC, tạo VF, set MAC, VLAN, QoS
+  - VF chỉ gửi/nhận packet. Mỗi VF có MAC, VLAN, queue riêng trên phần cứng. VM truy cập VF trực tiếp qua DMA mà không cần qua kernel host.
+
+- OpenStack dùng SR-IOV để cấp VF trực tiếp cho VM (qua Neutron SR-IOV agent). Kubernetes dùng SR-IOV qua SR-IOV CNI plugin + SR-IOV Device Plugin để cấp VF cho pod
+
+#### Use case với Kubernetes
+- SR-IOV Device Plugin Chạy như DaemonSet trên mỗi node, khi phát hiện các VF available trên node nó sẽ đăng ký với kubelet như một extended resource. Pod request VF như request CPU/memory:
+- SR-IOV CNI Plugin thay thế CNI mặc định (flannel/calico) cho interface đó. Khi pod được schedule → CNI plugin lấy VF đã allocated → gán vào network namespace của pod, pod thấy VF như một NIC thông thường
+- Thường dùng kèm Multus vì SR-IOV CNI chỉ quản lý 1 interface, còn pod vẫn cần interface thứ nhất (eth0) cho cluster traffic → dùng Multus để attach nhiều interface cho pod
+
+#### Use case với trong OpenStack VMs
+
+Kiến trúc tổng quan
+```
+Physical Server
+└── Physical NIC (PF)
+    ├── VF0 ──→ OpenStack VM 1 (K8s Node)
+    │           └── Pod A dùng VF này
+    ├── VF1 ──→ OpenStack VM 2 (K8s Node)
+    │           └── Pod B dùng VF này
+    └── VF2 ──→ OpenStack VM 3 (K8s Node)
+```
+
+2 approach chính
+- Approach 1: SR-IOV pass-through từ OpenStack xuống Pod: OpenStack pass-through VF thẳng vào VM → bên trong VM, Kubernetes dùng VF đó cho Pod. Ưu điểm là latency thấp nhất, gần native. Nhược điểm là VM bị bind cứng vào physical host (no live migration)
+
+- Approach 2: DPDK/vHost trong VM: OpenStack VM dùng virtio + DPDK bên trong, Kubernetes dùng userspace CNI. Ít phổ biến và phức tạp hơn.
+
+- Cấu hình phía OpenStack để implement SR-IOV cho pod
+  - Neutron phải enable SR-IOV
+  - Nova compute phải enable PCI passthrough
+  - Tạo port SR-IOV trong OpenStack
+  - Attach vào VM (Nova Compute + Neutron SR-IOV Agent thực thi việc gán VF cho VM) -> Bên trong VM (K8s node) sẽ thấy VF như một NIC thật
+  - Từ đây setup SR-IOV CNI + Device Plugin như K8s thông thường — nhưng không cần tạo VF nữa vì VF đã được OpenStack pass vào sẵn.
+
+Flow 
+```
+Bước 1: OpenStack lấy VF từ PF → gán vào VM
+         (VM thấy VF như một NIC thật, ví dụ eth1)
+
+Bước 2: Bên trong VM, K8s Device Plugin phát hiện eth1
+         → đăng ký như resource
+
+Bước 3: Pod request resource đó
+         → CNI plugin gán eth1 vào network namespace của pod
+```
+
+- So sánh path của packet
+  - Khi không có SR-IOV (virtio thông thường): `Pod → tap device → OVS bridge (VM) → virtio → QEMU → OVS bridge (host) → Physical NIC` (7-8 lần copy/context switch)
+  - Có SR-IOV: `Pod → VF → Wire` (Gần như native, 1-2 lần)
