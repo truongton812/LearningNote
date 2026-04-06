@@ -58,92 +58,23 @@ Catalog giúp các service không cần hardcode URL của nhau. Thay đổi IP/
 
 ---
 
-Project trong OpenStack
-Project là gì?
-Project (trước đây gọi là Tenant) là đơn vị tổ chức và phân tách tài nguyên trong OpenStack. Mọi resource (VM, network, volume...) đều thuộc về một project.
+Project trong OpenStack (trước đây gọi là Tenant) là đơn vị tổ chức và phân tách tài nguyên trong OpenStack. Mọi resource (VM, network, volume...) đều thuộc về một project. Project giống như một "không gian làm việc riêng" — các team/khách hàng khác nhau có project riêng, tài nguyên không ảnh hưởng lẫn nhau.
 
-Hiểu đơn giản: Project giống như một "không gian làm việc riêng" — các team/khách hàng khác nhau có project riêng, tài nguyên không ảnh hưởng lẫn nhau.
+Mối quan hệ Project - User - Role:
+- Một user có thể thuộc nhiều project với role khác nhau
+- Một project có thể có nhiều user
+- Role quyết định user được làm gì trong project đó
 
-
-Project quản lý những gì?
-Project "team-backend"
-    ├── Compute (Nova)
-    │       ├── VM: web-server-01
-    │       └── VM: api-server-01
-    ├── Network (Neutron)
-    │       ├── Network: private-net
-    │       └── Router: main-router
-    ├── Storage (Cinder)
-    │       └── Volume: data-disk-100GB
-    ├── Image (Glance)
-    │       └── Image: ubuntu-22.04-custom
-    └── Quota
-            ├── Max 10 VMs
-            ├── Max 50 vCPUs
-            └── Max 100GB RAM
-
-Mối quan hệ Project - User - Role
-         User "alice"
-              │
-    ┌─────────┼──────────┐
-    │         │          │
-    ▼         ▼          ▼
-Project A  Project B  Project C
-(role:     (role:     (role:
- admin)     member)    reader)
-
-Một user có thể thuộc nhiều project với role khác nhau
-Một project có thể có nhiều user
-Role quyết định user được làm gì trong project đó
-
-
-Các Role phổ biến
-RoleQuyền hạnadminToàn quyền trong projectmemberTạo/xóa resource thông thườngreaderChỉ xem, không thay đổi
-
-Project vs Domain
-Domain "newwave"
-    ├── Project "production"
-    │       ├── User: alice (admin)
-    │       └── User: bob (member)
-    ├── Project "staging"
-    │       └── User: alice (member)
-    └── Project "dev"
-            └── User: charlie (admin)
 
 Domain là cấp cao hơn, nhóm các project lại
-Mặc định Kolla dùng domain "Default"
 
+- Liệt kê tất cả project: openstack project list
+- Tạo project mới: openstack project create --domain Default --description "Backend Team" team-backend
+- Xem chi tiết project: openstack project show team-backend
+- Thêm user vào project với role: openstack role add --project team-backend --user alice member
+- Xem quota của project: openstack quota show team-backend
+- Xóa project: openstack project delete team-backend
 
-Thao tác cơ bản với Project
-bash# Liệt kê tất cả project
-openstack project list
-
-# Tạo project mới
-openstack project create --domain Default --description "Backend Team" team-backend
-
-# Xem chi tiết project
-openstack project show team-backend
-
-# Thêm user vào project với role
-openstack role add --project team-backend --user alice member
-
-# Xem quota của project
-openstack quota show team-backend
-
-# Xóa project
-openstack project delete team-backend
-
-Tại sao Project quan trọng?
-Tính năngÝ nghĩaIsolationTài nguyên của project A không nhìn thấy từ project BQuotaGiới hạn tài nguyên từng project, tránh một team dùng quá nhiềuBillingTính tiền theo project (cho môi trường cloud thương mại)SecurityPhân quyền rõ ràng theo team/môi trường
-
-Ví dụ thực tế tại New Wave
-Có thể tổ chức như sau:
-Domain: newwave
-    ├── Project: production    → môi trường prod
-    ├── Project: staging       → môi trường staging  
-    ├── Project: dev           → môi trường dev
-    └── Project: admin         → quản trị hệ thống
-Mỗi project có quota riêng, team riêng, network riêng — hoàn toàn độc lập với nhau.
 ---
 
 ## Các lệnh làm việc với Openstack
