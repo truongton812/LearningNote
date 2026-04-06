@@ -240,3 +240,67 @@ Filter
 
 Bulk delete instances lỗi
 - openstack server list --status ERROR -f value -c ID | xargs -I{} openstack server delete {}
+
+---
+
+### Kiến trúc node trong OpenStack
+OpenStack chia các chức năng ra nhiều node để tách biệt tải và trách nhiệm:
+
+#### Controller Node
+- Điều khiển toàn bộ cluster, chạy tất cả các API service và management:
+  - Keystone — xác thực, token
+  - Glance — quản lý image
+  - Nova API — nhận request tạo VM
+  - Neutron Server — quản lý network logic
+  - Horizon — dashboard UI
+  - Database (MariaDB) + Message Queue (RabbitMQ)
+- Các process chạy trên controller node
+  - keystone          → Auth & token
+  - glance-api        → Image management
+  - nova-api          → VM lifecycle API
+  - nova-scheduler    → Quyết định VM chạy ở Compute nào
+  - nova-conductor    → Trung gian Nova API ↔ DB
+  - neutron-server    → Network API
+  - cinder-api        → Block storage API
+  - cinder-scheduler  → Quyết định volume tạo ở Storage nào
+  - horizon           → Dashboard UI
+  - mariadb / galera  → Database (clustered)
+  - rabbitmq          → Message queue
+  - memcached         → Token cache
+  - haproxy           → Load balancer cho các API
+  - keepalived        → VIP failover (HA)
+
+
+#### Compute Node
+- Là nơi VM thật chạy trực tiếp:
+- Nova Compute nhận lệnh từ Controller, spawn VM via libvirt/KVM
+- OVS/OVN agent — kết nối VM vào network
+- Càng nhiều Compute node → càng chạy được nhiều VM.
+- Các process chạy trên compute note
+  - nova-compute      → Spawn/stop VM (libvirt/KVM)
+  - neutron-agent     → Kết nối VM vào virtual network
+  - ovn-controller    → OVN local agent
+  - openvswitch       → Virtual switch cho VM traffic
+  - libvirtd          → Hypervisor daemon
+
+#### Network Node
+- Xử lý traffic ra vào (North-South) và giữa các VM:
+  - Neutron agents — L3 router, DHCP, metadata
+  - OVN controller
+  - Floating IP, NAT
+- Trong setup nhỏ thường gộp vào Controller. Tách riêng khi traffic lớn.
+- Cacs process chạy trên network node
+  - neutron-l3-agent          → Virtual router, NAT
+  - neutron-dhcp-agent        → Cấp IP cho VM
+  - neutron-metadata-agent    → Cloud-init metadata cho VM
+  - ovn-controller            → Distributed virtual networking
+  - openvswitch               → Virtual switch
+
+#### Storage Node (tuỳ chọn)
+- Cung cấp block storage và object storage:
+  - Cinder — block storage (giống EBS của AWS)
+  - Swift / Ceph — object storage (giống S3)
+- Các process chạy trên storage node
+  - cinder-volume     → Tạo/attach block volume
+  - ceph-osd          → Object storage daemon (nếu dùng Ceph)
+  - ceph-mon          → Ceph monitor
