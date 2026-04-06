@@ -96,7 +96,7 @@ Thao tác với instance
 - openstack server pause/unpause <server-id>
 
 Console / log
-- openstack console url show <server-id>
+- openstack console url show <server-id> --os-project-name <tên-project>
 - openstack console log show <server-id>
 
 Migration
