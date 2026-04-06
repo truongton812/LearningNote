@@ -313,3 +313,79 @@ OpenStack chia các chức năng ra nhiều node để tách biệt tải và tr
 - OpenStack yêu cầu chỉ định network khi tạo instance, nhưng thực ra instance nhận IP từ subnet bên trong network đó:
 - Subnet AWS thực sự là mạng con — tức là dải IP của subnet phải nằm trong dải IP của VPC. VPC là /16, subnet phải là /24 hoặc nhỏ hơn bên trong đó. Còn Network trong OpenStack không có dải IP — nó chỉ là lớp kết nối (Layer 2). Dải IP hoàn toàn thuộc về Subnet, không phải chia ra từ Network. Nên có thể tạo network "internal-network" và Subnet A có IP 10.0.0.0/24 và Subnet B có IP  192.168.50.0/24  (hoàn toàn khác dải, vẫn hợp lệ)
 
+---
+
+Kiểm tra VM trên Compute Node của OpenStack
+1. Xác định VM đang ở node nào (từ Controller)
+bash# Cách đơn giản nhất - dùng openstack CLI
+openstack server show <vm-name-or-id> -f value -c OS-EXT-SRV-ATTR:host
+openstack server show <vm-name-or-id> -f value -c OS-EXT-SRV-ATTR:hypervisor_hostname
+
+# Hoặc xem full thông tin
+openstack server show <vm-name-or-id> | grep -E "host|hypervisor|node"
+Output sẽ cho biết VM đang nằm ở compute node nào:
+| OS-EXT-SRV-ATTR:host                | compute-node-01          |
+| OS-EXT-SRV-ATTR:hypervisor_hostname | compute-node-01.local    |
+
+2. Xem danh sách tất cả VM và node của chúng
+bash# List tất cả server kèm host
+openstack server list --all-projects --long -c Name -c Status -c Host
+
+3. Kiểm chứng trực tiếp trên Compute Node
+Sau khi biết VM ở node nào, SSH vào compute node đó và kiểm tra:
+bash# Kiểm tra bằng virsh (libvirt/KVM)
+sudo virsh list --all
+
+# Output sẽ thấy instance tương ứng
+#  Id   Name                    State
+# -----------------------------------------------
+#  1    instance-00000001       running
+Map instance name với VM:
+bash# Instance name dạng instance-XXXXXXXX, map với nova
+sudo virsh list --all | grep instance-<hex-id>
+
+# Xem thêm detail
+sudo virsh dominfo instance-00000001
+sudo virsh dumpxml instance-00000001 | grep -E "uuid|memory|vcpu"
+
+4. Tìm UUID mapping
+bash# UUID của VM trong OpenStack == UUID trong virsh
+VM_UUID=$(openstack server show <vm-name> -f value -c id)
+echo $VM_UUID
+
+# Trên compute node
+sudo virsh list --all | grep $VM_UUID
+# Hoặc
+sudo virsh dominfo $VM_UUID
+
+5. Kiểm tra qua Nova trực tiếp (nếu có DB access)
+bash# Từ controller node
+nova show <vm-id>
+
+# Hoặc query nova-api
+openstack server show <vm-id> --os-cloud=<cloud>
+
+6. Bonus: Xem resource thực tế trên compute node
+bash# CPU của VM đang chạy
+sudo virsh vcpuinfo instance-00000001
+
+# RAM
+sudo virsh dommemstat instance-00000001
+
+# Disk
+sudo virsh domblklist instance-00000001
+
+# Network interface
+sudo virsh domiflist instance-00000001
+
+# Process trên host tương ứng với VM
+ps aux | grep qemu | grep <instance-id>
+
+Tóm tắt flow
+openstack server show <vm>
+       │
+       ├─► OS-EXT-SRV-ATTR:host  ──► biết VM ở node nào
+       │
+       └─► id (UUID)  ──► SSH vào node đó ──► virsh list/dominfo
+
+Tip: Nếu không thấy OS-EXT-SRV-ATTR:host thì do user không có quyền admin. Cần dùng --os-username admin hoặc source admin-openrc.
