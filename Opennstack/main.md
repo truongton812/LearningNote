@@ -174,6 +174,7 @@ Object Storage (Swift)
 - openstack object upload my-bucket /path/to/file
 - openstack object save my-bucket <object> --file /tmp/out
 
+
 ### Images (Glance)
 Liệt kê images
 - openstack image list
@@ -304,3 +305,69 @@ OpenStack chia các chức năng ra nhiều node để tách biệt tải và tr
   - cinder-volume     → Tạo/attach block volume
   - ceph-osd          → Object storage daemon (nếu dùng Ceph)
   - ceph-mon          → Ceph monitor
+
+---
+
+Network vs Subnet
+Network là lớp hạ tầng mạng ảo (như một con đường), còn Subnet là phân vùng IP cụ thể chạy trên network đó (như đánh số nhà trên con đường đó).
+
+Ví dụ thực tế
+Network: "internal-network"
+└── Subnet: "internal-subnet"  →  10.0.0.0/24
+        ├── instance-1          →  10.0.0.10
+        ├── instance-2          →  10.0.0.11
+        └── instance-3          →  10.0.0.12
+Một network có thể có nhiều subnet:
+
+Network: "internal-network"
+├── Subnet A  →  10.0.0.0/24   (zone A)
+└── Subnet B  →  10.0.1.0/24   (zone B)
+So sánh
+Network	Subnet
+Là gì	Kênh kết nối ảo	Dải địa chỉ IP cụ thể
+Chứa	Subnet, Port	IP, Gateway, DHCP pool
+Tương tự	Dây mạng (cable)	Địa chỉ nhà trên dây đó
+Tạo trước?	✅ Phải tạo trước	Tạo sau, gắn vào network
+Thực tế khi tạo instance
+OpenStack yêu cầu chỉ định network khi tạo instance, nhưng thực ra instance nhận IP từ subnet bên trong network đó:
+
+bash
+openstack server create \
+  --network internal-network \   # chỉ định network
+  ...
+# → instance tự nhận IP từ subnet 10.0.0.0/24
+Tóm lại: Không có subnet thì instance không có IP, dù network đã tồn tại.
+
+subnet có phải là mạng con chia ra từ network không (giống khái niệm trong aws)
+
+10:06 PM
+
+Đối chiếu khái niệm subnet giữa OpenStack và AWS
+Đối chiếu khái niệm subnet giữa OpenStack và AWS
+Không hoàn toàn giống AWS
+Trong AWS
+VPC: 10.0.0.0/16
+├── Subnet A (us-east-1a):  10.0.1.0/24
+└── Subnet B (us-east-1b):  10.0.2.0/24
+Subnet AWS thực sự là mạng con — tức là dải IP của subnet phải nằm trong dải IP của VPC. VPC là /16, subnet phải là /24 hoặc nhỏ hơn bên trong đó.
+
+Trong OpenStack
+Network: "internal-network"  ← không có dải IP
+└── Subnet: 10.0.0.0/24      ← dải IP nằm ở đây
+Network trong OpenStack không có dải IP — nó chỉ là lớp kết nối (Layer 2). Dải IP hoàn toàn thuộc về Subnet, không phải chia ra từ Network.
+
+Nên bạn có thể tạo:
+
+Network: "internal-network"
+├── Subnet A:  10.0.0.0/24
+└── Subnet B:  192.168.50.0/24   ← hoàn toàn khác dải, vẫn hợp lệ
+So sánh
+AWS	OpenStack
+VPC/Network	Có dải IP (10.0.0.0/16)	Không có dải IP
+Subnet	Chia nhỏ từ VPC	Tự định nghĩa dải IP độc lập
+Quan hệ IP	Subnet ⊂ VPC	Subnet gắn vào Network, không phụ thuộc dải
+Tóm lại
+AWS: Subnet = mạng con chia ra từ VPC ✅
+OpenStack: Subnet = nơi định nghĩa dải IP, Network chỉ là "vật chứa" ở Layer 2, không liên quan đến IP
+
+
