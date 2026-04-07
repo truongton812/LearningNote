@@ -242,7 +242,7 @@ Ví dụ chạy 1 container với DNS challenge để xin cert: `docker compose 
 
 Khi dùng HTTP challenge, Certbot có 2 chế độ:
 - Standalone mode: Certbot tự spin up một web server tạm trên port 80 để handle challenge. Sẽ bị lỗi nếu có port 80 bị chiếm bởi process khác
-- Webroot: thay vì certbot tự chạy web server, nó thêm block serve challenge vào file config của Nginx để Nginx serve:
+- Webroot: thay vì certbot tự chạy web server, nó thêm block serve challenge vào file config của Nginx để Nginx serve. Block này cần trỏ về thư mục webroot - là thư mục mà Certbot sẽ đặt challenge file vào đó
   ```
   server {
     listen 80;
