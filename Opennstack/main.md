@@ -316,76 +316,45 @@ OpenStack chia các chức năng ra nhiều node để tách biệt tải và tr
 ---
 
 Kiểm tra VM trên Compute Node của OpenStack
-1. Xác định VM đang ở node nào (từ Controller)
-bash# Cách đơn giản nhất - dùng openstack CLI
-openstack server show <vm-name-or-id> -f value -c OS-EXT-SRV-ATTR:host
-openstack server show <vm-name-or-id> -f value -c OS-EXT-SRV-ATTR:hypervisor_hostname
+1. Xác định VM đang ở node nào (từ Controller): `openstack server show <vm-name-or-id> | grep -E "host|hypervisor|node"`
 
-# Hoặc xem full thông tin
-openstack server show <vm-name-or-id> | grep -E "host|hypervisor|node"
 Output sẽ cho biết VM đang nằm ở compute node nào:
+```
 | OS-EXT-SRV-ATTR:host                | compute-node-01          |
 | OS-EXT-SRV-ATTR:hypervisor_hostname | compute-node-01.local    |
-
+```
 2. Xem danh sách tất cả VM và node của chúng
-bash# List tất cả server kèm host
-openstack server list --all-projects --long -c Name -c Status -c Host
+- List tất cả server kèm host `openstack server list --all-projects --long -c Name -c Status -c Host`
+- Sau khi biết VM ở node nào, SSH vào compute node đó và kiểm tra bằng virsh (libvirt/KVM) `sudo virsh list --all`. Output sẽ thấy instance tương ứng
 
-3. Kiểm chứng trực tiếp trên Compute Node
-Sau khi biết VM ở node nào, SSH vào compute node đó và kiểm tra:
-bash# Kiểm tra bằng virsh (libvirt/KVM)
-sudo virsh list --all
+## Openstack Networking
 
-# Output sẽ thấy instance tương ứng
-#  Id   Name                    State
-# -----------------------------------------------
-#  1    instance-00000001       running
-Map instance name với VM:
-bash# Instance name dạng instance-XXXXXXXX, map với nova
-sudo virsh list --all | grep instance-<hex-id>
+<img width="701" height="590" alt="image" src="https://github.com/user-attachments/assets/b7160aff-001d-4047-9e1e-20ff47ce3d0b" />
 
-# Xem thêm detail
-sudo virsh dominfo instance-00000001
-sudo virsh dumpxml instance-00000001 | grep -E "uuid|memory|vcpu"
+Giải thích các khái niệm
+- ML2 Plugin (Modular Layer 2): là core plugin duy nhất của Neutron hiện tại, thay thế các monolithic plugin cũ. "Modular" vì nó cho phép kết hợp linh hoạt các driver. ML2 gồm 3 loại driver hoạt động độc lập với nhau:
+  - Type Drivers: định nghĩa loại network vật lý được dùng để vận chuyển traffic. flat là mạng không có VLAN tag, vlan dùng 802.1Q, vxlan/geneve/gre là các overlay tunnel protocol. Setup của bạn với OVN thường dùng geneve.
+  - Mechanism Drivers — định nghĩa cách implement network đó trên thực tế (ai lập trình switch ảo, ai xử lý routing). Đây chính là thứ người ta hay gọi không chính thức là "backend" hoặc "ML2 driver". Ba tên gọi này đều chỉ cùng một thứ. Mechanism Driver được cấu hình ở dòng `mechanism_drivers =` trong ml2_conf.ini.
+  - Extension Drivers — các tính năng tùy chọn gắn thêm vào port/network như QoS, port security, DNS. Không liên quan đến data plane.
 
-4. Tìm UUID mapping
-bash# UUID của VM trong OpenStack == UUID trong virsh
-VM_UUID=$(openstack server show <vm-name> -f value -c id)
-echo $VM_UUID
+### Mechanism Drivers (backend/ML2 driver)
+- Có các type phổ biến là OVN, openvswitch (mặc định của Neutron) và SR-IOV
+- Hầu hết các installer hiện đại (Kolla-AnsibleOVN, OpenStack-AnsibleOVN, Canonical MicroStack,...) đều mặc định dùng OVN vì đó là hướng phát triển chính của OpenStack từ khoảng bản Yoga (2022) trở đi
 
-# Trên compute node
-sudo virsh list --all | grep $VM_UUID
-# Hoặc
-sudo virsh dominfo $VM_UUID
+#### 1. Neutron truyền thống (L3 Agent)
+<img width="788" height="530" alt="image" src="https://github.com/user-attachments/assets/e6fe716b-3d02-4c76-93ad-f9778025bedb" />
+- Neutron truyền thống dùng các agent chạy ở userspace trên Network node. Khi bạn tạo 1 virtual router, L3 agent sẽ tạo ra 1 Linux network namespace (qrouter-xxx) với iptables rules và ip route riêng. 10 router = 10 namespace = 10 iptables chain. Traffic đi qua userspace nên chậm hơn và tốn CPU.
+- Mỗi virtual router tạo ra một qrouter-* namespace độc lập trên Network node, mỗi network tạo ra một qdhcp-* namespace. 100 router = 100 namespace.
+- Routing xử lý ở userspace (iptables), tốn tài nguyên và khó scale.
 
-5. Kiểm tra qua Nova trực tiếp (nếu có DB access)
-bash# Từ controller node
-nova show <vm-id>
+#### 2. OVN (Open Virtual Network)
 
-# Hoặc query nova-api
-openstack server show <vm-id> --os-cloud=<cloud>
+<img width="800" height="523" alt="image" src="https://github.com/user-attachments/assets/f8c0ca68-9c2a-4e8c-83e1-223b84f509b4" />
 
-6. Bonus: Xem resource thực tế trên compute node
-bash# CPU của VM đang chạy
-sudo virsh vcpuinfo instance-00000001
+- ovn-northd trên Controller đọc logical config từ NB DB (Northbound Database), dịch nó thành OVS flow rules, rồi ghi vào SB DB (Southbound Database).
+- Sau đó ovn-controller trên mỗi node (network01, compute01) đọc SB DB và lập trình trực tiếp vào OVS kernel flow tables.
+- Không có namespace, không có iptables — routing xảy ra trong kernel thông qua OVS, nhanh hơn nhiều.
 
-# RAM
-sudo virsh dommemstat instance-00000001
-
-# Disk
-sudo virsh domblklist instance-00000001
-
-# Network interface
-sudo virsh domiflist instance-00000001
-
-# Process trên host tương ứng với VM
-ps aux | grep qemu | grep <instance-id>
-
-Tóm tắt flow
-openstack server show <vm>
-       │
-       ├─► OS-EXT-SRV-ATTR:host  ──► biết VM ở node nào
-       │
-       └─► id (UUID)  ──► SSH vào node đó ──► virsh list/dominfo
-
-Tip: Nếu không thấy OS-EXT-SRV-ATTR:host thì do user không có quyền admin. Cần dùng --os-username admin hoặc source admin-openrc.
+#### 3. SR-IOV
+- Dùng khi cần performance cực cao (telco, HPC). VM được cấp virtual function (VF) của NIC vật lý, bypass hoàn toàn OVS/kernel networking.
+- Latency rất thấp nhưng mất tính flexibility (không dùng được floating IP, security group giới hạn).
