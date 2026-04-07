@@ -210,7 +210,85 @@ Lưu ý khi cài đặt:
 #### 3. Lenh lam viec voi cert
 
 certbot certificates -d <domain> -> check status cua cert
-#### 3. Xử lý lỗi Certbot không renew được cert
+
+#### 4. Nguyên lý hoạt động
+
+Nguyên nhân
+Certbot đang dùng mode standalone — nó tự spin up một web server tạm trên port 80 để handle challenge. Nhưng port 80 đang bị Nginx (hoặc app khác) chiếm, nên Let's Encrypt gọi vào .well-known/acme-challenge/... lại nhận được response của app thay vì của Certbot.
+Let's Encrypt → GET /.well-known/acme-challenge/xxx
+                → Nginx nhận → forward về app → trả về HTML của Next.js ❌
+
+Fix: Chuyển sang mode webroot
+Thay vì certbot tự chạy web server, nó ghi file vào thư mục và để Nginx serve:
+1. Cập nhật nginx.conf — thêm block serve challenge
+nginxserver {
+    listen 80;
+    server_name pms.icon-as.cz;
+
+    # Ưu tiên serve challenge files trước
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+        # hoặc proxy_pass nếu chưa có SSL
+    }
+}
+2. Mount volume vào Nginx container
+yamlservices:
+  nginx:
+    image: nginx:alpine
+    volumes:
+      - ./certbot/www:/var/www/certbot   # thêm dòng này
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+
+  certbot:
+    image: certbot/certbot
+    volumes:
+      - ./certbot/www:/var/www/certbot
+      - ./certbot/conf:/etc/letsencrypt
+3. Request cert lại bằng --webroot
+bashdocker compose run --rm certbot certonly \
+  --webroot \
+  -w /var/www/certbot \
+  -d pms.icon-as.cz \
+  --email you@example.com \
+  --agree-tos
+
+Flow đúng sau khi fix
+Let's Encrypt → GET /.well-known/acme-challenge/xxx
+               → Nginx nhận
+               → serve file từ /var/www/certbot ✅
+               → Let's Encrypt xác nhận → cấp cert
+               
+Để cấp cert, Let's Encrypt cần chứng thực bạn thực sự sở hữu domain. Họ dùng giao thức ACME (Automatic Certificate Management Environment). ACME có 2 loại là HTTP challenge và DNS challenge
+
+Flow hoạt động
+```
+1. Certbot nói với Let's Encrypt: "Tôi muốn cert cho pms.icon-as.cz"
+
+2. Let's Encrypt trả về một "challenge token", ví dụ:
+   token = "ino4nBz9FVezrSVki38wCXh98NhABGum0ks"
+
+3. Certbot đặt file đó tại:
+   /var/www/certbot/.well-known/acme-challenge/ino4nBz9FVezrSVki38...
+
+4. Let's Encrypt gọi HTTP vào:
+   GET http://pms.icon-as.cz/.well-known/acme-challenge/ino4nBz9FVezrSVki38...
+
+5. Nếu đọc được file đúng nội dung → "Máy chủ này kiểm soát domain đó" → cấp cert ✅
+   Nếu không đọc được → từ chối ❌
+
+6. Logic của Certbot: "Nếu bạn đặt được file lên server đang chạy domain đó → chứng minh được bạn control server → sở hữu domain"
+```
+DNS challenge hoạt động tương tự HTTP challenge — thay vì đặt file, bạn tạo TXT record trên DNS. Hữu ích khi server không public internet (internal, firewall...).
+
+Lưu ý .well-known là một RFC chuẩn (RFC 8615) — quy ước để các service đặt metadata/file ở một path có thể đoán trước được. Nhiều thứ khác cũng dùng convention này, VD .well-known/openid-configuration
+
+Ví dụ chạy 1 container với DNS challenge để xin cert: `docker compose run --rm certbot certonly --manual --preferred-challenges dns -d pms.icon-as.cz`
+
+#### 5. Xử lý lỗi Certbot không renew được cert
 - Nguyên nhân lỗi: Chứng chỉ monitor.wnew25.com ban đầu được cấu hình renew bằng plugin nginx (authenticator = nginx trong file renewal), nên Certbot cố parse full cấu hình Nginx để tự tạo location challenge.
 - Cấu hình Nginx của bạn khá phức tạp (Lua, include nhiều file, reverse proxy, không có root), khiến Certbot:
   - Lúc thì báo không parse được /etc/nginx/nginx.conf hoặc “No nginx http block found”.
