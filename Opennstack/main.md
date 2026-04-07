@@ -338,6 +338,11 @@ Giải thích các khái niệm
   - Extension Drivers — các tính năng tùy chọn gắn thêm vào port/network như QoS, port security, DNS. Không liên quan đến data plane.
 
 ### Mechanism Drivers (backend/ML2 driver)
+- Chức năng: Biến "khai báo mạng" thành "mạng thật sự hoạt động". Khi chạy các lệnh như `openstack network create my-net`, `openstack router create my-router`, `openstack server create --network my-net my-vm`, Neutron chỉ lưu thông tin vào databasen nhưng chưa thực sự cấu hình ở tầng hệ điều hành và phần cứng.. Backend networking là thứ biến các bản ghi trong DB đó thành hạ tầng mạng thật sự.
+- Cụ thể công việc của backend networking khi bạn tạo một VM và gán vào network:
+    - Trên compute node: tạo virtual port, kết nối VM vào virtual switch (OVS bridge hoặc Linux bridge), áp dụng security group rules (iptables hoặc OVS flows) để filter traffic của VM đó.
+    - Trên network node: tạo router ảo (qrouter namespace với L3 Agent, hoặc logical router trong OVN), cấu hình routing giữa các subnet, setup NAT cho floating IP, chạy DHCP server để VM lấy được IP.
+    - Giữa các node: tạo tunnel (Geneve/VXLAN) để traffic của VM trên compute01 có thể đi sang VM trên compute02, dù hai VM đang ở hai máy vật lý khác nhau.
 - Có các type phổ biến là OVN, openvswitch (mặc định của Neutron) và SR-IOV
 - Hầu hết các installer hiện đại (Kolla-AnsibleOVN, OpenStack-AnsibleOVN, Canonical MicroStack,...) đều mặc định dùng OVN vì đó là hướng phát triển chính của OpenStack từ khoảng bản Yoga (2022) trở đi
 
@@ -358,3 +363,16 @@ Giải thích các khái niệm
 #### 3. SR-IOV
 - Dùng khi cần performance cực cao (telco, HPC). VM được cấp virtual function (VF) của NIC vật lý, bypass hoàn toàn OVS/kernel networking.
 - Latency rất thấp nhưng mất tính flexibility (không dùng được floating IP, security group giới hạn).
+
+---
+
+<img width="801" height="485" alt="image" src="https://github.com/user-attachments/assets/7fb7196d-4f15-4d01-b385-13de01f15b1f" />
+
+Linux Bridge agent — agent chạy trên mỗi compute node, tự tạo bridge bằng lệnh ip link add brq-xxx type bridge khi VM đầu tiên thuộc network đó được lên lịch chạy trên node. Nếu node chưa có VM nào của Network A thì chưa có bridge nào cho Network A. Có bao nhiêu network có VM trên node → có bấy nhiêu bridge.
+OVN (setup của bạn) — ovn-controller tạo br-int ngay khi service khởi động, không cần đợi VM nào. Toàn bộ vòng đời của VM chỉ liên quan đến việc thêm/xóa port trên br-int và cập nhật OVS flow rules — không bao giờ tạo thêm bridge mới.
+br-ex là ngoại lệ — không do agent tạo động, mà được tạo sẵn lúc cài đặt OpenStack (Kolla, manual...) và gán physical interface vào đó một lần duy nhất. Đó là lý do bạn thấy enp1s0 nằm trong br-ex khi chạy ovs-vsctl show.
+
+Trả lời thẳng câu hỏi
+Mỗi node không chỉ có đúng 1 bridge. Số lượng phụ thuộc backend:
+BackendCompute nodeNetwork nodeLinux Bridgebrq-xxx × số network có VMbrq-xxx + vxlan interfaceOVS Agentbr-int + br-tun (cố định)br-int + br-tun + br-exOVN (bạn)br-int duy nhấtbr-int + br-ex
+Với OVN trên cluster của bạn, chạy ovs-vsctl show trên compute01 sẽ chỉ thấy br-int — mọi VM tap interface đều kết nối vào đó, OVS flow tables xử lý phần còn lại trong kernel.
