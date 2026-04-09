@@ -416,7 +416,7 @@ Có 2 cách để đưa biến vào buildtime và runtime
 
 ---
 
-Ví dụ docker-compose đọc env từ file .env
+Ví dụ docker-compose đọc env từ file .env (Docker Compose tự động load file .env nằm cùng thư mục với file docker-compose.yml — đây là behavior mặc định, không cần khai báo gì thêm.)
 ```
 # docker-compose.yml
 version: '3.8'
@@ -458,6 +458,11 @@ Khi nào cần Runtime: Backend và các case sau nên dùng runtime:
 - Port, host, region         → flexible khi deploy
   
 Nguyên tắc cốt lõi là 1 image - nhiều môi trường. Nếu inject build time thì bạn phải build nhiều image riêng cho từng môi trường, rất lãng phí và dễ sai.
+
+---
+
+Lệnh docker compose config rất hữu ích vì nó in ra file compose sau khi đã interpolate tất cả biến,
+
 
 ---
 ### Lấy danh sách services rồi build từng cái
