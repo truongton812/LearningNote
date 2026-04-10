@@ -729,3 +729,42 @@ So sánh 2 mô hình
     - BGP reflector: thay vì mỗi node BGP peer full-mesh với nhau, tất cả peer với một điểm trung tâm này
     - Policy ctrl: dịch NetworkPolicy từ K8s CRD thành rule cụ thể rồi push xuống agent
   - Worker clusters (purple, dưới) — mỗi cluster chỉ còn CNI agent mỏng, chỉ lo data plane: setup veth, apply eBPF/iptables rules, giữ BGP session với reflector ở trên. Không tự tính toán gì. Cross-cluster traffic vẫn dùng BGP, nhưng route decision đã được tính sẵn bởi BGP reflector ở control cluster, không phải bởi từng agent.
+
+---
+
+Port trong Neutron là một virtual network interface — tương tự như một card mạng ảo được cắm vào một switch ảo (Neutron network).
+
+Hình dung đơn giản
+```
+Neutron Network (virtual switch)
+├── Port A  →  gắn vào VM 1  (có IP: 10.0.0.10)
+├── Port B  →  gắn vào VM 2  (có IP: 10.0.0.11)
+└── Port C  →  gắn vào Router (gateway)
+```
+
+Mỗi port có:
+
+- MAC address (do Neutron cấp hoặc tự định nghĩa)
+- IP address (từ subnet được assign)
+- Security group (firewall rules)
+- Binding — biết port này đang chạy trên host nào, dùng OVN/OVS nào
+
+
+Khi một VM được tạo và gắn vào network, Nova sẽ:
+- Gọi Neutron tạo port → nhận MAC + IP
+- OVN agent trên compute node tạo OVS port tương ứng
+- VM's virtual NIC được nối vào OVS port đó
+```
+VM (eth0)
+  └─ tap device
+      └─ OVS bridge (br-int)
+          └─ OVN logical port  ←  đây chính là Neutron port về mặt logical
+```
+
+Trong context Kuryr
+
+Mỗi Pod sẽ được cấp 1 Neutron port riêng → pod nhận IP thật từ Neutron subnet, đứng ngang hàng với VM trên cùng network.
+```
+VM           →  Neutron port (IP: 10.0.0.10)
+Pod trên K8s →  Neutron port (IP: 10.0.0.15)  ← cùng subnet, ping được nhau
+```
