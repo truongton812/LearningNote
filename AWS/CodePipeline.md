@@ -296,3 +296,54 @@ Stage Source trong AWS CodePipeline output ra một artifact chứa mã nguồn 
 ​
 Artifact lưu trữ trong S3 bucket của CodePipeline (ví dụ: codepipeline-{region}-{random}).
 ​
+---
+Namespace trong CodePipeline
+
+Namespace là cách bạn đặt tên cho một nhóm biến được output ra từ một action, để các action khác trong pipeline có thể tham chiếu tới.
+
+Cách hoạt động:
+```
+Source action (namespace = "SourceVariables")
+  → chạy xong → AWS tự populate các biến:
+      SourceVariables.BranchName
+      SourceVariables.CommitId
+      SourceVariables.CommitMessage
+      SourceVariables.FullRepositoryName
+
+Build action đọc:
+  → "#{SourceVariables.BranchName}"   ← cú pháp tham chiếu
+```
+
+Khai báo trong Terraform
+```
+action {
+  name      = "Source"
+  category  = "Source"
+  namespace = "SourceVariables"   # ← đặt tên namespace ở đây
+  ...
+}
+```
+
+Sau đó dùng ở action khác:
+```
+configuration = {
+  EnvironmentVariables = jsonencode([{
+    name  = "BRANCH_NAME"
+    value = "#{SourceVariables.BranchName}"   # ← tham chiếu
+    type  = "PLAINTEXT"
+  }])
+}
+```
+
+Lưu ý 
+- tên namespace là tự đặt. Có 1 built-in namespace tên codepipeline chứa các thông tin như PipelineExecutionId,... `#{codepipeline.PipelineExecutionId}`
+- Nếu không khai báo namespace → action đó không expose biến nào ra ngoài
+- Cú pháp tham chiếu luôn là #{NamespaceName.VariableName}
+- Chỉ các action phía sau mới đọc được biến của action phía trước
+- Các biến có sẵn khi dùng CodeStarSourceConnection với namespace SourceVariables:
+```
+SourceVariables.BranchName
+SourceVariables.CommitId
+SourceVariables.CommitMessage
+SourceVariables.FullRepositoryName
+```
