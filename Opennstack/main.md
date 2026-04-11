@@ -411,3 +411,88 @@ Compute node 1                    Compute node 2
 - ovn-controller tạo br-int ngay khi service khởi động, không cần đợi VM nào. Toàn bộ vòng đời của VM chỉ liên quan đến việc thêm/xóa port trên br-int và cập nhật OVS flow rules — không bao giờ tạo thêm bridge mới.
 br-ex là ngoại lệ — không do agent tạo động, mà được tạo sẵn lúc cài đặt OpenStack (Kolla, manual...) và gán physical interface vào đó một lần duy nhất. Đó là lý do bạn thấy enp1s0 nằm trong br-ex khi chạy ovs-vsctl show.
 - Khi gõ lệnh `ovs-vsctl show` trên compute node sẽ chỉ thấy 1 br-int và mọi VM tap interface đều kết nối vào đó. OVS gán tunnel key (còn gọi là VNI — Virtual Network Identifier) cho các packets đến từ các network khác nhau (VD Net-A gán tunnel key 100, Net-B gán tunnel key 200). OVS flow tables trong kernel có rule để xử lý dựa trên tunnel key
+
+---
+
+Port trong Neutron là một virtual network interface — tương tự như một card mạng ảo được cắm vào một switch ảo (Neutron network).
+
+Hình dung đơn giản
+```
+Neutron Network (virtual switch)
+├── Port A  →  gắn vào VM 1  (có IP: 10.0.0.10)
+├── Port B  →  gắn vào VM 2  (có IP: 10.0.0.11)
+└── Port C  →  gắn vào Router (gateway)
+```
+
+Mỗi port có:
+
+- MAC address (do Neutron cấp hoặc tự định nghĩa)
+- IP address (từ subnet được assign)
+- Security group (firewall rules)
+- Binding — biết port này đang chạy trên host nào, dùng OVN/OVS nào
+
+
+Khi một VM được tạo và gắn vào network, Nova sẽ:
+- Gọi Neutron tạo port → nhận MAC + IP
+- OVN agent trên compute node tạo OVS port tương ứng
+- VM's virtual NIC được nối vào OVS port đó
+```
+VM (eth0)
+  └─ tap device
+      └─ OVS bridge (br-int)
+          └─ OVN logical port  ←  đây chính là Neutron port về mặt logical
+```
+
+Trong context Kuryr
+
+Mỗi Pod sẽ được cấp 1 Neutron port riêng → pod nhận IP thật từ Neutron subnet, đứng ngang hàng với VM trên cùng network.
+```
+VM           →  Neutron port (IP: 10.0.0.10)
+Pod trên K8s →  Neutron port (IP: 10.0.0.15)  ← cùng subnet, ping được nhau
+```
+
+
+Flow hoạt động từ trên xuống dưới
+- Bước 1 — Người dùng tạo VM `openstack server create --network my-network my-vm`. -> Nova gọi Neutron: "Tao cần 1 port trên network my-network"
+- Bước 2 — Neutron tạo Port (logical). Neutron lưu vào database:
+```
+Port {
+  id:         "abc-123"
+  network_id: "my-network"
+  mac:        "fa:16:3e:xx:xx:xx"
+  ip:         "10.0.0.10"
+  status:     ACTIVE
+  binding:    compute-node-01      ← port này nằm ở host nào
+}
+```
+Đây là Neutron port — chỉ là bản ghi logical, chưa có gì trên host.
+
+- Bước 3 — OVN Agent hiện thực hóa xuống host: OVN controller trên compute-node-01 nhận thông tin từ OVN Northbound DB, tạo ra thực thể vật lý:
+```
+compute-node-01:
+  tap-abc123          ← tap device (kernel)
+      └─ br-int       ← OVS bridge
+          └─ OVS port "tap-abc123"  ← đây là "virtual port" trên OVS (hay còn goi là OVS port)
+
+OVS port này chính là hiện thực hóa của Neutron port xuống data plane.
+```
+- Bước 4 — VM boot, gắn vào tap device
+```
+VM (eth0)  ──────────►  tap-abc123  ──►  br-int (OVS)  ──►  mạng
+           vNIC của VM      ↑
+                        do QEMU tạo,
+                        nối vào tap
+```
+
+Tóm tắt quan hệ
+```
+Neutron Port          =   logical record trong Neutron DB
+                                  │
+                                  │  OVN agent "hiện thực hóa"
+                                  ▼
+OVS Port (tap device) =   virtual port thật sự trên kernel/OVS
+                                  │
+                                  │  QEMU nối vào
+                                  ▼
+                          vNIC bên trong VM
+```
