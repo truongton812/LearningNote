@@ -17,84 +17,14 @@
   - Quy trình để plugin delegate (gọi nhúng) plugin con để xử lý phần việc, ví dụ: host-local delegate cho IPAM
   - Định dạng JSON chuẩn cho plugin trả kết quả cho runtime
 
-- Ví dụ cluster dùng CNI plugin Calico và container runtime là containerd, mỗi khi chạy lệnh `kubectl run nginx --image=nginx`, Kubernetes sẽ yêu cầu containerd khởi tạo container. containerd sẽ liên hệ với CNI plugin để “gắn” mạng cho container đó.
+- Ví dụ cluster dùng CNI plugin Calico và container runtime là containerd, mỗi khi chạy lệnh `kubectl run nginx --image=nginx`, Kubernetes sẽ yêu cầu containerd khởi tạo container. containerd sẽ liên hệ với CNI plugin để attach mạng cho container đó. Giao tiếp giữa containerd và CNI plugin phải tuân theo chuẩn do CNI Specification đặt ra:
   - Admin cần định nghĩa cấu hình mạng trong thư mục `/etc/cni/net.d/10-calico.conflist` theo chuẩn CNI specification (mạng tên gì, dùng plugin gì, dải IP cho pod là gì,...)
-2. Giao thức chuẩn để runtime gửi request tới plugin CNI.
-Khi runtime (containerd) muốn “gắn mạng” cho container nginx, nó sẽ:
-- Đọc file config CNI ở trên.
-- Gọi file thực thi plugin CNI theo chuẩn, ví dụ: `/opt/cni/bin/calico ADD` -> Dữ liệu config (như JSON bên trên) được đưa vào stdin của lệnh này
+  - Containerd đọc file config CNI và gọi file plugin CNI binary Calico theo chuẩn, ví dụ: `/opt/cni/bin/calico ADD`
+  - Plugin Calico thực thi theo quy chuẩn. Ví dụ: Tạo veth pair trong container -> Gán IP từ dải mới cho container -> Cập nhật iptables/routes nếu cần.
+  - Quy trình để CNI plugin Calico có thể gọi các CNI plugins khác xử lý công việc
+  - Plugin trả kết quả về cho containerd theo định dạng JSON chuẩn. Containerd sẽ dựa vào kết quả này để gắn IP đúng cho interface trong container, thiết lập default gateway, routes....
 
-3. Quy trình để thực thi các plugins dựa trên network configuration
-
-Các plugin thực thi theo quy chuẩn CNI đặt ra. Ví dụ:
-- Tạo veth pair trong container.
-- Gán IP từ dải mới cho container.
-- Cập nhật iptables/routes nếu cần.
-
-4.  Quy trình để plugin delegate (gọi nhúng) plugin con để xử lý phần việc
-Giả sử config CNI của bạn là file conflist (nhiều plugin):
-```
-{
-  "cniVersion": "0.8.0",
-  "name": "mynet",
-  "plugins": [
-    {
-      "type": "calico" # calico plugin
-    },
-    {
-      "type": "portmap", #portmap plugin
-      "capabilities": { "portMappings": true }
-    }
-  ]
-}
-```
-
-Khi runtime chạy:
-- Đầu tiên gọi calico ADD → gán IP cho pod.
-- Sau đó gọi portmap ADD → cấu hình port forward (ví dụ port 80 từ host sang pod).
-
-→ Plugin calico có thể delegate (nhường lại) phần port mapping cho plugin portmap → đây là quy trình uỷ quyền cho plugin khác.
-
-5. Định dạng JSON chuẩn cho plugin trả kết quả cho runtime
-Sau khi plugin xử lý, nó phải trả về một JSON có dạng chuẩn, ví dụ:
-```
-{
-  "cniVersion": "0.8.0",
-  "interfaces": [
-    {
-      "name": "eth0",
-      "mac": "aa:bb:cc:dd:ee:ff"
-    }
-  ],
-  "ips": [
-    {
-      "version": "4",
-      "address": "192.168.0.10/24",
-      "gateway": "192.168.0.1"
-    }
-  ]
-}
-```
-Runtime (containerd) đọc ips và interfaces này để:
-- Gắn IP đúng cho interface trong container.
-- Thiết lập default gateway, routes.
-
-
-
-
----
-Bạn hoàn toàn có thể viết CNI plugin/custom CNI riêng chứ không bị giới hạn chỉ dùng các plugin phổ biến như Calico, Flannel, Cilium, Amazon VPC CNI, v.v.
-
-
-Một custom CNI plugin là chương trình (thường là một binary) trên mỗi node thỏa mãn:
-- Nhận đúng input (stdin JSON) theo CNI spec:
-- ADD, DEL, CHECK command.
-- chứa CNI_COMMAND, CNI_CONTAINERID, CNI_NETNS, CNI_IFNAME, CNI_ARGS, CNI_PATH, và cấu hình mạng.
-- Trả về đúng output (stdout JSON) theo spec: IP, interface, gateway, routes, DNS… để runtime gắn vào pod.
-
-Về cơ bản, bạn có thể viết bằng bất kỳ ngôn ngữ nào (Go, Bash, Python, Rust…) miễn là nó ra một binary chạy đúng giao thức CNI.
-
-Ví dụ một repo custom-cni mô tả cách viết một CNI plugin đơn giản cho k8s: https://github.com/ronak-agarwal/custom-cni
+- Về cơ bản, có thể tự viết CNI plugin bằng bất kỳ ngôn ngữ nào (Go, Bash, Python, Rust…) miễn là nó ra một binary chạy đúng giao thức CNI. Ví dụ một repo custom-cni mô tả cách viết một CNI plugin đơn giản cho k8s [custom-cni](https://github.com/ronak-agarwal/custom-cni).
 
 ---
 
