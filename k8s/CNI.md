@@ -732,3 +732,92 @@ So sánh 2 mô hình
 
 ---
 
+OVS-CNI chỉ làm một việc: gắn pod vào một OVS bridge có sẵn trên host. Nó không:
+- Gọi Neutron API
+- Tạo Neutron port
+- Xin IP từ Neutron subnet
+
+Nó chỉ là dây nối pod vào OVS bridge, còn bridge đó là gì, của ai, thì OVS-CNI không quan tâm.
+
+Nếu muốn pod nhận IP từ Neutron. OVS-CNI một mình không làm được điều đó, cần phải tự handle phần Neutron, có 2 hướng:
+- Hướng 1 — Pre-provisioned port (thủ công / script)
+Tự tạo Neutron port trước, rồi dùng OVS-CNI gắn pod vào port đó.
+```
+1. Tạo Neutron port thủ công:
+   openstack port create --network my-net --fixed-ip ip-address=10.0.0.20 pod-port-1
+
+2. Add port vào trunk của node VM:
+   openstack trunk set --subport port=pod-port-1,segmentation-type=vlan,segmentation-id=100 my-trunk
+
+3. OVS-CNI config trong pod annotation:
+   gắn pod vào OVS bridge với VLAN tag 100
+
+4. Pod lên với IP 10.0.0.20
+Nhược điểm: không tự động, không scale được.
+```
+
+-Hướng 2 — Viết custom CNI / controller gọi Neutron API: Tự viết một controller (hoặc dùng Network Operator) để:
+  - Watch pod creation
+  - Gọi Neutron API tạo port
+  - Truyền thông tin xuống OVS-CNI
+
+---
+
+Trunk Port là gì
+- Bình thường, một VM có normal port — port này chỉ carry 1 network, traffic đi vào/ra không có VLAN tag.
+- Trunk port là port đặc biệt cho phép carry nhiều network cùng lúc, mỗi network được phân biệt bằng VLAN tag.
+
+Tại sao node VM cần trunk port
+- Node VM của K8s cần chạy nhiều pod, mỗi pod có thể thuộc network Neutron khác nhau.
+- Nếu dùng normal port, node VM chỉ biết 1 network → không thể phân biệt traffic của pod này với pod kia.
+```
+Normal port:
+  Node VM  ──[port]──►  Network A only
+                         (chỉ 1 network, không phân biệt được pod)
+
+Trunk port:
+  Node VM  ──[trunk]──►  Network A  (VLAN 100)  ← pod 1
+                      ──►  Network B  (VLAN 200)  ← pod 2
+                      ──►  Network C  (VLAN 300)  ← pod 3
+```
+
+Flow cụ thể
+Không có trunk — traffic bị chặn
+```
+Pod (IP: 10.0.0.20, Network A)
+  └─ veth
+      └─ OVS bridge trên node
+          └─ normal port của node VM
+              └─ OVN thấy packet từ MAC lạ (không phải VM)
+                  └─ DROP  ❌
+OVN drop vì MAC của pod không được đăng ký trên port đó — port spoofing protection.
+```
+
+Có trunk — traffic đi được
+```
+Pod (IP: 10.0.0.20, Network A)
+  └─ veth
+      └─ OVS bridge trên node
+          └─ VLAN tag 100 được gắn vào packet
+              └─ trunk port của node VM
+                  └─ OVN nhận packet, thấy VLAN 100
+                      └─ map sang sub-port của Network A  ✅
+                          └─ forward bình thường
+```
+
+Sub-port là gì: Trunk có 1 parent port (port chính của node VM) và nhiều sub-port (mỗi sub-port = 1 Neutron port của pod).
+```
+Trunk
+├── parent-port  →  node VM eth0  (IP: 192.168.1.10, không tag)
+├── sub-port A   →  pod-1         (IP: 10.0.0.20, VLAN 100)
+└── sub-port B   →  pod-2         (IP: 10.0.1.30, VLAN 200)
+```
+Khi add pod port vào trunk:
+```
+openstack trunk set \
+  --subport port=<pod-neutron-port-id>,\
+            segmentation-type=vlan,\
+            segmentation-id=100 \
+  <trunk-name>
+```
+Lệnh này nói với OVN: "traffic VLAN 100 đi qua trunk này là của pod-port-id đó".
