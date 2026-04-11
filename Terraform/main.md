@@ -1902,3 +1902,40 @@ text
 ​
 
 Khi bạn dùng provisioner "local_exec" bên trong null_resource thì lệnh sẽ chạy trên chính máy đang chạy terraform apply (nơi có local_exec được định nghĩa).
+```
+---
+### giải thích structure của jsonencode và hcl langugague
+
+
+#### HCL block syntax
+Dùng khi viết resource, policy document dạng HCL thuần (ví dụ aws_iam_policy_document):
+```
+condition {
+  test     = "StringLike"
+  variable = "iam:PassedToService"
+  values   = ["ecs-tasks.amazonaws.com"]
+}
+```
+HCL dùng block với các argument test, variable, values — đây là cú pháp riêng của Terraform, không phải JSON.
+
+#### jsonencode syntax
+Dùng khi bạn đang viết JSON nhưng bằng Terraform syntax — phải map 1:1 với structure của JSON thực:
+```
+Condition = {
+  StringLike = {
+    "iam:PassedToService" = "ecs-tasks.amazonaws.com"
+  }
+}
+```
+Vì JSON thực của AWS trông như thế này:
+```
+"Condition": {
+  "StringLike": {
+    "iam:PassedToService": "ecs-tasks.amazonaws.com"
+  }
+}
+```
+
+Tóm lại sự khác nhau
+- HCL block: Dùng khi `aws_iam_policy_document` data source. 
+- jsonencode: Dùng khi policy = jsonencode({...}) 
