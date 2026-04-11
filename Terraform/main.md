@@ -22,6 +22,7 @@ Terraform hoạt động qua các phases:
 - option `-resfresh=false` để bypass việc refresh Terraform state
 - `Terraform destroy` : dùng để xóa tất cả resource. Tuy nhiên best practice là comment các resource muốn xóa và apply lại
 - `Terraform graph` : visualize ra mối quan hệ dependencies giữa các resource (cần phải cài phần mềm đọc format dot)
+- `terraform console`: Provides an interactive shell for evaluating and experimenting with expressions and variable values within your configuration. 
 
 ## 2. Hashicorp Configuration Language
 
