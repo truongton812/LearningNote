@@ -1,52 +1,24 @@
-CNI (Container Network Interface) là một đặc tả (specification) và bộ thư viện dùng để cấu hình network interfaces cho các container trong Linux.
+# Container Network Interface (CNI)
 
-CNI định nghĩa một giao diện chuẩn giữa container runtime (như Kubernetes, Podman) và các network plugin, giúp chúng hoạt động với nhau mà không cần phụ thuộc vào nhau.
+## 1. Định nghĩa
 
-Các thành phần chính của CNI
-1. Specification (Đặc tả): Định nghĩa cách một plugin nhận input và trả output — thông qua biến môi trường và stdin/stdout theo định dạng JSON.
-2. Plugin: Là các file thực thi (executables) thực hiện việc cấu hình mạng. Có hai loại:
-- Interface plugin: tạo network interface (ví dụ: bridge, macvlan, ipvlan)
-- Chained plugin: bổ sung thêm tính năng (ví dụ: portmap, bandwidth, firewall)
+- CNI là interface giữa container runtime (như containerd, podman,...) và các network plugin, giúp chúng hoạt động với nhau mà không cần phụ thuộc vào nhau.
+- Các thành phần của CNI
+  - Specification: Định nghĩa cách một plugin nhận input và trả output — thông qua biến môi trường và stdin/stdout theo định dạng JSON.
+  - Plugin: Là các file thực thi (executables) thực hiện việc cấu hình mạng.
+  - Library (libcni): Thư viện Go giúp tích hợp CNI vào container runtime dễ dàng hơn.
 
-3. Library (libcni): Thư viện Go giúp tích hợp CNI vào container runtime dễ dàng hơn.
+### 1.1. CNI specification
 
----
-### CNI specification
+- CNI specification định nghĩa ra:
+  - Định dạng chuẩn (thường là file JSON/YAML) để admin định nghĩa cấu hình mạng
+  - Giao thức chuẩn (gọi qua command-line như plugin_linux ADD/DEL) để runtime (containerd, CRI-O, Docker) gửi request tới plugin CNI.
+  - Quy trình để thực thi các plugins dựa trên network configuration ở trên
+  - Quy trình để plugin delegate (gọi nhúng) plugin con để xử lý phần việc, ví dụ: host-local delegate cho IPAM
+  - Định dạng JSON chuẩn cho plugin trả kết quả cho runtime
 
-The CNI specification defines:
-- Định dạng chuẩn (thường là file JSON/YAML) để admin định nghĩa cấu hình mạng
-- Giao thức chuẩn (gọi qua command-line như plugin_linux ADD/DEL) để runtime (containerd, CRI-O, Docker) gửi request tới plugin CNI.
-- Quy trình để thực thi các plugins dựa trên network configuration ở trên
-- Quy trình để plugin delegate (gọi nhúng) plugin con để xử lý phần việc, ví dụ: host-local delegate cho IPAM, tạo chain linh hoạt.
-- Định dạng JSON chuẩn cho plugin trả kết quả cho runtime
-
-#### Ví dụ thực tế
-
-Giả sử cluster dùng CNI plugin là Calico để cấp IP cho pod và container runtime là containerd
-
-Mỗi khi bạn chạy lệnh: kubectl run nginx --image=nginx. Kubernetes sẽ: Tạo một pod. Sau đó yêu cầu container runtime (ở đây là containerd) khởi tạo container. Container runtime sẽ liên hệ với CNI plugin để “gắn” mạng cho container đó.
-
-1. Định dạng chuẩn (thường là file JSON/YAML) để admin định nghĩa cấu hình mạng
-Đây là file config CNI mà admin (bạn) định nghĩa, ví dụ 1 file như 10-calico.conflist:
-```
-{
-  "cniVersion": "0.8.0",
-  "name": "mynet",
-  "plugins": [
-    {
-      "type": "calico",
-      "etcd_endpoints": "https://10.0.0.3:2379",
-      "subnet": "192.168.0.0/16"
-    }
-  ]
-}
-```
-
-Ý nghĩa: Bạn nói với CNI:
-- Mạng này tên là mynet.
-- Dùng plugin calico.
-- Dải IP cho pod là 192.168.0.0/16.
-
+- Ví dụ cluster dùng CNI plugin Calico và container runtime là containerd, mỗi khi chạy lệnh `kubectl run nginx --image=nginx`, Kubernetes sẽ yêu cầu containerd khởi tạo container. containerd sẽ liên hệ với CNI plugin để “gắn” mạng cho container đó.
+  - Admin cần định nghĩa cấu hình mạng trong thư mục `/etc/cni/net.d/10-calico.conflist` theo chuẩn CNI specification (mạng tên gì, dùng plugin gì, dải IP cho pod là gì,...)
 2. Giao thức chuẩn để runtime gửi request tới plugin CNI.
 Khi runtime (containerd) muốn “gắn mạng” cho container nginx, nó sẽ:
 - Đọc file config CNI ở trên.
