@@ -24,232 +24,205 @@
   - Quy trình để CNI plugin Calico có thể gọi các CNI plugins khác xử lý công việc
   - Plugin trả kết quả về cho containerd theo định dạng JSON chuẩn. Containerd sẽ dựa vào kết quả này để gắn IP đúng cho interface trong container, thiết lập default gateway, routes....
 
-- Về cơ bản, có thể tự viết CNI plugin bằng bất kỳ ngôn ngữ nào (Go, Bash, Python, Rust…) miễn là nó ra một binary chạy đúng giao thức CNI. Ví dụ một repo custom-cni mô tả cách viết một CNI plugin đơn giản cho k8s [custom-cni](https://github.com/ronak-agarwal/custom-cni).
+### 1.2. CNI Plugin và CNI agent
 
----
+CNI trong K8s gồm 2 phần tách biệt là CNI plugin và CNI agent
 
-Để chỉ định pod thuộc mạng dbnet (mạng CNI bạn vừa định nghĩa), bạn có 2 trường hợp chính:
-- Nếu dbnet là mạng mặc định của cụm → pod tự động thuộc mạng đó.
-- Nếu trong cụm có nhiều CNI/mạng → bạn cần dùng Multus + NetworkAttachmentDefinition để chỉ định pod dùng đúng CNI config dbnet.
+#### 1.2.1. CNI plugin
+- Là các file binary (ví dụ /opt/cni/bin/flannel, /opt/cni/bin/calico) được kubelet gọi trực tiếp khi tạo/xóa pod. Chúng chạy như một process tạm thời (fork từ kubelet), KHÔNG chạy dưới dạng pod.
+- Về cơ bản, có thể tự viết CNI plugin bằng bất kỳ ngôn ngữ nào (Go, Bash, Python, Rust…) miễn là nó ra một binary chạy đúng giao thức CNI. Ví dụ một repo [custom-cni](https://github.com/ronak-agarwal/custom-cni) mô tả cách viết một CNI plugin đơn giản cho k8s .
 
+#### 1.2.2. CNI agent
+- Là control plane của CNI (quản lý routing, IPAM, policy...) thường chạy dưới dạng DaemonSet Pod làm các nhiệm vụ:
+  - Copy binary vào /opt/cni/bin/
+  - Ghi config vào /etc/cni/net.d/
+  - Quản lý routes, iptables/eBPF rules
+  - Sync trạng thái giữa các node
+- Flow thực tế khi tạo pod: kubelet đọc /etc/cni/net.d/*.conf → fork binary /opt/cni/bin/<plugin> → plugin setup veth pair, IP, routes → done (binary thoát). DaemonSet pod chỉ đảm bảo binary + config luôn có mặt và routes luôn đúng, không tham gia trực tiếp vào quá trình tạo network cho từng pod.
+- DaemonSet pod của CNI thường dùng hostNetwork: true và mount /opt/cni/bin, /etc/cni/net.d từ host — vì nó cần can thiệp vào network namespace của host, không phải của chính nó.
+- CNI controller có 2 phần là Control Plane và Data Plane. Mặc định 2 plane nằm trong cùng 1 daemon
+  - Control Plane có nhiệm vụ:
+    - Cấp phát IP cho pod (IPAM), track IP nào đang dùng
+    - Policy decisionNetwork: Policy A có cho phép pod B nói chuyện với pod C không
+    - Routing decision: Pod 10.0.1.5 nằm ở node nào, đi đường nào
+    - BGP route calculation: Tính toán route tối ưu giữa các node
+    - Watch K8s events: Lắng nghe CRD, NetworkPolicy, Pod thay đổi
+  - Data Plane có nhiệm vụ:
+    - veth pair: Tạo virtual cable nối pod vào host
+    - networkIP assignment: Gán IP thực tế vào interface của pod
+    - iptables / eBPF rules: Apply rule "chặn" hoặc "cho qua"
+    - packetRoute table: Ghi route vào kernel để packet đi đúng hướng
+    - Encapsulation: Wrap packet VXLAN/Geneve khi gửi sang node khác
 
-#### Trường hợp 1: dbnet là mạng CNI chính của cụm
-Khi bạn đã đặt file config vào /etc/cni/net.d/xxxx-dbnet.conflist trên tất cả worker node thì mặc định mọi pod sẽ dùng mạng này cho interface chính (eth0).
-
-#### Trường hợp 2: Cụm dùng nhiều mạng → muốn pod dùng dbnet (custom CNI)
-Nếu cluster đang dùng một CNI mặc định (ví dụ: Calico/Cilium), mà bạn muốn một số pod (đặc biệt là DB) dùng riêng mạng dbnet, bạn cần:
-- Cài Multus CNI - là một “meta CNI plugin” cho phép gắn nhiều interfaces với nhiều mạng khác nhau cho một pod. Multus sẽ đọc các file CNI config (ví dụ: dbnet, default, management) và expose cho Kubernetes dưới dạng NetworkAttachmentDefinition.
-- Tạo NetworkAttachmentDefinition cho dbnet
+**Control plane không động vào packet nào cả — nó chỉ tính toán và cài rule xuống trước. Data plane xử lý mọi packet mà không cần hỏi lại control plane.**
+- Trong các kiến trúc mạng đặc thù có thể tách phần Control Plane ra đặt ở một cluster trung tâm chỉ để lo phần logic (IPAM, policy, routing decisions). Agent trên mỗi node chỉ lo việc setup veth pair / eBPF rules (data plane thuần túy) và gọi lên Control Cluster để xin IP, lấy policy. Đây chính xác là hướng mà Cilium Enterprise và Calico Enterprise đang đi với mô hình centralized control plane + distributed data plane.
 ```
-apiVersion: k8s.cni.cncf.io/v1
-kind: NetworkAttachmentDefinition
-metadata:
-  name: dbnet
-  namespace: default
-spec:
-  config: '{ #config ở đây là phiên bản thu gọn của file CNI dbnet bạn có, chuyển thành JSON trong chuỗi.
-    "cniVersion": "1.1.0",
-    "type": "bridge",
-    "bridge": "cni0",
-    "ipam": {
-      "type": "host-local",
-      "subnet": "10.1.0.0/16",
-      "gateway": "10.1.0.1"
-    }
-  }'
+┌──────────────────────────────────┐
+│         CNI Control Cluster      │
+│                                  │
+│  ┌─────────┐  ┌───────────────┐  │
+│  │  IPAM   │  │  BGP Route    │  │
+│  │ Server  │  │  Reflector    │  │
+│  └─────────┘  └───────────────┘  │
+│  ┌─────────────────────────────┐ │
+│  │  Policy Controller / CRD   │ │
+│  └─────────────────────────────┘ │
+└──────────┬───────────────────────┘
+           │ gRPC / REST / BGP
+    ┌──────┴──────┐
+    ▼             ▼
+┌────────┐   ┌────────┐
+│Cluster │   │Cluster │  ← mỗi cluster vẫn có
+│   A    │   │   B    │    CNI agent (DaemonSet)
+│(agent) │   │(agent) │    nhưng agent rất "mỏng"
+└────────┘   └────────┘
 ```
 
 
-Sau đó gắn pod vào mạng dbnet qua annotation
+Khác với CNI binary chỉ chạy 1 lần khi pod create/delete rồi exit ngay sau khi xong việc, CNI daemon cần phải chạy liên tục để:
+- Duy trì routing table: Node A biết pod 10.0.1.5 nằm ở Node B. Nếu Node B reboot → IP thay đổi → Daemon phải update route ngay lập tức → Nếu daemon không chạy: traffic bị blackhole
+- BGP peering (nếu dùng Calico/Cilium): Daemon giữ BGP session liên tục với các node khác. Session drop → toàn bộ cross-node traffic mất
+- Watch K8s events: khi NetworkPolicy thay đổi → Daemon nhận event → Update iptables/eBPF rules ngay lập tức. Nếu daemon chết policy cũ vẫn còn nhưng policy mới không được apply
+- Health check & sync định kỳ: So sánh desired state vs actual state trên node, phát hiện drift (ai đó chạy iptables -F chẳng hạn) và reconcile lại
 
-```
-apiVersion: v1
-kind: Pod
-metadata:
-  name: db-pod
-  namespace: default
-  annotations:
-    k8s.v1.cni.cncf.io/networks: dbnet
-```
+Nếu tách control plane ra thì Daemon trở thành pure data plane agent, vẫn chạy liên tục nhưng logic gọn hơn (giữ BGP session, reconcile loop, và rule enforcement)
+
+
+So sánh 2 mô hình
+- Distributed control plane
+
+<img width="661" height="513" alt="image" src="https://github.com/user-attachments/assets/22413f66-c248-488c-8433-aab4058dd63c" />
+  - Mỗi node là một bản sao hoàn chỉnh — control plane và data plane cùng nằm trong một CNI daemon. Không có node nào là "master", tất cả ngang hàng.
+  - Watch events đi trực tiếp — mỗi node tự watch K8s API server để lấy NetworkPolicy, Pod events. Không qua trung gian nào.
+  - BGP full mesh là điểm đáng chú ý nhất: 3 nodes = 3 sessions, 10 nodes = 45 sessions, 100 nodes = 4950 sessions. Đây là lý do Calico khuyến nghị dùng BGP Route Reflector (tức là một phần của mô hình centralized) khi cluster vượt quá ~50 nodes — để giảm từ O(N²) xuống còn O(N) sessions.
+
+- Central control plane
+
+<img width="671" height="561" alt="image" src="https://github.com/user-attachments/assets/a6e26f2a-b49a-4c0a-bfcc-3206e7c87139" />
+
+  - K8s control plane (dashed, trên cùng) — không đổi so với K8s thông thường.
+  - CNI control cluster watch API server để lấy NetworkPolicy, Pod events, CRD changes. Ba thành phần core:
+    - IPAM: cấp phát IP pool cho từng cluster
+    - BGP reflector: thay vì mỗi node BGP peer full-mesh với nhau, tất cả peer với một điểm trung tâm này
+    - Policy ctrl: dịch NetworkPolicy từ K8s CRD thành rule cụ thể rồi push xuống agent
+  - Worker clusters (purple, dưới) — mỗi cluster chỉ còn CNI agent mỏng, chỉ lo data plane: setup veth, apply eBPF/iptables rules, giữ BGP session với reflector ở trên. Không tự tính toán gì. Cross-cluster traffic vẫn dùng BGP, nhưng route decision đã được tính sẵn bởi BGP reflector ở control cluster, không phải bởi từng agent.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## 2. Gán mạng cho Pod
+- Trong kubernetes, khi 1 Pod được tạo ra, nó chỉ có một network namespace rỗng, không thể giao tiếp với các Pod khác. CNI plugin sẽ tạo veth, gán IP, rồi đưa một đầu veth vào trong namespace của pod. Veth pair là cầu nối cho phép packet đi xuyên qua ranh giới namespace mà không cần routing hay NAT. Packet xuất hiện ở 1 đầu của pair thì luôn luôn xuất hiện ở đầu còn lại
+- Mặc định CNI chỉ attach 1 network vào interface chính của pod (eth0). Runtime đọc file .conf có số thứ tự thấp nhất trong thư mục `/etc/cni/net.d/` và dùng nó. Mọi pod đều vào cùng một flat network.
+- Nếu muốn nhiều interface / nhiều mạng trên cùng một pod, cần dùng Multus CNI đứng trước các CNI khác. Multus CNI là một `meta CNI plugin` cho phép gắn nhiều interfaces thuộc nhiều mạng khác nhau cho một pod
+
+### 2.1 Cách Multus hoạt động
+- Multus sẽ đọc các file CNI config (ví dụ: dbnet, default, management) và expose cho Kubernetes dưới dạng `NetworkAttachmentDefinition` resource. VD:
+  ```
+  apiVersion: k8s.cni.cncf.io/v1
+  kind: NetworkAttachmentDefinition
+  metadata:
+    name: dbnet
+    namespace: default
+  spec:
+    config: '{ #config ở đây là phiên bản thu gọn của file CNI dbnet bạn có, chuyển thành JSON trong chuỗi.
+      "cniVersion": "1.1.0",
+      "type": "bridge",
+      "bridge": "cni0",
+      "ipam": {
+        "type": "host-local",
+        "subnet": "10.1.0.0/16",
+        "gateway": "10.1.0.1"
+      }
+    }'
+  ```
+
+- Attach dbnet network vào pod thông qua annotation
+
+  ```
+  apiVersion: v1
+  kind: Pod
+  metadata:
+    name: db-pod
+    namespace: default
+    annotations:
+      k8s.v1.cni.cncf.io/networks: dbnet
+  ```
 
 → Khi pod chạy: Interface chính (eth0) do CNI mặc định (Calico/Cilium…) tạo. Interface thứ hai (ví dụ: net1) sẽ thuộc mạng dbnet (nếu dùng Multus kết hợp CNI mặc định).
 
-Nếu bạn muốn pod chỉ dùng mạng dbnet hoàn toàn, thì bạn phải cấu hình Multus để đặt dbnet làm interface chính (thay đổi cấu hình Multus trên node).
+- Nếu muốn pod chỉ dùng mạng dbnet hoàn toàn, thay đổi cấu hình Multus trên node để đặt dbnet làm interface chính.
 
----
-
-### Intra-node Container Networking 
-- là giao tiếp giữa các container trong cùng một node. Lúc này Linux kernel sẽ xử lý toàn bộ traffic, không cần đi qua NIC vật lý.
-
-```
-[ Container A ]     [ Container B ]
-  eth0 (veth0)        eth0 (veth1)
-       |                   |
-  veth0 <pair>        veth1 <pair>
-  ┌────┴───────────────────┴────┐
-  │        Linux Bridge         │  ← docker0 / cni0 / cbr0
-  │     (Layer 2 switching)     │
-  └─────────────────────────────┘
-```
-
-- Bridge thực hiện MAC-based forwarding (L2), hoặc kernel routing nếu khác subnet (L3). Ưu điểm là latency rất thấp vì chỉ là memory copy giữa các network namespace.
-
-- Trong Kubernetes: bridge thường là cni0, do CNI plugin tạo ra.
-
-### Inter-node Container Networking
-- Là trường hợp các container giao tiếp khác node, phức tạp hơn vì packet phải đi qua mạng vật lý (underlay). Có nhiều cách để giải quyết bài toán này:
-  - Overlay Network (VXLAN / Geneve): Dùng bởi Flannel VXLAN, Calico VXLAN, Cilium. Pod IP packet được đóng gói (encapsulate) vào UDP frame trước khi gửi qua mạng vật lý. Ưu điểm: Không yêu cầu cấu hình router/switch phức tạp. Nhược điểm: Overhead encap/decap, MTU phải giảm (~50 bytes cho VXLAN header).
-  - Native Routing (BGP / Direct Route): Dùng bởi: Calico BGP, Cilium native routing, Flannel host-gw. Ưu điểm: Performance tốt nhất, không MTU overhead, dễ debug. Nhược điểm: Yêu cầu router/switch hỗ trợ, hoặc tất cả node phải cùng L2 segment (với host-gw).
-  - eBPF Datapath: Dùng bởi: Cilium
-
-
-### Linux bridge 
-- là một virtual network switch được implement trong Linux kernel — hoạt động giống hệt một con switch vật lý Layer 2, nhưng hoàn toàn bằng software. Thay vì port vật lý, bridge có các network interface gắn vào làm port.
-- Cách hoạt động: Bridge duy trì một Forwarding Database (FDB) — bảng ánh xạ MAC address → port, giống MAC table của switch thật.
-- Xem FDB của bridge bằng lênhk `bridge fdb show br docker0`
-  ```
-  aa:bb:cc:dd:ee:01  dev veth0   # Container A ở port veth0
-  aa:bb:cc:dd:ee:02  dev veth1   # Container B ở port veth1
-  ```
-- Khi container A gửi packet đến container B:
+## 3. Linux bridge 
+- Là một virtual network switch được implement trong Linux kernel, có chức năng giống như một switch vật lý Layer 2 nhưng hoàn toàn bằng software. Thay vì port vật lý, bridge có các network interface gắn vào làm port. Đối với host Linux bridge xuất hiện là một interface trong host network namespace, giống như bất kỳ interface nào khác (eth0, lo...). Có thể show bằng lệnh `ip link show` → Sẽ thấy cni0/docker0 nằm chung với eth0, lo, flannel.1...
+- Docker và K8s sử dụng Linux bridge để implement network vì nó có sẵn trong kernel, không cần cài thêm gì. Trong Docker bridge thường có tên là `docker0` do Docker daemon tạo ra. Còn trong Kubernetes thì bridge do CNI tạo và có tên là `cni0`
+- Cách hoạt động: Bridge duy trì một Forwarding Database (FDB) —  là bảng ánh xạ MAC address → port, giống MAC table của switch thật. Khi container A gửi packet đến container B trong cùng mạng
   - Packet đi qua veth pair vào bridge
   - Bridge tra FDB theo MAC đích
   - Forward ra đúng port → vào veth pair của container B. Toàn bộ quá trình xảy ra trong kernel memory, không ra NIC vật lý
+- Các lệnh làm việc với Bridge:
+  - Tạo bridge: `ip link add name br0 type bridge && ip link set br0 up`
+  - Liệt kê các bridge hiện có: `ip link show type bridge`
+  - Xem FDB của bridge: `bridge fdb show br docker0`
+  - Đặt IP cho bridge (để host giao tiếp được): `ip addr add 192.168.1.1/24 dev br0`
+  - Gắn interface vào bridge (làm "port"): `ip link set veth0 master br0`
+  - Xem port nào đang gắn vào bridge: `ip link show master cni0`
+    
+### 3.1. Linux bridge trong K8s
+- Các CNI plugin phổ biến tạo bridge cni0 trong host network namespace.
+- Khi 1 pod trong cụm k8s được tạo ra thì interface của nó sẽ được gắn vào bridge. Show trên host sẽ thấy các veth
+- Lưu ý có các plugin không dùng bridge. VD Calico gắn veth trực tiếp vào routing table của host (cần kernel xử lý L3 routing cho từng pod)
 
-- Tạo bridge thủ công
-```
-ip link add name br0 type bridge
-ip link set br0 up
-```
+### 3.2 OVS
+<img width="1121" height="627" alt="image" src="https://github.com/user-attachments/assets/882c2207-21f8-4749-acd1-53c4e73574ea" />
 
-- Gắn interface vào bridge (làm "port")
-```
-ip link set eth1 master br0
-ip link set veth0 master br0
-```
-- Đặt IP cho bridge (để host giao tiếp được)
-```
-ip addr add 192.168.1.1/24 dev br0
-```
-
-
-- Trong Docker / Kubernetes
-
-| | Docker | Kubernetes |
-|---|---|---|
-| Bridge name | `docker0` | `cni0` (do CNI tạo) |
-| Tạo bởi | Docker daemon | CNI plugin (Flannel, Calico...) |
-| Mỗi container có | 1 veth pair | 1 veth pair |
-
----
-
-Khi 1 pod trong cụm k8s được tạo ra thì interface của nó sẽ được gắn với linux bridge hoặc tùy thuôc CNI plugin. Với đa số CNI phổ biến thì có bridge
-
-Flow khi Pod được tạo (với CNI dùng bridge)
-```
-kubelet tạo Pod
-      │
-      ▼
-Container Runtime (containerd/cri-o)
-tạo network namespace cho Pod
-      │
-      ▼
-kubelet gọi CNI plugin
-(ví dụ: flannel, calico, weave)
-      │
-      ▼
-CNI plugin thực hiện:
-
-1. Tạo veth pair
-   vethXXXXXX  ◄────────────►  eth0
-   (host side)                (pod side, nằm trong pod netns)
-
-2. Gắn vethXXXXXX vào bridge
-   cni0 (bridge)
-   └── vethXXXXXX  ← pod mới
-
-3. Gán IP cho eth0 của pod
-   (lấy từ IPAM - IP Address Management)
-
-4. Cấu hình route trong pod netns
-```
-
-Kết quả sau khi pod chạy
-- Trên host, thấy bridge và các veth
-```
-ip link show type bridge
-# → cni0
-
-bridge link show
-# → vethABC  master cni0    ← pod 1
-# → vethDEF  master cni0    ← pod 2
-# → vethGHI  master cni0    ← pod mới vừa tạo
-
-# Bên trong pod
-kubectl exec -it <pod> -- ip addr
-# → eth0: 10.244.1.5/24    ← đầu còn lại của veth pair
-```
-
-Lưu ý không phải lúc nào cũng có bridge. Với Calico, thay vì bridge, Calico gắn veth trực tiếp vào **routing table của host**:
-
-| CNI Plugin | Có dùng bridge? | Cơ chế |
-|---|---|---|
-| Flannel (VXLAN) | ✅ Có | `cni0` bridge + flannel.1 VTEP |
-| Flannel (host-gw) | ✅ Có | `cni0` bridge + static route |
-| Calico | ❌ Không | Dùng **routing thuần L3**, veth gắn thẳng vào routing table |
-| Cilium | ❌ Không | **eBPF**, không cần bridge hay veth truyền thống |
-| Weave | ✅ Có | `weave` bridge |
-
----
-
-
-```
-Pod eth0 ──── vethXXX (host) ──── kernel routing table
-                                        │
-                              route: 10.244.1.5 → vethXXX
-```
-
-Không có bridge ở giữa — packet đến host được route thẳng vào đúng veth của pod. Ít overhead hơn, nhưng cần kernel xử lý L3 routing cho từng pod.
-
-Tóm lại: Với Flannel/Weave thì có bridge (cni0). Với Calico/Cilium thì không có bridge — họ dùng L3 routing hoặc eBPF để hiệu quả hơn.
-
----
-
-OVS vs Linux Bridge
-
-- OVS là virtual switch Layer 2 giống Linux bridge nhưng nhiều tính năng hơn
-- Linux bridge chỉ có kernel module. OVS có 3 thành phần:
-```
-┌─────────────────────────────────────────────┐
-│              Userspace                      │
-│                                             │
-│  ovs-vswitchd  ←→  ovsdb-server             │
-│  (daemon xử lý)     (config database)       │
-├─────────────────────────────────────────────┤
-│              Kernel Space                   │
-│                                             │
-│         openvswitch.ko                      │
-│     (fast path - datapath)                  │
-└─────────────────────────────────────────────┘
-```
+- OVS là virtual switch thay thế cho Linux bridge với nhiều tính năng hơn
+- Linux bridge chỉ có kernel module. Còn OVS có 3 thành phần:
   - ovsdb-server: lưu config (bridges, ports, flows)
   - ovs-vswitchd: xử lý control plane, cài flow vào kernel
   - openvswitch.ko: fast path, forward packet theo flow table
-
-Packet đầu tiên lên userspace để tạo flow, các packet sau được kernel xử lý trực tiếp theo flow đã cache → gần bằng tốc độ Linux bridge.
-
 - Điểm khác biệt chính giữa OVS và Linux bridge là OVS làm tunnel native, còn Linux bridge cần thêm flannel.1 VTEP bên ngoài để làm VXLAN:
   - Linux bridge cần interface riêng cho tunnel: cni0 (bridge) → flannel.1 (VTEP) → eth0
   - OVS tự làm tunnel ngay trong switch
-  ```
-  ovs-br0 (OVS bridge)
-  ├── veth0  ← pod 1
-  ├── veth1  ← pod 2
-  └── vxlan0 ← tunnel port (OVS tự encap/decap)
-  ```
-- Ai dùng OVS trong k8s?
-  - OpenStack Neutron            → OVS là default
-  - OVN (Open Virtual Network) là lớp abstraction bên trên OVS — nếu OVS là switch, thì OVN là cả một virtual network fabric (router, switch, ACL, load balancer).
+
+## 4. Giao tiếp giữa các Pod (container) trong Kubernetes
+Có 2 loại là intra-node network và inter-node network
+
+### 4.1. Intra-node Container Networking 
+<img width="661" height="511" alt="image" src="https://github.com/user-attachments/assets/3b2ae263-9870-48d6-818e-8ddb4b601569" />
+
+- Là giao tiếp giữa các container trong cùng một node. Lúc này Linux kernel sẽ xử lý toàn bộ traffic, không cần đi qua NIC vật lý.
+- Linux Bridge thực hiện MAC-based forwarding (L2), hoặc kernel routing nếu khác subnet (L3). Ưu điểm là latency rất thấp vì chỉ là memory copy giữa các network namespace. Trong Kubernetes Bridge thường là cni0, do CNI plugin tạo ra.
+
+### 4.2. Inter-node Container Networking
+<img width="699" height="597" alt="image" src="https://github.com/user-attachments/assets/0c76f6db-a689-452d-8bd5-67ab2b97105c" />
+
+Là trường hợp các container giao tiếp khác node, phức tạp hơn vì packet phải đi qua mạng vật lý (underlay). Có nhiều cách để giải quyết bài toán này:
+- Overlay Network (VXLAN / Geneve): Dùng bởi Flannel VXLAN, Calico VXLAN, Cilium. Pod IP packet được đóng gói (encapsulate) vào UDP frame trước khi gửi qua mạng vật lý. Ưu điểm: Không yêu cầu cấu hình router/switch phức tạp. Nhược điểm: Overhead encap/decap, MTU phải giảm (~50 bytes cho VXLAN header).
+- Native Routing (BGP / Direct Route): Dùng bởi Calico BGP, Cilium native routing, Flannel host-gw. Ưu điểm: Performance tốt nhất, không MTU overhead, dễ debug. Nhược điểm: Yêu cầu router/switch hỗ trợ, hoặc tất cả node phải cùng L2 segment (với host-gw).
+- eBPF Datapath: Dùng bởi Cilium
+
+
 
 
 ---
@@ -443,194 +416,6 @@ Bước 3: Pod request resource đó
   - Khi không có SR-IOV (virtio thông thường): `Pod → tap device → OVS bridge (VM) → virtio → QEMU → OVS bridge (host) → Physical NIC` (7-8 lần copy/context switch)
   - Có SR-IOV: `Pod → VF → Wire` (Gần như native, 1-2 lần)
 
----
-
-Tự viết CNI
-
-- Đặt cấu hình CNI vào /etc/cni/net.d/<ten_config> . Lưu ý CRI (container runtime io) sẽ load file cấu hình theo thứ tự alphabet. File cấu hình này sẽ trỏ đến plugin cần thực thi
-```
-{
-  "cniVersion": "1.0.0",
-  "name": "fromScratch",
-  "type": "demystifying" #trỏ đến file thực thi trong /opt/cni/bin/demystifying (phải cùng tên với type)
-}
-```
-- File thực thi đặt trong /opt/cni/bin/ có tác dụng (là gì?)
-
-Luồng hoạt động: kubelet nhận được yêu cầu tạo pod sẽ gọi đến CRI, CRI tạo network namespace và trigger CNI dựa trên file cấu hình trong /etc/cni/net.d (có thể truyền thêm các biến ở đây như CNI_COMMAND=ADD (ngoài ra còn có DELETE,...), CNI_NETNS=/var/run/netns/cni-fb34ac... (chỉ định network namespace được tạo ra), CNI_IFNAME=eth0 (tên của interface trong network ns)). CNI sẽ thực thi nhiệm vụ của nó (VD tạo veth pair bằng lệnh `ip link add veth_host type veth peer name veth_netns`, move 1 đầu vào container network ns bằng lệnh `ip link set veth_netns netns cni-fb34ac` , gán ip cho veth_netns bằng lệnh `ip -n cni-fb34ac addr add 10.244.0.20/24 dev veth_netns`, gán ip cho veth_host, đổi tên interface trong netns bằng lệnh `ip -n cni-fb34ac link set veth_netns name eth0`, tạo route để đi vào network ns bằng lệnh `ip route add 10.244.0.20 dev veth_host`,....hỏi thêm chatgpt)
-
-Sau khi CNI tạo xong các tài nguyên trên nó sẽ trả về kết quả dạng json cho CRI
-```
-{
-  "cniVersion": "1.0.0",
-  "interfaces": [
-    {
-      "name": "%s",
-      "mac": "%s"
-    },
-    {
-      "name": "%s",
-      "mac": "%s",
-      "sandbox": "%s"
-    }
-  ],
-  "ips": [
-    {
-      "address": "%s",
-      "interface": 1
-    }
-  ]
-}
-```
-
-
-Example file /opt/cni/bin/demystifying:
-```bash
-#!/usr/bin/env bash
-
-# create veth
-VETH_HOST=veth_host
-VETH_NETNS=veth_netns
-ip link add ${VETH_HOST} type veth peer name ${VETH_NETNS}
-
-# put one of the veth interfaces into the new network namespace
-NETNS=$(basename ${CNI_NETNS})
-ip link set ${VETH_NETNS} netns ${NETNS}
-
-# assign IP to veth interface inside the new network namespace
-IP_VETH_NETNS=10.244.0.20
-CIDR_VETH_NETNS=${IP_VETH_NETNS}/32
-ip -n ${NETNS} addr add ${CIDR_VETH_NETNS} dev ${VETH_NETNS}
-
-# assign IP to veth interface on the host
-IP_VETH_HOST=10.244.0.101
-CIDR_VETH_HOST=${IP_VETH_HOST}/32
-ip addr add ${CIDR_VETH_HOST} dev ${VETH_HOST}
-
-# rename veth interface inside the new network namespace
-ip -n ${NETNS} link set ${VETH_NETNS} name ${CNI_IFNAME}
-
-# ensure all interfaces are up
-ip link set ${VETH_HOST} up
-ip -n ${NETNS} link set ${CNI_IFNAME} up
-
-# add routes inside the new network namespace so that it knows how to get to the host
-ip -n ${NETNS} route add ${IP_VETH_HOST} dev eth0
-ip -n ${NETNS} route add default via ${IP_VETH_HOST} dev eth0
-
-# add route on the host to let it know how to reach the new network namespace
-ip route add ${IP_VETH_NETNS}/32 dev ${VETH_HOST} scope host
-
-# return a JSON via stdout
-RETURN_TEMPLATE='
-{
-  "cniVersion": "1.0.0",
-  "interfaces": [
-    {
-      "name": "%s",
-      "mac": "%s"
-    },
-    {
-      "name": "%s",
-      "mac": "%s",
-      "sandbox": "%s"
-    }
-  ],
-  "ips": [
-    {
-      "address": "%s",
-      "interface": 1
-    }
-  ]
-}'
-
-MAC_HOST_VETH=$(ip link show ${VETH_HOST} | grep link | awk '{print$2}')
-MAC_NETNS_VETH=$(ip -netns $nsname link show ${CNI_IFNAME} | grep link | awk '{print$2}')
-
-RETURN=$(printf "${RETURN_TEMPLATE}" "${VETH_HOST}" "${MAC_HOST_VETH}" "${CNI_IFNAME}" "${mac_netns_veth}" "${CNI_NETNS}" "${CIDR_VETH_NETNS}")
-echo ${RETURN}
-```
-
----
-
-CNI trong K8s gồm 2 phần tách biệt:
-
-1. CNI plugin binary: là các file binary (ví dụ /opt/cni/bin/flannel, /opt/cni/bin/calico) được kubelet gọi trực tiếp khi tạo/xóa pod. Chúng chạy như một process tạm thời (fork từ kubelet), KHÔNG chạy dưới dạng pod.
-
-2. CNI agent/controller: phần "não" của CNI (quản lý routing, IPAM, policy...) thường chạy dưới dạng DaemonSet Pod
-- Pod CNI này có nhiệm vụ:
-  - Copy binary vào /opt/cni/bin/
-  - Ghi config vào /etc/cni/net.d/
-  - Quản lý routes, iptables/eBPF rules
-  - Sync trạng thái giữa các node
-- Flow thực tế khi tạo pod: kubelet đọc /etc/cni/net.d/*.conf → fork binary /opt/cni/bin/<plugin> → plugin setup veth pair, IP, routes → done (binary thoát). DaemonSet pod chỉ đảm bảo binary + config luôn có mặt và routes luôn đúng, không tham gia trực tiếp vào quá trình tạo network cho từng pod.
-- DaemonSet pod của CNI thường dùng hostNetwork: true và mount /opt/cni/bin, /etc/cni/net.d từ host — vì nó cần can thiệp vào network namespace của host, không phải của chính nó.
-- CNI controller có 2 phần là Control Plane và Data Plane. Mặc định 2 plane nằm trong cùng 1 daemon
-  - Control Plane có nhiệm vụ:
-    - Cấp phát IP cho pod (IPAM), track IP nào đang dùng
-    - Policy decisionNetwork: Policy A có cho phép pod B nói chuyện với pod C không
-    - Routing decision: Pod 10.0.1.5 nằm ở node nào, đi đường nào
-    - BGP route calculation: Tính toán route tối ưu giữa các node
-    - Watch K8s events: Lắng nghe CRD, NetworkPolicy, Pod thay đổi
-  - Data Plane có nhiệm vụ:
-    - veth pair: Tạo virtual cable nối pod vào host
-    - networkIP assignment: Gán IP thực tế vào interface của pod
-    - iptables / eBPF rules: Apply rule "chặn" hoặc "cho qua"
-    - packetRoute table: Ghi route vào kernel để packet đi đúng hướng
-    - Encapsulation: Wrap packet VXLAN/Geneve khi gửi sang node khác
-
-**Control plane không động vào packet nào cả — nó chỉ tính toán và cài rule xuống trước. Data plane xử lý mọi packet mà không cần hỏi lại control plane.**
-- Trong các kiến trúc mạng đặc thù có thể tách phần Control Plane ra đặt ở một cluster trung tâm chỉ để lo phần logic (IPAM, policy, routing decisions). Agent trên mỗi node chỉ lo việc setup veth pair / eBPF rules (data plane thuần túy) và gọi lên Control Cluster để xin IP, lấy policy. Đây chính xác là hướng mà Cilium Enterprise và Calico Enterprise đang đi với mô hình centralized control plane + distributed data plane.
-```
-┌──────────────────────────────────┐
-│         CNI Control Cluster      │
-│                                  │
-│  ┌─────────┐  ┌───────────────┐  │
-│  │  IPAM   │  │  BGP Route    │  │
-│  │ Server  │  │  Reflector    │  │
-│  └─────────┘  └───────────────┘  │
-│  ┌─────────────────────────────┐ │
-│  │  Policy Controller / CRD   │ │
-│  └─────────────────────────────┘ │
-└──────────┬───────────────────────┘
-           │ gRPC / REST / BGP
-    ┌──────┴──────┐
-    ▼             ▼
-┌────────┐   ┌────────┐
-│Cluster │   │Cluster │  ← mỗi cluster vẫn có
-│   A    │   │   B    │    CNI agent (DaemonSet)
-│(agent) │   │(agent) │    nhưng agent rất "mỏng"
-└────────┘   └────────┘
-```
-
-
-Khác với CNI binary chỉ chạy 1 lần khi pod create/delete rồi exit ngay sau khi xong việc, CNI daemon cần phải chạy liên tục để:
-- Duy trì routing table: Node A biết pod 10.0.1.5 nằm ở Node B. Nếu Node B reboot → IP thay đổi → Daemon phải update route ngay lập tức → Nếu daemon không chạy: traffic bị blackhole
-- BGP peering (nếu dùng Calico/Cilium): Daemon giữ BGP session liên tục với các node khác. Session drop → toàn bộ cross-node traffic mất
-- Watch K8s events: khi NetworkPolicy thay đổi → Daemon nhận event → Update iptables/eBPF rules ngay lập tức. Nếu daemon chết policy cũ vẫn còn nhưng policy mới không được apply
-- Health check & sync định kỳ: So sánh desired state vs actual state trên node, phát hiện drift (ai đó chạy iptables -F chẳng hạn) và reconcile lại
-
-Nếu tách control plane ra thì Daemon trở thành pure data plane agent, vẫn chạy liên tục nhưng logic gọn hơn (giữ BGP session, reconcile loop, và rule enforcement)
-
-
-So sánh 2 mô hình
-- Distributed control plane
-
-<img width="661" height="513" alt="image" src="https://github.com/user-attachments/assets/22413f66-c248-488c-8433-aab4058dd63c" />
-  - Mỗi node là một bản sao hoàn chỉnh — control plane và data plane cùng nằm trong một CNI daemon. Không có node nào là "master", tất cả ngang hàng.
-  - Watch events đi trực tiếp — mỗi node tự watch K8s API server để lấy NetworkPolicy, Pod events. Không qua trung gian nào.
-  - BGP full mesh là điểm đáng chú ý nhất: 3 nodes = 3 sessions, 10 nodes = 45 sessions, 100 nodes = 4950 sessions. Đây là lý do Calico khuyến nghị dùng BGP Route Reflector (tức là một phần của mô hình centralized) khi cluster vượt quá ~50 nodes — để giảm từ O(N²) xuống còn O(N) sessions.
-
-- Central control plane
-
-<img width="671" height="561" alt="image" src="https://github.com/user-attachments/assets/a6e26f2a-b49a-4c0a-bfcc-3206e7c87139" />
-
-  - K8s control plane (dashed, trên cùng) — không đổi so với K8s thông thường.
-  - CNI control cluster watch API server để lấy NetworkPolicy, Pod events, CRD changes. Ba thành phần core:
-    - IPAM: cấp phát IP pool cho từng cluster
-    - BGP reflector: thay vì mỗi node BGP peer full-mesh với nhau, tất cả peer với một điểm trung tâm này
-    - Policy ctrl: dịch NetworkPolicy từ K8s CRD thành rule cụ thể rồi push xuống agent
-  - Worker clusters (purple, dưới) — mỗi cluster chỉ còn CNI agent mỏng, chỉ lo data plane: setup veth, apply eBPF/iptables rules, giữ BGP session với reflector ở trên. Không tự tính toán gì. Cross-cluster traffic vẫn dùng BGP, nhưng route decision đã được tính sẵn bởi BGP reflector ở control cluster, không phải bởi từng agent.
 
 ---
 
