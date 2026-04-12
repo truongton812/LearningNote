@@ -161,35 +161,14 @@ Là trường hợp các container giao tiếp khác node, phức tạp hơn vì
 
 ### 5.1. Normal CNI plugin
 <img width="660" height="509" alt="image" src="https://github.com/user-attachments/assets/ceddd0eb-cc25-405c-a348-fc5a6fbdc4bc" />
-
+<img width="695" height="665" alt="image" src="https://github.com/user-attachments/assets/c4950e77-2788-4784-a1f5-6b8b8f0c3581" />
 - Trong openstack, Pod là thành phần nằm bên trong VM. VM do OpenStack quản lý, còn Pod chạy bên trong VM đó — VM đóng vai trò là Kubernetes node. Do đó sẽ có hai lớp networking hoàn toàn tách biệt
   - Neutron quản lý network giữa các VM → VM thấy nhau qua 192.168.x.x
   - CNI plugin quản lý network giữa các Pod → Pod thấy nhau qua 10.244.x.x
-  - Pod muốn ra ngoài VM phải đi qua eth0 (là 1 đầu của veth pair trong netns của pod)
+  - Luồng traffic: `Pod A/B → veth pair → cni0 bridge (L2 switching trong VM) → kernel routing → eth0 của VM (192.168.1.10, Neutron network) → tap interface → OVS bridge trên hypervisor`
   - Khi Pod A (VM1) nói chuyện với Pod B (VM2): Pod traffic phải đi xuyên qua VM network của OpenStack — đây là lý do khi dùng Overlay (VXLAN) trong k8s trên OpenStack sẽ bị double encapsulation: VXLAN của CNI nằm trong VXLAN của Neutron.
+- Trong sơ đồ trên, cni0 đóng vai trò là gateway của pod (cni0 cũng có IP riêng). cni0 nối với eth0 của VM thông qua kernal routing table. eth0 của VM đóng vai trò uplink cho toàn bộ pod network — mọi traffic ra ngoài VM đều phải đi qua đây, sau đó mới xuống OVS bridge của OpenStack.
 
-
-
-<img width="695" height="665" alt="image" src="https://github.com/user-attachments/assets/c4950e77-2788-4784-a1f5-6b8b8f0c3581" />
-
-Pod A/B → veth pair → cni0 bridge (L2 switching trong VM) → kernel routing → eth0 của VM (192.168.1.10, Neutron network) → tap interface → OVS bridge trên hypervisor.
-Điểm quan trọng là eth0 của VM đóng vai trò gateway cho toàn bộ pod network — mọi traffic ra ngoài VM đều phải đi qua đây, sau đó mới xuống OVS bridge của OpenStack.
-
-
- cni0 có IP riêng (thường là gateway của pod subnet), còn eth0 là interface riêng biệt — hai cái nối với nhau qua kernel routing table, không phải bridge membership.
-Kiểm chứng thực tế
-```
-#Xem bridge members - chỉ thấy veth, không thấy eth0
-bridge link show
-# veth0  master cni0
-# veth1  master cni0
-# (eth0 KHÔNG xuất hiện ở đây)
-
-# Routing table mới thấy mối liên hệ
-ip route
-# 10.244.1.0/24  dev cni0        ← pod subnet đi qua bridge
-# 0.0.0.0/0      via 192.168.1.1 dev eth0  ← traffic ra ngoài qua eth0
-```
 ### 5.2. OVS-CNI plugin
 <img width="686" height="428" alt="image" src="https://github.com/user-attachments/assets/befb0c76-9dbc-48ab-ba08-d5bbc3f889f1" />
 
@@ -203,36 +182,6 @@ ip route
 - Latency cực thấp và throughput cao vì packet không cần traverse qua software switching layer
 - Cần hardware hỗ trợ SR-IOV
 
-========================================================================== 
-
-
-eth0 của VM không gắn vào cni0 bridge
-
-eth0 đóng vai trò uplink/gateway, không phải một port của bridge.
-
-Thực tế cấu trúc bên trong VM
-
-```
-┌─────────────────────────────────────────────┐
-│                   VM                         │
-│                                              │
-│  Pod A (10.244.1.5)   Pod B (10.244.1.6)    │
-│     │ eth0               │ eth0             │
-│     │ veth0              │ veth1            │
-│     └──────────┬─────────┘                  │
-│            cni0 bridge                       │
-│           10.244.1.1/24  ← IP của bridge     │
-│                │                             │
-│           kernel routing                     │
-│                │                             │
-│            eth0 (VM)                         │
-│          192.168.1.10    ← Neutron network   │
-└──────────────────────────────────────────────┘
-```
-
-
-
----
 
 ### SR-IOV (Single Root I/O Virtualization)
 - SR-IOV là một tính năng phần cứng được implement trên NIC/GPU... cho phép một thiết bị vật lý (Physical Function) xuất hiện như nhiều thiết bị ảo riêng biệt (Virtual Functions) trực tiếp với các VM/container — bypassing hypervisor hoàn toàn.
