@@ -52,12 +52,14 @@ CNI trong K8s gồm 2 phần tách biệt là CNI plugin và CNI agent
 
 ##### 1.2.2.1. Distributed control plane
 
-<img width="661" height="513" alt="image" src="https://github.com/user-attachments/assets/22413f66-c248-488c-8433-aab4058dd63c" />
+  <img width="661" height="513" alt="image" src="https://github.com/user-attachments/assets/22413f66-c248-488c-8433-aab4058dd63c" />
+
 - Là mô hình control plane và data plane cùng nằm trong một CNI daemon. Mỗi node có 1 CNI daemon, không có node nào là "master", tất cả đều ngang hàng. Mỗi node tự watch K8s API server để lấy NetworkPolicy, Pod events.
 - Trong mô hình này thì số session BGP là O(N²) (full mesh). VD có 10 nodes thì sinh ra 45 sessions, 100 nodes thì có 4950 sessions. Đây là lý do Calico khuyến nghị dùng BGP Route Reflector (tức là một phần của mô hình centralized) khi cluster vượt quá ~50 nodes — để giảm từ O(N²) xuống còn O(N) sessions.
 
 ##### 1.2.2.2. Centralized control plane
-<img width="671" height="561" alt="image" src="https://github.com/user-attachments/assets/a6e26f2a-b49a-4c0a-bfcc-3206e7c87139" />
+  <img width="671" height="561" alt="image" src="https://github.com/user-attachments/assets/a6e26f2a-b49a-4c0a-bfcc-3206e7c87139" />
+
 - Là mô hình control plane và data plane phân tách ra. Control Plane được deploy như một deployment riêng (thường là DaemonSet trên master nodes). Data Plane vẫn là DaemonSet chạy trên mọi worker node. Hai bên giao tiếp qua gRPC/REST.
 - CNI control cluster watch API server để lấy NetworkPolicy, Pod events, CRD changes. Ba thành phần core là IPAM để cấp phát IP pool cho từng cluster, BGP reflector làm peer trung tâm của mạng BGP, Policy controller để dịch NetworkPolicy từ K8s CRD thành rule cụ thể rồi push xuống agent
 - CNI agent ở mỗi node chỉ lo data plane: setup veth, apply eBPF/iptables rules, giữ BGP session với reflector ở trên. Không tự tính toán gì. Cross-cluster traffic vẫn dùng BGP, nhưng route decision đã được tính sẵn bởi BGP reflector ở control cluster, không phải bởi từng agent.
@@ -155,98 +157,53 @@ Là trường hợp các container giao tiếp khác node, phức tạp hơn vì
 - eBPF Datapath: Dùng bởi Cilium
 
 
+## 5. Kubernetes trong Openstack
 
+### 5.1. Normal CNI plugin
+<img width="660" height="509" alt="image" src="https://github.com/user-attachments/assets/ceddd0eb-cc25-405c-a348-fc5a6fbdc4bc" />
 
----
-- Trong openstack, Pod là thành phần nằm bên trong VM. VM do OpenStack quản lý, còn Pod chạy bên trong VM đó — VM đóng vai trò là Kubernetes node.
-```
-┌──────────────────────────────────────────────┐
-│              OpenStack (IaaS)                │
-│                                              │
-│  ┌──────────────┐    ┌──────────────┐        │
-│  │     VM 1     │    │     VM 2     │        │
-│  │  (Nova)      │    │  (Nova)      │        │
-│  │              │    │              │        │
-│  │  ┌────────┐  │    │  ┌────────┐  │        │
-│  │  │ Pod A  │  │    │  │ Pod C  │  │        │
-│  │  ├────────┤  │    │  ├────────┤  │        │
-│  │  │ Pod B  │  │    │  │ Pod D  │  │        │
-│  │  └────────┘  │    │  └────────┘  │        │
-│  │   k8s node   │    │   k8s node   │        │
-│  └──────────────┘    └──────────────┘        │
-└──────────────────────────────────────────────┘
-```
-
-- Hai lớp networking hoàn toàn tách biệt
-```
-┌─────────────────────────────────────────────────┐
-│  Pod Network (Kubernetes - CNI)                  │
-│  10.244.0.0/16                                   │
-│                                                  │
-│   Pod A (10.244.1.5) ──── Pod B (10.244.1.6)    │
-│        │                        │                │
-│       eth0                     eth0              │
-│   ════════════ cni0 bridge ════════════          │
-│        │          (inside VM)                    │
-├────────┼─────────────────────────────────────────┤
-│  VM Network (OpenStack - Neutron)                │
-│  192.168.1.0/24                                  │
-│                                                  │
-│   VM 1 (192.168.1.10) ──── VM 2 (192.168.1.11)  │
-│        │                        │                │
-│    tap interface             tap interface        │
-│   ════════════ OVS bridge ═════════════          │
-│              (on hypervisor)                     │
-└─────────────────────────────────────────────────┘
-```
+- Trong openstack, Pod là thành phần nằm bên trong VM. VM do OpenStack quản lý, còn Pod chạy bên trong VM đó — VM đóng vai trò là Kubernetes node. Do đó sẽ có hai lớp networking hoàn toàn tách biệt
   - Neutron quản lý network giữa các VM → VM thấy nhau qua 192.168.x.x
   - CNI plugin quản lý network giữa các Pod → Pod thấy nhau qua 10.244.x.x
-  - Pod muốn ra ngoài VM phải đi qua eth0 của VM (gateway của pod network)
+  - Pod muốn ra ngoài VM phải đi qua eth0 (là 1 đầu của veth pair trong netns của pod)
   - Khi Pod A (VM1) nói chuyện với Pod B (VM2): Pod traffic phải đi xuyên qua VM network của OpenStack — đây là lý do khi dùng Overlay (VXLAN) trong k8s trên OpenStack sẽ bị double encapsulation: VXLAN của CNI nằm trong VXLAN của Neutron.
-  ```
-  Pod A (10.244.1.5)
-    │  cni0 bridge
-    │  eth0 của VM1 (192.168.1.10)   ← lớp Neutron
-    │  Neutron router / OVS
-    │  eth0 của VM2 (192.168.1.11)
-    │  cni0 bridge
-  Pod B (10.244.2.7)
-  ```
+
+
+
+<img width="695" height="665" alt="image" src="https://github.com/user-attachments/assets/c4950e77-2788-4784-a1f5-6b8b8f0c3581" />
+
+Pod A/B → veth pair → cni0 bridge (L2 switching trong VM) → kernel routing → eth0 của VM (192.168.1.10, Neutron network) → tap interface → OVS bridge trên hypervisor.
+Điểm quan trọng là eth0 của VM đóng vai trò gateway cho toàn bộ pod network — mọi traffic ra ngoài VM đều phải đi qua đây, sau đó mới xuống OVS bridge của OpenStack.
+
+
+ cni0 có IP riêng (thường là gateway của pod subnet), còn eth0 là interface riêng biệt — hai cái nối với nhau qua kernel routing table, không phải bridge membership.
+Kiểm chứng thực tế
+```
+#Xem bridge members - chỉ thấy veth, không thấy eth0
+bridge link show
+# veth0  master cni0
+# veth1  master cni0
+# (eth0 KHÔNG xuất hiện ở đây)
+
+# Routing table mới thấy mối liên hệ
+ip route
+# 10.244.1.0/24  dev cni0        ← pod subnet đi qua bridge
+# 0.0.0.0/0      via 192.168.1.1 dev eth0  ← traffic ra ngoài qua eth0
+```
+### 5.2. OVS-CNI plugin
+<img width="686" height="428" alt="image" src="https://github.com/user-attachments/assets/befb0c76-9dbc-48ab-ba08-d5bbc3f889f1" />
 
 - OVS-CNI Plugin giúp giải quyết vấn đề, pod không cần phải qua cni0 bridge để ra ngoài. Thay vì CNI tạo bridge cni0 rồi mới ra OVS, pod gắn veth trực tiếp vào OVS bridge.
-- Cách thực hiện: dùng Multus + OVS-CNI. Multus là CNI cho phép gán nhiều network interfaces cho pod
-```
-┌─────────────────────────────────────────────┐
-│                    VM (k8s node)             │
-│                                              │
-│  ┌──────────────────────────────────────┐   │
-│  │              Pod                     │   │
-│  │  eth0 (primary)   net1 (secondary)   │   │
-10.244.1.5/24          192.168.100.10/24
-│  │    │                   │             │   │
-│  └────┼───────────────────┼─────────────┘   │
-│       │                   │                 │
-│   flannel/calico      veth pair             │
-│   (normal CNI)             │                │
-│                        OVS Bridge           │
-│                        (br-int / br-ex)     │
-└─────────────────────────────────────────────┘
-```
-
--> Double encapsulation problem giải quyết được
-- Trước (double encap) `Pod → cni0 → VXLAN (k8s) → eth0 VM → VXLAN (Neutron) → physical`
-- Sau (OVS-CNI, single encap) `Pod → OVS br-int → VXLAN (Neutron only) → physical`. Bỏ hoàn toàn lớp encapsulation của k8s CNI, chỉ còn Neutron lo.
 
 
-- Có cách khác là dùng SR-IOV. SR-IOV giúp bypass cả OVS -> performance cực cao
-```
-Pod net1 ── VF (Virtual Function) ── PF (Physical NIC) ── physical
-```
+### 5.3 SR-IOV CNI plugin
+<img width="687" height="487" alt="image" src="https://github.com/user-attachments/assets/b0fdbb6c-d79d-4376-abdf-11c81f73b016" />
 
-Packet đi thẳng từ pod ra NIC, không qua kernel network stack. Nhưng cần hardware hỗ trợ SR-IOV
+- SR-IOV CNI plugin giúp passthrough thẳng VF vào eth0 của pod, không đi qua veth pair, không qua OVS bridge, không qua kernel network stack của host. Pod thấy VF như một NIC vật lý thật sự.
+- Latency cực thấp và throughput cao vì packet không cần traverse qua software switching layer
+- Cần hardware hỗ trợ SR-IOV
 
-
----
+========================================================================== 
 
 
 eth0 của VM không gắn vào cni0 bridge
@@ -273,21 +230,7 @@ Thực tế cấu trúc bên trong VM
 └──────────────────────────────────────────────┘
 ```
 
-cni0 có IP riêng (thường là gateway của pod subnet), còn eth0 là interface riêng biệt — hai cái nối với nhau qua kernel routing table, không phải bridge membership.
 
-Kiểm chứng thực tế
-```
-#Xem bridge members - chỉ thấy veth, không thấy eth0
-bridge link show
-# veth0  master cni0
-# veth1  master cni0
-# (eth0 KHÔNG xuất hiện ở đây)
-
-# Routing table mới thấy mối liên hệ
-ip route
-# 10.244.1.0/24  dev cni0        ← pod subnet đi qua bridge
-# 0.0.0.0/0      via 192.168.1.1 dev eth0  ← traffic ra ngoài qua eth0
-```
 
 ---
 
