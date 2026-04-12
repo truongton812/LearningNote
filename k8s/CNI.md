@@ -38,24 +38,19 @@ CNI trong K8s gồm 2 phần tách biệt là CNI plugin và CNI agent
   - Ghi config vào /etc/cni/net.d/
   - Quản lý routes, iptables/eBPF rules
   - Sync trạng thái giữa các node
-- Flow thực tế khi tạo pod: kubelet đọc /etc/cni/net.d/*.conf → fork binary /opt/cni/bin/<plugin> → plugin setup veth pair, IP, routes → done (binary thoát). DaemonSet pod chỉ đảm bảo binary + config luôn có mặt và routes luôn đúng, không tham gia trực tiếp vào quá trình tạo network cho từng pod.
-- DaemonSet pod của CNI thường dùng hostNetwork: true và mount /opt/cni/bin, /etc/cni/net.d từ host — vì nó cần can thiệp vào network namespace của host, không phải của chính nó.
-- CNI controller có 2 phần là Control Plane và Data Plane. Mặc định 2 plane nằm trong cùng 1 daemon
-  - Control Plane có nhiệm vụ:
-    - Cấp phát IP cho pod (IPAM), track IP nào đang dùng
-    - Policy decisionNetwork: Policy A có cho phép pod B nói chuyện với pod C không
-    - Routing decision: Pod 10.0.1.5 nằm ở node nào, đi đường nào
-    - BGP route calculation: Tính toán route tối ưu giữa các node
-    - Watch K8s events: Lắng nghe CRD, NetworkPolicy, Pod thay đổi
-  - Data Plane có nhiệm vụ:
-    - veth pair: Tạo virtual cable nối pod vào host
-    - networkIP assignment: Gán IP thực tế vào interface của pod
-    - iptables / eBPF rules: Apply rule "chặn" hoặc "cho qua"
-    - packetRoute table: Ghi route vào kernel để packet đi đúng hướng
-    - Encapsulation: Wrap packet VXLAN/Geneve khi gửi sang node khác
-
-**Control plane không động vào packet nào cả — nó chỉ tính toán và cài rule xuống trước. Data plane xử lý mọi packet mà không cần hỏi lại control plane.**
-- Trong các kiến trúc mạng đặc thù có thể tách phần Control Plane ra đặt ở một cluster trung tâm chỉ để lo phần logic (IPAM, policy, routing decisions). Agent trên mỗi node chỉ lo việc setup veth pair / eBPF rules (data plane thuần túy) và gọi lên Control Cluster để xin IP, lấy policy. Đây chính xác là hướng mà Cilium Enterprise và Calico Enterprise đang đi với mô hình centralized control plane + distributed data plane.
+  - **Không** tham gia trực tiếp vào quá trình tạo network cho từng pod.
+- Khác với CNI binary chỉ chạy 1 lần khi pod create/delete rồi exit ngay sau khi xong việc, CNI daemon cần phải chạy liên tục để:
+  - Duy trì routing table: Node A biết pod 10.0.1.5 nằm ở Node B. Nếu Node B reboot → IP thay đổi → Daemon phải update route ngay lập tức → Nếu daemon không chạy: traffic bị blackhole
+  - BGP peering (nếu dùng Calico/Cilium): Daemon giữ BGP session liên tục với các node khác. Session drop → toàn bộ cross-node traffic mất
+  - Watch K8s events: khi NetworkPolicy thay đổi → Daemon nhận event → Update iptables/eBPF rules ngay lập tức. Nếu daemon chết policy cũ vẫn còn nhưng policy mới không được apply
+  - Health check & sync định kỳ: So sánh desired state vs actual state trên node, phát hiện drift (ai đó chạy iptables -F chẳng hạn) và reconcile lại
+- CNI agent pod thường dùng `hostNetwork: true` và mount thư mục `/opt/cni/bin` và `/etc/cni/net.d` từ host do nó cần can thiệp vào network namespace của host.
+- CNI agent có 2 phần là Control Plane và Data Plane. 
+  - Control Plane giao tiếp với API server của Kubernetes, nhận thông tin về pod mới được tạo/xóa, tính toán cấu hình mạng cần thiết (IP allocation, network policy, routing rules), rồi đẩy xuống cho Data Plane thực thi.
+  - Data Plane chịu trách nhiệm xử lý packet. Nó nhận chỉ thị từ Control Plane và lập trình vào kernel (qua eBPF, iptables, OVS, hoặc Linux routing table). Khi một packet đến, Data Plane xử lý hoàn toàn trong kernel space
+ 
+- Mặc định 2 plane nằm trong cùng 1 pod
+- Trong các kiến trúc mạng đặc thù có thể tách phần Control Plane ra đặt ở một cluster trung tâm chỉ để lo phần logic (IPAM, policy, routing decisions). Agent trên mỗi node chỉ lo việc giữ BGP session, reconcile loop, và rule enforcement. Đây là hướng mà Cilium Enterprise và Calico Enterprise đang đi với mô hình centralized control plane + distributed data plane.
 ```
 ┌──────────────────────────────────┐
 │         CNI Control Cluster      │
@@ -78,14 +73,6 @@ CNI trong K8s gồm 2 phần tách biệt là CNI plugin và CNI agent
 └────────┘   └────────┘
 ```
 
-
-Khác với CNI binary chỉ chạy 1 lần khi pod create/delete rồi exit ngay sau khi xong việc, CNI daemon cần phải chạy liên tục để:
-- Duy trì routing table: Node A biết pod 10.0.1.5 nằm ở Node B. Nếu Node B reboot → IP thay đổi → Daemon phải update route ngay lập tức → Nếu daemon không chạy: traffic bị blackhole
-- BGP peering (nếu dùng Calico/Cilium): Daemon giữ BGP session liên tục với các node khác. Session drop → toàn bộ cross-node traffic mất
-- Watch K8s events: khi NetworkPolicy thay đổi → Daemon nhận event → Update iptables/eBPF rules ngay lập tức. Nếu daemon chết policy cũ vẫn còn nhưng policy mới không được apply
-- Health check & sync định kỳ: So sánh desired state vs actual state trên node, phát hiện drift (ai đó chạy iptables -F chẳng hạn) và reconcile lại
-
-Nếu tách control plane ra thì Daemon trở thành pure data plane agent, vẫn chạy liên tục nhưng logic gọn hơn (giữ BGP session, reconcile loop, và rule enforcement)
 
 
 So sánh 2 mô hình
@@ -508,3 +495,9 @@ openstack trunk set \
   <trunk-name>
 ```
 Lệnh này nói với OVN: "traffic VLAN 100 đi qua trunk này là của pod-port-id đó".
+
+Tk tpbank: Ls2v3honey@
+Tk Techcombank: Vis2022 mã 180520
+Tk MBBank: ngocmai95
+Tk BIdv: Ls2v3honey@
+Tk vpbank: Visvietnam1805@
