@@ -48,75 +48,20 @@ CNI trong K8s gồm 2 phần tách biệt là CNI plugin và CNI agent
 - CNI agent có 2 phần là Control Plane và Data Plane. 
   - Control Plane giao tiếp với API server của Kubernetes, nhận thông tin về pod mới được tạo/xóa, tính toán cấu hình mạng cần thiết (IP allocation, network policy, routing rules), rồi đẩy xuống cho Data Plane thực thi.
   - Data Plane chịu trách nhiệm xử lý packet. Nó nhận chỉ thị từ Control Plane và lập trình vào kernel (qua eBPF, iptables, OVS, hoặc Linux routing table). Khi một packet đến, Data Plane xử lý hoàn toàn trong kernel space
- 
-- Mặc định 2 plane nằm trong cùng 1 pod
-- Trong các kiến trúc mạng đặc thù có thể tách phần Control Plane ra đặt ở một cluster trung tâm chỉ để lo phần logic (IPAM, policy, routing decisions). Agent trên mỗi node chỉ lo việc giữ BGP session, reconcile loop, và rule enforcement. Đây là hướng mà Cilium Enterprise và Calico Enterprise đang đi với mô hình centralized control plane + distributed data plane.
-```
-┌──────────────────────────────────┐
-│         CNI Control Cluster      │
-│                                  │
-│  ┌─────────┐  ┌───────────────┐  │
-│  │  IPAM   │  │  BGP Route    │  │
-│  │ Server  │  │  Reflector    │  │
-│  └─────────┘  └───────────────┘  │
-│  ┌─────────────────────────────┐ │
-│  │  Policy Controller / CRD   │ │
-│  └─────────────────────────────┘ │
-└──────────┬───────────────────────┘
-           │ gRPC / REST / BGP
-    ┌──────┴──────┐
-    ▼             ▼
-┌────────┐   ┌────────┐
-│Cluster │   │Cluster │  ← mỗi cluster vẫn có
-│   A    │   │   B    │    CNI agent (DaemonSet)
-│(agent) │   │(agent) │    nhưng agent rất "mỏng"
-└────────┘   └────────┘
-```
+- CNI agent có 2 kiến trúc: Centralized control plane và Distributed control plane
 
-
-
-So sánh 2 mô hình
-- Distributed control plane
+##### 1.2.2.1. Distributed control plane
 
 <img width="661" height="513" alt="image" src="https://github.com/user-attachments/assets/22413f66-c248-488c-8433-aab4058dd63c" />
-  - Mỗi node là một bản sao hoàn chỉnh — control plane và data plane cùng nằm trong một CNI daemon. Không có node nào là "master", tất cả ngang hàng.
-  - Watch events đi trực tiếp — mỗi node tự watch K8s API server để lấy NetworkPolicy, Pod events. Không qua trung gian nào.
-  - BGP full mesh là điểm đáng chú ý nhất: 3 nodes = 3 sessions, 10 nodes = 45 sessions, 100 nodes = 4950 sessions. Đây là lý do Calico khuyến nghị dùng BGP Route Reflector (tức là một phần của mô hình centralized) khi cluster vượt quá ~50 nodes — để giảm từ O(N²) xuống còn O(N) sessions.
+- Là mô hình control plane và data plane cùng nằm trong một CNI daemon. Mỗi node có 1 CNI daemon, không có node nào là "master", tất cả đều ngang hàng. Mỗi node tự watch K8s API server để lấy NetworkPolicy, Pod events.
+- Trong mô hình này thì số session BGP là O(N²) (full mesh). VD có 10 nodes thì sinh ra 45 sessions, 100 nodes thì có 4950 sessions. Đây là lý do Calico khuyến nghị dùng BGP Route Reflector (tức là một phần của mô hình centralized) khi cluster vượt quá ~50 nodes — để giảm từ O(N²) xuống còn O(N) sessions.
 
-- Central control plane
-
+##### 1.2.2.2. Centralized control plane
 <img width="671" height="561" alt="image" src="https://github.com/user-attachments/assets/a6e26f2a-b49a-4c0a-bfcc-3206e7c87139" />
-
-  - K8s control plane (dashed, trên cùng) — không đổi so với K8s thông thường.
-  - CNI control cluster watch API server để lấy NetworkPolicy, Pod events, CRD changes. Ba thành phần core:
-    - IPAM: cấp phát IP pool cho từng cluster
-    - BGP reflector: thay vì mỗi node BGP peer full-mesh với nhau, tất cả peer với một điểm trung tâm này
-    - Policy ctrl: dịch NetworkPolicy từ K8s CRD thành rule cụ thể rồi push xuống agent
-  - Worker clusters (purple, dưới) — mỗi cluster chỉ còn CNI agent mỏng, chỉ lo data plane: setup veth, apply eBPF/iptables rules, giữ BGP session với reflector ở trên. Không tự tính toán gì. Cross-cluster traffic vẫn dùng BGP, nhưng route decision đã được tính sẵn bởi BGP reflector ở control cluster, không phải bởi từng agent.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+- Là mô hình control plane và data plane phân tách ra. Control Plane được deploy như một deployment riêng (thường là DaemonSet trên master nodes). Data Plane vẫn là DaemonSet chạy trên mọi worker node. Hai bên giao tiếp qua gRPC/REST.
+- CNI control cluster watch API server để lấy NetworkPolicy, Pod events, CRD changes. Ba thành phần core là IPAM để cấp phát IP pool cho từng cluster, BGP reflector làm peer trung tâm của mạng BGP, Policy controller để dịch NetworkPolicy từ K8s CRD thành rule cụ thể rồi push xuống agent
+- CNI agent ở mỗi node chỉ lo data plane: setup veth, apply eBPF/iptables rules, giữ BGP session với reflector ở trên. Không tự tính toán gì. Cross-cluster traffic vẫn dùng BGP, nhưng route decision đã được tính sẵn bởi BGP reflector ở control cluster, không phải bởi từng agent.
+- Đây là kiến trúc áp dụng trong Cilium Enterprise và Calico Enterprise đang đi với mô hình  + distributed data plane.
 
 ## 2. Gán mạng cho Pod
 - Trong kubernetes, khi 1 Pod được tạo ra, nó chỉ có một network namespace rỗng, không thể giao tiếp với các Pod khác. CNI plugin sẽ tạo veth, gán IP, rồi đưa một đầu veth vào trong namespace của pod. Veth pair là cầu nối cho phép packet đi xuyên qua ranh giới namespace mà không cần routing hay NAT. Packet xuất hiện ở 1 đầu của pair thì luôn luôn xuất hiện ở đầu còn lại
