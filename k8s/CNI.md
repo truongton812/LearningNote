@@ -160,8 +160,8 @@ Là trường hợp các container giao tiếp khác node, phức tạp hơn vì
 ## 5. Kubernetes trong Openstack
 
 ### 5.1. Normal CNI plugin
-<img width="660" height="509" alt="image" src="https://github.com/user-attachments/assets/ceddd0eb-cc25-405c-a348-fc5a6fbdc4bc" />
 <img width="695" height="665" alt="image" src="https://github.com/user-attachments/assets/c4950e77-2788-4784-a1f5-6b8b8f0c3581" />
+
 - Trong openstack, Pod là thành phần nằm bên trong VM. VM do OpenStack quản lý, còn Pod chạy bên trong VM đó — VM đóng vai trò là Kubernetes node. Do đó sẽ có hai lớp networking hoàn toàn tách biệt
   - Neutron quản lý network giữa các VM → VM thấy nhau qua 192.168.x.x
   - CNI plugin quản lý network giữa các Pod → Pod thấy nhau qua 10.244.x.x
