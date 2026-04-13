@@ -77,170 +77,141 @@ Domain là cấp cao hơn, nhóm các project lại
 
 ---
 
-## Các lệnh làm việc với Openstack
+## 4. Các lệnh làm việc với Openstack
 
-### Compute (Nova)
+### 4.1 Compute (Nova)
+- Liệt kê instances
+  - `openstack server list --all-projects`
+  - `openstack server list --project <project_id>`
+- Tạo instance
+  - `openstack server create --flavor m1.small --image ubuntu-22.04 --network <network-name> --key-name my-key --security-group default my-instance`
+- Thao tác với instance
+  - `openstack server show <server-id>`
+  - `openstack server start/stop/reboot <server-id>`
+  - `openstack server delete <server-id>`
+  - `openstack server suspend/resume <server-id>`
+  - `openstack server pause/unpause <server-id>`
+- Console / log
+  - `openstack console url show <server-id> --os-project-name <tên-project>`
+  - `openstack console log show <server-id>`
+- Migration
+  - `openstack server migrate <server-id>`
+  - `openstack server migrate --live <host> <server-id>`
+- Resize
+  - `openstack server resize --flavor m1.large <server-id>`
+  - `openstack server resize confirm <server-id>`
+- Liệt kê hypervisors
+  - `openstack hypervisor list`
+  - `openstack hypervisor show <hypervisor>`
+  - `openstack hypervisor stats show`
 
-Liệt kê instances
-- openstack server list --all-projects
-- openstack server list --project <project_id>
+### 4.2. Network (Neutron)
+- Liệt kê và tạo network
+  - `openstack network list`
+  - `openstack network create <name> [--external] [--provider-network-type flat]`
+  - `openstack network delete <name>`
+- Liệt kê và tạo subnet
+  - `openstack subnet list`
+  - `openstack subnet create --network <network> --subnet-range 192.168.1.0/24 --gateway 192.168.1.1 --dns-nameserver 8.8.8.8 my-subnet`
+- Liệt kê và tạo Routers
+  - `openstack router list`
+  - `openstack router create my-router`
+  - `openstack router set --external-gateway <ext-network> my-router`
+  - `openstack router add subnet my-router my-subnet`
+  - `openstack router remove subnet my-router my-subnet`
+- Floating IPs
+  - `openstack floating ip list`
+  - `openstack floating ip create <ext-network>`
+  - `openstack floating ip set --port <port-id> <floating-ip>`
+  - `openstack server add floating ip <server-id> <floating-ip>`
+  - `openstack server remove floating ip <server-id> <floating-ip>`
+- Liệt kê và tạo Security Groups
+  - `openstack security group list`
+  - `openstack security group create my-sg`
+  - `openstack security group rule create --protocol tcp --dst-port 22 --remote-ip 0.0.0.0/0 my-sg`
+  - `openstack security group rule list my-sg`
+- Liệt kê và tạo Ports
+  - `openstack port list --server <server-id>`
+  - `openstack port show <port-id>`
 
-Tạo instance
-- openstack server create --flavor m1.small --image ubuntu-22.04 --network <network-name> --key-name my-key --security-group default my-instance
+### 4.3. Storage (Cinder & Swift)
+- Liệt kê và tạo Volumes (Cinder)
+  - `openstack volume list`
+  - `openstack volume create --size 20 --type <type> my-volume`
+  - `openstack volume show <volume-id>`
+  - `openstack volume delete <volume-id>`
+- Attach/Detach
+  - `openstack server add volume <server-id> <volume-id>`
+  - `openstack server remove volume <server-id> <volume-id>`
+- Snapshots
+  - `openstack volume snapshot create --volume <vol-id> my-snap`
+  - `openstack volume snapshot list`
+  - `openstack volume snapshot delete <snap-id>`
+- Volume types
+  - `openstack volume type list`
+- Object Storage (Swift)
+  - `openstack container list`
+  - `openstack container create my-bucket`
+  - `openstack object list my-bucket`
+  - `openstack object upload my-bucket /path/to/file`
+  - `openstack object save my-bucket <object> --file /tmp/out`
 
-Thao tác với instance
-- openstack server show <server-id>
-- openstack server start/stop/reboot <server-id>
-- openstack server delete <server-id>
-- openstack server suspend/resume <server-id>
-- openstack server pause/unpause <server-id>
+### 4.4 Images (Glance)
+- Liệt kê images
+  - `openstack image list`
+  - `openstack image show <image-id>`
+- Upload image
+  - `openstack image create --file ubuntu-22.04.img --disk-format qcow2 --container-format bare --public ubuntu-22.04`
+- Download & delete
+  - `openstack image save --file /tmp/out.qcow2 <image-id>`
+  - `openstack image delete <image-id>`
+- Chia sẻ image giữa projects
+  - `openstack image add project <image-id> <project-id>`
+  - `openstack image set --shared <image-id>`
 
-Console / log
-- openstack console url show <server-id> --os-project-name <tên-project>
-- openstack console log show <server-id>
+### 4.5 Identity (Keystone)
+- Projects
+  - `openstack project list`
+  - `openstack project create <name> --domain Default`
+  - `openstack project delete <name>`
+- Users
+  - `openstack user list`
+  - `openstack user create --password <pass> --email x@x.com <name>`
+  - `openstack user delete <user>`
+- Roles
+  - `openstack role list`
+  - `openstack role add --user <user> --project <project> member`
+  - `openstack role assignment list --project <project>`
 
-Migration
-- openstack server migrate <server-id>                    # cold
-- openstack server migrate --live <host> <server-id>     # live
+### 4.6 Theo dõi & Debug
+- Quota
+  - `openstack quota show <project>`
+  - `openstack quota set --instances 50 --cores 200 --ram 204800 <project>`
+- Usage
+  - `openstack usage list`
+  - `openstack usage show --start 2025-01-01 --end 2025-12-31`
+- Services & Agents
+  - `openstack service list`
+  - `openstack compute service list`
+  - `openstack network agent list`
+  - `openstack volume service list`
+- Kiểm tra logs (trên node)
+  - `journalctl -u nova-api -f`
+  - `journalctl -u neutron-server -f`
+  - `journalctl -u cinder-api -f`
+  - `tail -f /var/log/nova/nova-api.log`
+  - `tail -f /var/log/neutron/neutron-server.log`
+- Endpoints
+  - `openstack endpoint list`
+  - `openstack endpoint show <endpoint-id>`
 
-Resize
-- openstack server resize --flavor m1.large <server-id>
-- openstack server resize confirm <server-id>
-
-Liệt kê hypervisors
-- openstack hypervisor list
-- openstack hypervisor show <hypervisor>
-- openstack hypervisor stats show
-
-### Network (Neutron)
-
-Liệt kê và tạo network
-- openstack network list
-- openstack network create <name> [--external] [--provider-network-type flat]
-- openstack network delete <name>
-
-Liệt kê và tạo subnet
-- openstack subnet list
-- openstack subnet create --network <network> --subnet-range 192.168.1.0/24 --gateway 192.168.1.1 --dns-nameserver 8.8.8.8 my-subnet
-
-Liệt kê và tạo Routers
-- openstack router list
-- openstack router create my-router
-- openstack router set --external-gateway <ext-network> my-router
-- openstack router add subnet my-router my-subnet
-- openstack router remove subnet my-router my-subnet
-
-Floating IPs
-- openstack floating ip list
-- openstack floating ip create <ext-network>
-- openstack floating ip set --port <port-id> <floating-ip>
-- openstack server add floating ip <server-id> <floating-ip>
-- openstack server remove floating ip <server-id> <floating-ip>
-
-Liệt kê và tạo Security Groups
-- openstack security group list
-- openstack security group create my-sg
-- openstack security group rule create --protocol tcp --dst-port 22 --remote-ip 0.0.0.0/0 my-sg
-- openstack security group rule list my-sg
-
-Liệt kê và tạo Ports
-- openstack port list --server <server-id>
-- openstack port show <port-id>
-
-### Storage (Cinder & Swift)
-
-Liệt kê và tạo Volumes (Cinder)
-- openstack volume list
-- openstack volume create --size 20 --type <type> my-volume
-- openstack volume show <volume-id>
-- openstack volume delete <volume-id>
-
-Attach/Detach
-- openstack server add volume <server-id> <volume-id>
-- openstack server remove volume <server-id> <volume-id>
-
-Snapshots
-- openstack volume snapshot create --volume <vol-id> my-snap
-- openstack volume snapshot list
-- openstack volume snapshot delete <snap-id>
-
-Volume types
-- openstack volume type list
-
-Object Storage (Swift)
-- openstack container list
-- openstack container create my-bucket
-- openstack object list my-bucket
-- openstack object upload my-bucket /path/to/file
-- openstack object save my-bucket <object> --file /tmp/out
-
-### Images (Glance)
-
-Liệt kê images
-- openstack image list
-- openstack image show <image-id>
-
-Upload image
-- openstack image create --file ubuntu-22.04.img --disk-format qcow2 --container-format bare --public ubuntu-22.04
-
-Download & delete
-- openstack image save --file /tmp/out.qcow2 <image-id>
-- openstack image delete <image-id>
-
-Chia sẻ image giữa projects
-- openstack image add project <image-id> <project-id>
-- openstack image set --shared <image-id>
-
-### Identity (Keystone)
-Projects
-- openstack project list
-- openstack project create <name> --domain Default
-- openstack project delete <name>
-
-Users
-- openstack user list
-- openstack user create --password <pass> --email x@x.com <name>
-- openstack user delete <user>
-
-Roles
-- openstack role list
-- openstack role add --user <user> --project <project> member
-- openstack role assignment list --project <project>
-
-### Theo dõi & Debug
-Quota
-- openstack quota show <project>
-- openstack quota set --instances 50 --cores 200 --ram 204800 <project>
-
-Usage
-- openstack usage list
-- openstack usage show --start 2025-01-01 --end 2025-12-31
-
-Services & Agents
-- openstack service list
-- openstack compute service list
-- openstack network agent list
-- openstack volume service list
-
-Kiểm tra logs (trên node)
-- journalctl -u nova-api -f
-- journalctl -u neutron-server -f
-- journalctl -u cinder-api -f
-- tail -f /var/log/nova/nova-api.log
-- tail -f /var/log/neutron/neutron-server.log
-
-Endpoints
-- openstack endpoint list
-- openstack endpoint show <endpoint-id>
-
-### Tips hữu ích
-Filter
-- openstack server list --status ERROR
-- openstack server list --host <compute-node>
-- openstack volume list --status error
-
-Bulk delete instances lỗi
-- openstack server list --status ERROR -f value -c ID | xargs -I{} openstack server delete {}
+### 4.7. Tips hữu ích
+- Filter
+  - `openstack server list --status ERROR`
+  - `openstack server list --host <compute-node>`
+  - `openstack volume list --status error`
+- Bulk delete instances lỗi
+  - `openstack server list --status ERROR -f value -c ID | xargs -I{} openstack server delete {}`
 
 ---
 
