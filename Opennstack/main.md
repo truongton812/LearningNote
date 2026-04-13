@@ -103,6 +103,27 @@ OpenStack chia các chức năng ra nhiều node để tách biệt tải và tr
 - Lưu ý khi VM muốn giao tiếp với VM ở subnet khác, packet phải rời bridge, đi lên router (qrouter namespace, OVN logical router), rồi mới được forward sang subnet đích.
 
 <img width="801" height="485" alt="image" src="https://github.com/user-attachments/assets/7fb7196d-4f15-4d01-b385-13de01f15b1f" />
+
+#### Điểm khác biệt giữa L3 Neutron và OVN backend network
+##### L3 Neutron
+- Sử dụng Linux Bridge agent chạy trên mỗi compute node. Khi ta tạo các VM nằm trên nhiều compute node nhưng cùng thuộc network A thì Linux Bridge agent trên các node có VMs sẽ tự động tạo bridge trên compute node bằng lệnh `ip link add brq-xxx type bridge`. Lưu ý phải có VM trên node thì mới tạo, nếu node chưa có VM nào của Network A thì chưa có bridge nào cho Network A. Có bao nhiêu network có VM trên node → có bấy nhiêu bridge.
+- Minh họa: cả hai node đều có brq-net-A riêng. VM1, VM2 cắm vào bridge trên chính node của chúng. Hai bridge được nối với nhau qua VXLAN tunnel — nhờ đó VM1 và VM3 tuy ở hai máy vật lý khác nhau nhưng vẫn thấy nhau như cùng một mạng L2.
+```
+Compute node 1                    Compute node 2
+┌─────────────────┐               ┌─────────────────┐
+│  brq-net-A      │               │  brq-net-A      │
+│  ┌───┐  ┌───┐   │               │  ┌───┐          │
+│  │VM1│  │VM2│   │               │  │VM3│          │
+│  └───┘  └───┘   │               │  └───┘          │
+│  vxlan──────────┼───────────────┼──vxlan          │
+└─────────────────┘               └─────────────────┘
+```
+
+
+##### OVN
+- ovn-controller tạo br-int ngay khi service khởi động, không cần đợi VM nào. Toàn bộ vòng đời của VM chỉ liên quan đến việc thêm/xóa port trên br-int và cập nhật OVS flow rules — không bao giờ tạo thêm bridge mới.
+br-ex là ngoại lệ — không do agent tạo động, mà được tạo sẵn lúc cài đặt OpenStack (Kolla, manual...) và gán physical interface vào đó một lần duy nhất. Đó là lý do bạn thấy enp1s0 nằm trong br-ex khi chạy ovs-vsctl show.
+- Khi gõ lệnh `ovs-vsctl show` trên compute node sẽ chỉ thấy 1 br-int và mọi VM tap interface đều kết nối vào đó. OVS gán tunnel key (còn gọi là VNI — Virtual Network Identifier) cho các packets đến từ các network khác nhau (VD Net-A gán tunnel key 100, Net-B gán tunnel key 200). OVS flow tables trong kernel có rule để xử lý dựa trên tunnel key
 ## 4. Neutron
 
 <img width="701" height="590" alt="image" src="https://github.com/user-attachments/assets/b7160aff-001d-4047-9e1e-20ff47ce3d0b" />
@@ -142,29 +163,7 @@ Giải thích các khái niệm
 - Latency rất thấp nhưng mất tính flexibility (không dùng được floating IP, security group giới hạn).
 
 
-#### Điểm khác biệt giữa L3 Neutron và OVN backend network
-##### L3 Neutron
-- Sử dụng Linux Bridge agent chạy trên mỗi compute node. Khi ta tạo các VM nằm trên nhiều compute node nhưng cùng thuộc network A thì Linux Bridge agent trên các node có VMs sẽ tự động tạo bridge trên compute node bằng lệnh `ip link add brq-xxx type bridge`. Lưu ý phải có VM trên node thì mới tạo, nếu node chưa có VM nào của Network A thì chưa có bridge nào cho Network A. Có bao nhiêu network có VM trên node → có bấy nhiêu bridge.
-- Minh họa: cả hai node đều có brq-net-A riêng. VM1, VM2 cắm vào bridge trên chính node của chúng. Hai bridge được nối với nhau qua VXLAN tunnel — nhờ đó VM1 và VM3 tuy ở hai máy vật lý khác nhau nhưng vẫn thấy nhau như cùng một mạng L2.
-```
-Compute node 1                    Compute node 2
-┌─────────────────┐               ┌─────────────────┐
-│  brq-net-A      │               │  brq-net-A      │
-│  ┌───┐  ┌───┐   │               │  ┌───┐          │
-│  │VM1│  │VM2│   │               │  │VM3│          │
-│  └───┘  └───┘   │               │  └───┘          │
-│  vxlan──────────┼───────────────┼──vxlan          │
-└─────────────────┘               └─────────────────┘
-```
-
-
-##### OVN
-- ovn-controller tạo br-int ngay khi service khởi động, không cần đợi VM nào. Toàn bộ vòng đời của VM chỉ liên quan đến việc thêm/xóa port trên br-int và cập nhật OVS flow rules — không bao giờ tạo thêm bridge mới.
-br-ex là ngoại lệ — không do agent tạo động, mà được tạo sẵn lúc cài đặt OpenStack (Kolla, manual...) và gán physical interface vào đó một lần duy nhất. Đó là lý do bạn thấy enp1s0 nằm trong br-ex khi chạy ovs-vsctl show.
-- Khi gõ lệnh `ovs-vsctl show` trên compute node sẽ chỉ thấy 1 br-int và mọi VM tap interface đều kết nối vào đó. OVS gán tunnel key (còn gọi là VNI — Virtual Network Identifier) cho các packets đến từ các network khác nhau (VD Net-A gán tunnel key 100, Net-B gán tunnel key 200). OVS flow tables trong kernel có rule để xử lý dựa trên tunnel key
-
-
-## 4. Các lệnh làm việc với Openstack
+## 5. Các lệnh làm việc với Openstack
 
 ### 4.1 Compute (Nova)
 - Liệt kê instances
