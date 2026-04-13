@@ -176,117 +176,18 @@ Là trường hợp các container giao tiếp khác node, phức tạp hơn vì
 Kiến trúc cơ bản
 - Có thể tận dụng OVS-CNI plugin để kết nối pod network với Neutron OVS backend
 - Lưu ý OVS-CNI không tự tạo OVS bridge. Nó expect bridge đã tồn tại sẵn trên **K8s node**. Không thể tận dụng OVS bridge của Openstack hypervisor bên dưới do K8s node chỉ thấy eth0 - một virtual NIC bình thường. Nó không có visibility vào lớp OpenStack hypervisor. Samsung đưa ra giải pháp là custom CNI Hyperplane - gọi Neutron API để tạo port
-
-K8s Pod ──► Kuryr CNI ──► Neutron API ──► OVS (Neutron) ──► Network
-
-Kuryr không dùng OVS trực tiếp, mà gọi Neutron API để tạo port
-Neutron tự xử lý phía OVS bên dưới
-Pod IP lấy từ Neutron subnet → cùng network plane với VM
-Không cần overlay (VXLAN) trong K8s vì Neutron đã lo
-
-Kuryr không dùng OVS trực tiếp, mà gọi Neutron API để tạo port
-    •    Neutron tự xử lý phía OVS bên dưới
-    •    Pod IP lấy từ Neutron subnet → cùng network plane với VMApr 11OK để mình giải thích từng lớp một, bắt đầu từ nền tảng.
-
-1. Neutron hoạt động như thế nào (không có K8s)
-Khi bạn tạo một VM trên OpenStack:
-Nova yêu cầu Neutron: "Tạo cho tôi một network interface"
-         ↓
-Neutron tạo một "Port" (logical) trong database
-         ↓
-Neutron agent trên hypervisor node nhận event
-         ↓
-Agent gọi ovs-vsctl để tạo port thật trên OVS bridge
-         ↓
-VM được cắm vào OVS bridge qua tap interface
-Neutron trừu tượng hóa OVS — bạn chỉ cần gọi API, còn việc tạo OVS port thật là việc của Neutron agent.
-
-2. Bình thường K8s CNI làm gì
-Khi pod được tạo, CNI plugin (Flannel/Calico) làm:
-Kubelet gọi CNI plugin
-         ↓
-CNI tự tạo veth pair
-CNI tự xin IP từ IPAM của nó (etcd/host-local)
-CNI tự tạo route, iptables rules
-         ↓
-Hoàn toàn độc lập với OpenStack
-K8s không biết Neutron tồn tại. Pod IP là một dải riêng (ví dụ 10.244.x.x), tách biệt hoàn toàn với Neutron subnet.
-
-3. Kuryr làm khác — nó "nói chuyện" với Neutron
-Đây là điểm mấu chốt:
-Kubelet gọi Kuryr CNI plugin
-         ↓
-Kuryr KHÔNG tự tạo network interface
-Kuryr gọi Neutron API: "Tạo cho tôi một Port trong subnet X"
-         ↓
-Neutron tạo Port, trả về: IP = 192.168.1.50, MAC = aa:bb:cc:...
-         ↓
-Neutron agent trên node tạo OVS port thật (giống như tạo cho VM)
-         ↓
-Kuryr gắn OVS port đó vào network namespace của pod
-Pod bây giờ có IP 192.168.1.50 — chính là IP từ Neutron subnet, không phải từ IPAM của K8s.
-
-4. "Cùng network plane với VM" nghĩa là gì
-Hãy nhìn vào ví dụ cụ thể:
-Không có Kuryr:
-VM-A          IP: 192.168.1.10  (Neutron subnet)
-VM-B (K8s)    IP: 192.168.1.11  (Neutron subnet)
-  └─ Pod-1    IP: 10.244.0.5    (K8s internal)
-  └─ Pod-2    IP: 10.244.0.6    (K8s internal)
-
-VM-A muốn gọi Pod-1 → không thể trực tiếp
-Phải đi qua NodePort hoặc LoadBalancer của K8s
-VM-A chỉ biết địa chỉ 192.168.1.11:NodePort
-
-Có Kuryr:
-VM-A          IP: 192.168.1.10  (Neutron subnet)
-VM-B (K8s)    IP: 192.168.1.11  (Neutron subnet)
-  └─ Pod-1    IP: 192.168.1.50  (cùng Neutron subnet!)
-  └─ Pod-2    IP: 192.168.1.51  (cùng Neutron subnet!)
-
-VM-A muốn gọi Pod-1 → gọi thẳng 192.168.1.50
-Packet đi qua OVS của Neutron bình thường, giống như gọi giữa 2 VM
-Không cần NodePort, không cần NAT, không cần overlay của K8s
-
-
-5. Tại sao không cần double encapsulation
-Bình thường (Flannel trên OpenStack VM):
-Pod gửi packet
-  → Flannel đóng gói VXLAN (lớp 1)
-  → VM gửi ra eth0
-  → Neutron đóng gói VXLAN lần nữa (lớp 2)
-  → Ra physical network
-2 lớp tunnel = overhead lớn, latency cao.
-Với Kuryr:
-Pod gửi packet
-  → OVS xử lý (không tunnel)
-  → Neutron đóng gói VXLAN 1 lần (nếu cần)
-  → Ra physical network
-Chỉ 1 lớp (hoặc 0 nếu flat network) = hiệu quả hơn nhiều.
-
-Tóm lại
-CNI thườngKuryrAi cấp IP cho podK8s IPAMNeutronPod IPDải riêng của K8sNeutron subnet thậtVM gọi PodQua NodePort/LBGọi thẳng IPEncapsulationDouble (K8s + Neutron)Single (Neutron only)Độ phức tạp vận hànhĐơn giảnPhức tạp hơn
-
-Bạn có muốn mình đi sâu vào phần nào không — ví dụ cách Kuryr map K8s Service sang Neutron LBaaS, hay cách setup thực tế?
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+- Khi bạn tạo một VM trên OpenStack:
+  - Nova yêu cầu Neutron: "Tạo cho tôi một network interface"
+  - Neutron tạo một "Port" (logical) trong database
+  - Neutron agent trên hypervisor node nhận event
+  - Agent gọi ovs-vsctl để tạo port thật trên OVS bridge
+  - VM được cắm vào OVS bridge qua tap interface
+- Khi pod được tạo, Hyperplane plugin làm:
+  - Kubelet gọi Hyperplane CNI plugin
+  - CNI plugin gọi Neutron API: "Tạo cho tôi một Port trong subnet X"
+  - Neutron tạo Port, trả về: IP = 192.168.1.50, MAC = aa:bb:cc:...
+  - Neutron agent trên node tạo OVS port thật (giống như tạo cho VM)
+  - Plugin gắn OVS port đó vào network namespace của pod -> Pod bây giờ có IP 192.168.1.50 — chính là IP từ Neutron subnet, không phải từ IPAM của K8s. Pod bây giờ có cùng network với VM, VM-A muốn gọi Pod-1 → gọi thẳng 192.168.1.50. Packet đi qua OVS của Neutron bình thường, giống như gọi giữa 2 VM, không cần NodePort, không cần NAT, không cần overlay của K8s
 
 
 ### 5.3 SR-IOV CNI plugin
