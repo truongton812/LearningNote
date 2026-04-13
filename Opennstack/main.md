@@ -67,7 +67,7 @@ OpenStack chia các chức năng ra nhiều node để tách biệt tải và tr
 - Là một đối tượng trừu tượng đại diện cho một broadcast domain Layer 2 — tương đương với một VLAN hoặc một switch ảo.
 - Khi tạo một network, Neutron thực chất tạo ra một phân đoạn mạng riêng biệt mà các máy ảo (VM) có thể kết nối vào. Mỗi network được gán một segmentation ID (tunnel key) để cô lập traffic giữa các network với nhau trên cùng hạ tầng vật lý
 - Một network có thể thuộc các loại khác nhau tuỳ thuộc vào cách triển khai phía dưới: VXLAN, VLAN, GRE, hay flat.
-- Network tự nó chưa có thông tin IP — nó chỉ là "dây dẫn". Để có địa chỉ IP, cần tạo subnet gắn vào network đó (ví dụ 10.0.0.0/24). Một network có thể có nhiều subnet.
+- Network tự nó chưa có thông tin IP — nó chỉ là "dây dẫn". Để có địa chỉ IP, cần tạo subnet gắn vào network đó (ví dụ 10.0.0.0/24). Một network có thể có nhiều subnet với dải IP khác nhau vẫn hợp lệ
 - Tất cả các VM, router, agent thuộc cùng network có thể giao tiếp Layer 2 với nhau
 
 ### 3.2. Port
@@ -81,26 +81,29 @@ OpenStack chia các chức năng ra nhiều node để tách biệt tải và tr
   - VM gắn vào network → Neutron tạo port loại compute:nova
   - Router kết nối vào network → Neutron tạo port loại network:router_interface (hoặc network:router_gateway cho external network)
   - DHCP agent phục vụ subnet → Neutron tạo port loại network:dhcp
-- Port cũng được tạo thủ công bằng Neutron API
+- Port cũng có thể được tạo thủ công bằng Neutron API
 - Flow hoạt động khi boot một VM:
-- Neutron tạo một port trên network VM thuộc về, cấp MAC + IP,. Lúc này Neutron port chỉ là bản ghi logical trong database, chưa có gì trên host
-- OVN controller trên compute node watch thông tin từ OVN Northbound DB, tạo ra OVS port thực sự trên br-int của host. Virtual NIC của VM (tap interface) được map vào OVS port
+  - Neutron tạo một port trên network VM thuộc về, cấp MAC + IP,. Lúc này Neutron port chỉ là bản ghi logical trong database, chưa có gì trên host
+  - OVN controller trên compute node watch thông tin từ OVN Northbound DB, tạo ra OVS port thực sự trên br-int của host. Virtual NIC của VM (tap interface) được map vào OVS port
+
+### 3.3 Bridge
+- Là thiết bị nối nhiều network interface lại với nhau thành một L2 domain duy nhất — tất cả các port cắm vào bridge đó có thể giao tiếp trực tiếp với nhau như thể đang cùng cắm vào một switch vật lý.
+- Trong Openstack, mỗi khi tạo 1 network sẽ sinh ra 1 bridge. Các VM cùng thuộc một network trên cùng một node sẽ cắm vào chung một bridge đấy. Và khi khởi tạo VM, kernel tạo một tap interface và cắm vào bridge. Từ góc nhìn của VM, nó đang cắm vào một switch — không biết và không cần biết bên dưới là Linux bridge hay OVS.
+- eth0 và tap interface là 2 đầu của 1 đường ống, trong VM chỉ thấy eth0 (hoặc ens3, ens4... tùy distro), còn tap interface là đầu nối phía host, chỉ nhìn thấy trên host vật lý
+- Với LinuxBridge driver thì bridge là Linux Bridge và có tên là brq-net-xxx. Với OVS driver thì bridge là OVS và thường có tên là `brq-xxx`, còn OVN driver thì bridge là `br-int`
 
 
+  <img width="670" height="324" alt="image" src="https://github.com/user-attachments/assets/3ced1bba-1f2d-4b26-86b5-ce39c7f0ee0d" />
 
+- Bridge ở đây làm 3 việc:
+  - Switching — VM1 gửi frame đến VM2, bridge tra MAC table, forward thẳng sang tap-vm2 mà không broadcast ra các port khác.
+  - Điểm kết nối tunnel — interface VXLAN/GRE cũng cắm vào bridge, nên frame từ VM1 trên node này có thể đi qua tunnel sang bridge cùng tên trên node khác, rồi đến VM4.
+  - Điểm áp dụng security group — với Linux Bridge agent, iptables rules được đặt trên tap interface trước khi frame vào bridge, để filter traffic theo security group của từng VM.
 
+- Lưu ý khi VM muốn giao tiếp với VM ở subnet khác, packet phải rời bridge, đi lên router (qrouter namespace, OVN logical router), rồi mới được forward sang subnet đích.
 
-
-
-
-
-- Network trong Openstack là lớp hạ tầng mạng ảo, còn Subnet là phân vùng IP cụ thể
-- Một network có thể có nhiều subnet
-- OpenStack yêu cầu chỉ định network khi tạo instance, nhưng thực ra instance nhận IP từ subnet bên trong network đó:
-- Subnet AWS thực sự là mạng con — tức là dải IP của subnet phải nằm trong dải IP của VPC. VPC là /16, subnet phải là /24 hoặc nhỏ hơn bên trong đó. Còn Network trong OpenStack không có dải IP — nó chỉ là lớp kết nối (Layer 2). Dải IP hoàn toàn thuộc về Subnet, không phải chia ra từ Network. Nên có thể tạo network "internal-network" và Subnet A có IP 10.0.0.0/24 và Subnet B có IP  192.168.50.0/24  (hoàn toàn khác dải, vẫn hợp lệ)
-
----
-## Openstack Networking
+<img width="801" height="485" alt="image" src="https://github.com/user-attachments/assets/7fb7196d-4f15-4d01-b385-13de01f15b1f" />
+## 4. Neutron
 
 <img width="701" height="590" alt="image" src="https://github.com/user-attachments/assets/b7160aff-001d-4047-9e1e-20ff47ce3d0b" />
 
@@ -110,23 +113,23 @@ Giải thích các khái niệm
   - Mechanism Drivers — định nghĩa cách implement network đó trên thực tế (ai lập trình switch ảo, ai xử lý routing). Đây chính là thứ người ta hay gọi không chính thức là "backend" hoặc "ML2 driver". Ba tên gọi này đều chỉ cùng một thứ. Mechanism Driver được cấu hình ở dòng `mechanism_drivers =` trong ml2_conf.ini.
   - Extension Drivers — các tính năng tùy chọn gắn thêm vào port/network như QoS, port security, DNS. Không liên quan đến data plane.
 
-### Mechanism Drivers (backend/ML2 driver)
-- Chức năng: Biến "khai báo mạng" thành "mạng thật sự hoạt động". Khi chạy các lệnh như `openstack network create my-net`, `openstack router create my-router`, `openstack server create --network my-net my-vm`, Neutron chỉ lưu thông tin vào databasen nhưng chưa thực sự cấu hình ở tầng hệ điều hành và phần cứng.. Backend networking là thứ biến các bản ghi trong DB đó thành hạ tầng mạng thật sự.
+### 4.1. Mechanism Drivers (backend/ML2 driver)
+- Chức năng: Biến "khai báo mạng" thành "mạng thật sự hoạt động". Khi chạy các lệnh như `openstack network create my-net`, `openstack router create my-router`, `openstack server create --network my-net my-vm`, Neutron chỉ lưu thông tin vào database nhưng chưa thực sự cấu hình ở tầng hệ điều hành và phần cứng. Backend networking là thứ biến các bản ghi trong DB đó thành hạ tầng mạng thật sự.
 - Cụ thể công việc của backend networking khi bạn tạo một VM và gán vào network:
-    - Trên compute node: tạo virtual port, kết nối VM vào virtual switch (OVS bridge hoặc Linux bridge), áp dụng security group rules (iptables hoặc OVS flows) để filter traffic của VM đó.
-    - Trên network node: tạo router ảo (qrouter namespace với L3 Agent, hoặc logical router trong OVN), cấu hình routing giữa các subnet, setup NAT cho floating IP, chạy DHCP server để VM lấy được IP.
-    - Giữa các node: tạo tunnel (Geneve/VXLAN) để traffic của VM trên compute01 có thể đi sang VM trên compute02, dù hai VM đang ở hai máy vật lý khác nhau.
+  - Trên compute node: tạo virtual port, kết nối VM vào virtual switch (OVS bridge hoặc Linux bridge), áp dụng security group rules (iptables hoặc OVS flows) để filter traffic của VM đó.
+  - Trên network node: tạo router ảo (qrouter namespace với L3 Agent, hoặc logical router trong OVN), cấu hình routing giữa các subnet, setup NAT cho floating IP, chạy DHCP server để VM lấy được IP.
+  - Giữa các node: tạo tunnel (Geneve/VXLAN) để traffic của VM trên compute01 có thể đi sang VM trên compute02, dù hai VM đang ở hai máy vật lý khác nhau.
 - Có các type phổ biến là OVN, openvswitch (mặc định của Neutron) và SR-IOV
 - Hầu hết các installer hiện đại (Kolla-AnsibleOVN, OpenStack-AnsibleOVN, Canonical MicroStack,...) đều mặc định dùng OVN vì đó là hướng phát triển chính của OpenStack từ khoảng bản Yoga (2022) trở đi
 
-#### 1. Neutron truyền thống (L3 Agent)
+#### 4.1.1. Neutron truyền thống (L3 Agent)
 <img width="788" height="530" alt="image" src="https://github.com/user-attachments/assets/e6fe716b-3d02-4c76-93ad-f9778025bedb" />
 
 - Neutron truyền thống dùng các agent chạy ở userspace trên Network node. Khi bạn tạo 1 virtual router, L3 agent sẽ tạo ra 1 Linux network namespace (qrouter-xxx) với iptables rules và ip route riêng. 10 router = 10 namespace = 10 iptables chain. Traffic đi qua userspace nên chậm hơn và tốn CPU.
 - Mỗi virtual router tạo ra một qrouter-* namespace độc lập trên Network node, mỗi network tạo ra một qdhcp-* namespace. 100 router = 100 namespace.
 - Routing xử lý ở userspace (iptables), tốn tài nguyên và khó scale.
 
-#### 2. OVN (Open Virtual Network)
+#### 4.1.2. OVN (Open Virtual Network)
 
 <img width="800" height="523" alt="image" src="https://github.com/user-attachments/assets/f8c0ca68-9c2a-4e8c-83e1-223b84f509b4" />
 
@@ -134,35 +137,10 @@ Giải thích các khái niệm
 - Sau đó ovn-controller trên mỗi node (network01, compute01) đọc SB DB và lập trình trực tiếp vào OVS kernel flow tables.
 - Không có namespace, không có iptables — routing xảy ra trong kernel thông qua OVS, nhanh hơn nhiều.
 
-#### 3. SR-IOV
+#### 4.1.3. SR-IOV
 - Dùng khi cần performance cực cao (telco, HPC). VM được cấp virtual function (VF) của NIC vật lý, bypass hoàn toàn OVS/kernel networking.
 - Latency rất thấp nhưng mất tính flexibility (không dùng được floating IP, security group giới hạn).
 
----
-### Bridge
-
-- Bridge là thiết bị nối nhiều network interface lại với nhau thành một L2 domain duy nhất — tất cả các port cắm vào bridge đó có thể giao tiếp trực tiếp với nhau như thể đang cùng cắm vào một switch vật lý.
-- Trong Openstack, mỗi khi tạo 1 network sẽ sinh ra 1 bridge. Các VM cùng thuộc một network trên cùng một node sẽ cắm vào chung một bridge đấy. Và khi khởi tạo VM, kernel tạo một tap interface và cắm vào bridge. Từ góc nhìn của VM, nó đang cắm vào một switch — không biết và không cần biết bên dưới là Linux bridge hay OVS. Lưu ý từ trong VM, chỉ thấy eth0 (hoặc ens3, ens4... tùy distro— đó là interface ảo của VM), còn tap interface là đầu nối phía host, chỉ nhìn thấy trên host vật lý
-- Với OVS driver thì bridge có dạng brq-xxx, còn OVN driver thì bridge là br-int
-
-  ```
-  VM (guest OS)          Host (KVM/QEMU)
-  ┌──────────┐           ┌─────────────────────┐
-  │  eth0    │◄─────────►│ tap-xxxxxxxx        │
-  │ (ảo)     │  QEMU     │      │              │
-  └──────────┘  bridge   │  brq-net-A (bridge) │
-                         └─────────────────────┘
-  
-  eth0 trong VM và tap ngoài host là hai đầu của một ống — VM nhìn thấy đầu của nó (eth0), host nhìn thấy đầu của nó (tap). Không bên nào thấy interface của bên kia.
-  ```
-- Bridge ở đây làm 3 việc:
-  - Switching — VM1 gửi frame đến VM2, bridge tra MAC table, forward thẳng sang tap-vm2 mà không broadcast ra các port khác.
-  - Điểm kết nối tunnel — interface VXLAN/GRE cũng cắm vào bridge, nên frame từ VM1 trên node này có thể đi qua tunnel sang bridge cùng tên trên node khác, rồi đến VM4.
-  - Điểm áp dụng security group — với Linux Bridge agent, iptables rules được đặt trên tap interface trước khi frame vào bridge, để filter traffic theo security group của từng VM.
-
-- Lưu ý khi VM muốn giao tiếp với VM ở subnet khác, packet phải rời bridge, đi lên router (qrouter namespace, OVN logical router), rồi mới được forward sang subnet đích.
-
-<img width="801" height="485" alt="image" src="https://github.com/user-attachments/assets/7fb7196d-4f15-4d01-b385-13de01f15b1f" />
 
 #### Điểm khác biệt giữa L3 Neutron và OVN backend network
 ##### L3 Neutron
@@ -184,17 +162,6 @@ Compute node 1                    Compute node 2
 - ovn-controller tạo br-int ngay khi service khởi động, không cần đợi VM nào. Toàn bộ vòng đời của VM chỉ liên quan đến việc thêm/xóa port trên br-int và cập nhật OVS flow rules — không bao giờ tạo thêm bridge mới.
 br-ex là ngoại lệ — không do agent tạo động, mà được tạo sẵn lúc cài đặt OpenStack (Kolla, manual...) và gán physical interface vào đó một lần duy nhất. Đó là lý do bạn thấy enp1s0 nằm trong br-ex khi chạy ovs-vsctl show.
 - Khi gõ lệnh `ovs-vsctl show` trên compute node sẽ chỉ thấy 1 br-int và mọi VM tap interface đều kết nối vào đó. OVS gán tunnel key (còn gọi là VNI — Virtual Network Identifier) cho các packets đến từ các network khác nhau (VD Net-A gán tunnel key 100, Net-B gán tunnel key 200). OVS flow tables trong kernel có rule để xử lý dựa trên tunnel key
-
----
-
-
-
-
-
-
-
-
-
 
 
 ## 4. Các lệnh làm việc với Openstack
