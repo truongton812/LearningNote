@@ -107,14 +107,18 @@ CNI trong K8s gồm 2 phần tách biệt là CNI plugin và CNI agent
 
 - Nếu muốn pod chỉ dùng mạng dbnet hoàn toàn, thay đổi cấu hình Multus trên node để đặt dbnet làm interface chính.
 
-## 3. Linux bridge 
+## 3. Bridge 
 - Là một virtual network switch được implement trong Linux kernel, có chức năng giống như một switch vật lý Layer 2 nhưng hoàn toàn bằng software. Thay vì port vật lý, bridge có các network interface gắn vào làm port. Đối với host Linux bridge xuất hiện là một interface trong host network namespace, giống như bất kỳ interface nào khác (eth0, lo...). Có thể show bằng lệnh `ip link show` → Sẽ thấy cni0/docker0 nằm chung với eth0, lo, flannel.1...
-- Docker và K8s sử dụng Linux bridge để implement network vì nó có sẵn trong kernel, không cần cài thêm gì. Trong Docker bridge thường có tên là `docker0` do Docker daemon tạo ra. Còn trong Kubernetes thì bridge do CNI tạo và có tên là `cni0`
+- Docker và K8s sử dụng Linux bridge để implement network vì nó có sẵn trong kernel, không cần cài thêm gì. Trong Docker bridge thường có tên là `docker0` do Docker daemon tạo ra. Còn trong Kubernetes thì bridge do CNI tạo và có tên là `cni0`. Openstack sử dụng OVS làm bridge
+    
+### 3.1. Linux bridge
+- Các CNI plugin phổ biến tạo bridge cni0 trong host network namespace.
+- Khi 1 pod trong cụm k8s được tạo ra thì interface của nó sẽ được gắn vào bridge. Show trên host sẽ thấy các veth
+- Linux bridge là một interface trong host network namespace, giống như bất kỳ interface nào khác (eth0, lo...). Khi liệt kê interface bằng lệnh `ip link show` sẽ thấy cni0/docker0 nằm chung với eth0, lo, flannel.1...
 - Cách hoạt động: Bridge duy trì một Forwarding Database (FDB) —  là bảng ánh xạ MAC address → port, giống MAC table của switch thật. Khi container A gửi packet đến container B trong cùng mạng
   - Packet đi qua veth pair vào bridge
   - Bridge tra FDB theo MAC đích
   - Forward ra đúng port → vào veth pair của container B. Toàn bộ quá trình xảy ra trong kernel memory, không ra NIC vật lý
-- Linux bridge là một interface trong host network namespace, giống như bất kỳ interface nào khác (eth0, lo...). Khi liệt kê interface bằng lệnh `ip link show` sẽ thấy cni0/docker0 nằm chung với eth0, lo, flannel.1...
 - Các lệnh làm việc với Bridge:
   - Tạo bridge: `ip link add name br0 type bridge && ip link set br0 up`
   - Liệt kê các bridge hiện có: `ip link show type bridge`
@@ -122,10 +126,6 @@ CNI trong K8s gồm 2 phần tách biệt là CNI plugin và CNI agent
   - Đặt IP cho bridge (để host giao tiếp được): `ip addr add 192.168.1.1/24 dev br0`
   - Gắn interface vào bridge (làm "port"): `ip link set veth0 master br0`
   - Xem port nào đang gắn vào bridge: `ip link show master cni0`
-    
-### 3.1. Linux bridge trong K8s
-- Các CNI plugin phổ biến tạo bridge cni0 trong host network namespace.
-- Khi 1 pod trong cụm k8s được tạo ra thì interface của nó sẽ được gắn vào bridge. Show trên host sẽ thấy các veth
 - Lưu ý có các plugin không dùng bridge. VD Calico gắn veth trực tiếp vào routing table của host (cần kernel xử lý L3 routing cho từng pod)
 
 ### 3.2 OVS
