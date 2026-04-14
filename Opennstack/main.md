@@ -95,26 +95,25 @@ OpenStack chia các chức năng ra nhiều node để tách biệt tải và tr
   - OVN controller trên compute node watch thông tin từ OVN Northbound DB, tạo ra OVS port thực sự trên br-int của host. Virtual NIC của VM (tap interface) được map vào OVS port
 
 ### 3.3 Bridge
-- Là thiết bị nối nhiều network interface lại với nhau thành một L2 domain duy nhất — tất cả các port cắm vào bridge đó có thể giao tiếp trực tiếp với nhau như thể đang cùng cắm vào một switch vật lý.
-- Trong Openstack, mỗi khi tạo 1 network sẽ sinh ra 1 bridge. Các VM cùng thuộc một network trên cùng một node sẽ cắm vào chung một bridge đấy. Và khi khởi tạo VM, kernel tạo một tap interface và cắm vào bridge. Từ góc nhìn của VM, nó đang cắm vào một switch — không biết và không cần biết bên dưới là Linux bridge hay OVS.
-- eth0 và tap interface là 2 đầu của 1 đường ống, trong VM chỉ thấy eth0 (hoặc ens3, ens4... tùy distro), còn tap interface là đầu nối phía host, chỉ nhìn thấy trên host vật lý
-- Với LinuxBridge driver thì bridge là Linux Bridge và có tên là brq-net-xxx. Với OVS driver thì bridge là OVS và thường có tên là `brq-xxx`, còn OVN driver thì bridge là `br-int`
-
-
-  <img width="670" height="324" alt="image" src="https://github.com/user-attachments/assets/3ced1bba-1f2d-4b26-86b5-ce39c7f0ee0d" />
-
-- Bridge ở đây làm 3 việc:
+- Bridge là switch ảo nối nhiều network interface lại với nhau thành một L2 domain duy nhất. Nó nhận các interface (vật lý hoặc ảo) làm "port" và chuyển tiếp frame Ethernet giữa chúng dựa trên MAC address.
+- Nhiệm vụ của bridge:
   - Switching — VM1 gửi frame đến VM2, bridge tra MAC table, forward thẳng sang tap-vm2 mà không broadcast ra các port khác.
   - Điểm kết nối tunnel — interface VXLAN/GRE cũng cắm vào bridge, nên frame từ VM1 trên node này có thể đi qua tunnel sang bridge cùng tên trên node khác, rồi đến VM4.
   - Điểm áp dụng security group — với Linux Bridge agent, iptables rules được đặt trên tap interface trước khi frame vào bridge, để filter traffic theo security group của từng VM.
-
 - Lưu ý khi VM muốn giao tiếp với VM ở subnet khác, packet phải rời bridge, đi lên router (qrouter namespace, OVN logical router), rồi mới được forward sang subnet đích.
+- Trong Openstack có 3 Mechanism Drivers sử dụng bridge:
+  - linuxbridge driver: sử dụng Linux Bridge của kernal. Mỗi Neutron network tạo ra một bridge riêng ( có dạng `brq-<net-id>`), dùng iptables/ebtables cho security group. Phù hợp môi trường nhỏ, dễ debug bằng brctl/ip link.
+  - openvswitch driver: dùng Open vSwitch với OpenFlow rules. Một br-int duy nhất cho tất cả VM, br-tun xử lý tunnel riêng, br-ex kết nối ra ngoài. Mạnh hơn nhưng phức tạp hơn để debug.
+  - ovn driver: vẫn sử dụng OVS bridge bên dưới, nhưng bỏ br-tun đi. OVN Controller tự lập trình Geneve tunnel thẳng vào br-int. Logic L2/L3 được định nghĩa tập trung trong Northbound DB rồi compile xuống, routing phân tán (distributed) mặc định.
+  - Còn 2 driver macvtap và sriovnicswitch không sử dụng bridge
 
-<img width="801" height="485" alt="image" src="https://github.com/user-attachments/assets/7fb7196d-4f15-4d01-b385-13de01f15b1f" />
 
-#### Điểm khác biệt giữa L3 Neutron và OVN backend network
-##### L3 Neutron
-- Sử dụng Linux Bridge agent chạy trên mỗi compute node. Khi ta tạo các VM nằm trên nhiều compute node nhưng cùng thuộc network A thì Linux Bridge agent trên các node có VMs sẽ tự động tạo bridge trên compute node bằng lệnh `ip link add brq-xxx type bridge`. Lưu ý phải có VM trên node thì mới tạo, nếu node chưa có VM nào của Network A thì chưa có bridge nào cho Network A. Có bao nhiêu network có VM trên node → có bấy nhiêu bridge.
+
+#### 3.3.1. Linuxbridge driver
+  <img width="670" height="324" alt="image" src="https://github.com/user-attachments/assets/3ced1bba-1f2d-4b26-86b5-ce39c7f0ee0d" />
+  
+- Với linuxbridge driver, trên mỗi compute node sẽ có 1 Linux Bridge agent. Khi tạo các VM nằm trên nhiều compute node nhưng cùng thuộc network A thì Linux Bridge agent trên các node có VMs sẽ tự động tạo bridge trên compute node bằng lệnh `ip link add brq-xxx type bridge`. Các VM cùng thuộc một network trên cùng một node sẽ cắm vào chung một bridge đấy. Và khi khởi tạo VM, kernel tạo một tap interface và cắm vào bridge. Từ góc nhìn của VM, nó đang cắm vào một switch — không biết và không cần biết bên dưới là Linux bridge hay OVS.
+- eth0 và tap interface là 2 đầu của 1 đường ống, trong VM chỉ thấy eth0 (hoặc ens3, ens4... tùy distro), còn tap interface là đầu nối phía host, chỉ nhìn thấy trên host vật lý
 - Minh họa: cả hai node đều có brq-net-A riêng. VM1, VM2 cắm vào bridge trên chính node của chúng. Hai bridge được nối với nhau qua VXLAN tunnel — nhờ đó VM1 và VM3 tuy ở hai máy vật lý khác nhau nhưng vẫn thấy nhau như cùng một mạng L2.
 ```
 Compute node 1                    Compute node 2
@@ -126,6 +125,131 @@ Compute node 1                    Compute node 2
 │  vxlan──────────┼───────────────┼──vxlan          │
 └─────────────────┘               └─────────────────┘
 ```
+
+#### 3.3.2. openvswitch driver
+
+<img width="672" height="565" alt="image" src="https://github.com/user-attachments/assets/a131a69d-c2e8-4815-a813-9ca08a70976c" />
+
+- openvswitch driver sử dụng 4 loại OVS bridge:
+  - br-int (Integration Bridge) làm bridge trung tâm, mọi VM đều gắn vào đây thông qua tap interface. Traffic được phân tách bằng internal VLAN tag. Lưu ý OVS không dùng VLAN tag của tenant network trực tiếp — nó tự tạo ra internal VLAN (local VLAN) riêng cho mỗi host. Ví dụ: network "tenantA" có thể là VLAN 5 ở host 1 nhưng VLAN 9 ở host 2. OVS flows trong br-int xử lý việc map giữa tenant network ID ↔ local VLAN
+  - br-tun (Tunnel Bridge) khi cần thiết lập dùng overlay network (VXLAN, GRE). Mỗi compute node có một br-tun, chúng kết nối peer-to-peer hoặc qua multicast. br-tun sẽ chuyển đổi local VLAN ↔ VNI (VXLAN Network Identifier). Khi packet rời host, br-tun strip local VLAN và đóng gói VXLAN với VNI tương ứng. Khi packet đến, nó decap VXLAN và gán lại local VLAN phù hợp với host đó. Hai bridge nói chuyện với nhau qua patch port — một loại virtual port nội bộ của OVS, không phải physical interface.
+  - br-ex (External Bridge) để ra mạng vật lý bên ngoài. Router ảo (qrouter-* namespace) có một chân (qr-xxx) cắm vào br-int và một chân (qg-xxx) cắm vào br-ex. Khi VM có floating IP ra internet, packet đi qua qrouter để DNAT/SNAT rồi ra br-ex.
+  - OVS br-provider (optional) được sử dụng khi có provider network (flat/VLAN trực tiếp từ vật lý). Bypass tunnel, traffic đi thẳng ra physical switch với VLAN tag thật
+
+- Nhược điểm openvswitch so với ovn là mỗi Neutron agent phải tự viết OpenFlow rules trên từng host — không có cơ chế tập trung, dễ mất đồng bộ khi scale lớn.
+- Luồng traffic:
+  - giữa 2 VM cùng host, cùng network
+  <img width="656" height="62" alt="image" src="https://github.com/user-attachments/assets/cb0ed29f-7b7a-42a7-a914-2610e8ccf050" />
+  
+  - giữa 2 VM khác host, cùng network
+  <img width="634" height="135" alt="image" src="https://github.com/user-attachments/assets/578ba4fd-b907-4bb1-afe5-a372cf1fa38a" />
+  
+  - Từ VM đi ra internet (floating IP)
+  <img width="684" height="62" alt="image" src="https://github.com/user-attachments/assets/26401a7e-80b5-4243-9b96-c0f6a857907f" />
+
+
+Note: br-int/br-tun/br-ex/br-provider đều là OVS switch, chỉ khác nhau ở loại port được gắn vào và OpenFlow rules được lập trình:. Có thể kiểm tra trực tiếp trên host bằng lệnh `ovs-vsctl show` -> Output:
+  ```
+  Bridge br-int
+      fail_mode: secure
+      Port br-int
+          Interface br-int
+              type: internal
+      Port tap_aaa
+          Interface tap_aaa
+      Port patch-tun
+          Interface patch-tun
+              type: patch
+              options: {peer=patch-int}
+  
+  Bridge br-tun
+      Port patch-int
+          Interface patch-int
+              type: patch
+              options: {peer=patch-tun}
+      Port vxlan-c0a80102
+          Interface vxlan-c0a80102
+              type: vxlan
+              options: {remote_ip="192.168.1.2"}
+  
+  Bridge br-ex
+      Port br-ex
+          Interface br-ex
+              type: internal
+      Port eth1
+          Interface eth1
+      Port qg-xxxx
+          Interface qg-xxxx
+  ```
+
+#### 3.3.3. ovn driver
+- ovn driver vẫn dùng OVS bridge, nhưng đơn giản hơn so với openvswitch driver vì đã loại bỏ br-tun
+VM
+ └─ tap_xxx
+      └─ br-int          ← Integration bridge (OVS)
+            └─ geneve0   ← Tunnel port do OVN Controller tạo tự động
+
+br-ex                    ← External bridge (OVS) — kết nối ra ngoài
+Không còn br-tun nữa — đây là điểm khác biệt lớn nhất.
+
+Tại sao OVN bỏ được br-tun?
+Với OVS legacy, br-tun tồn tại vì:
+
+Neutron agent cần một bridge riêng để xử lý tunnel (VXLAN/GRE)
+Logic chuyển đổi local VLAN ↔ VNI được viết bằng OpenFlow trên br-tun
+
+Với OVN:
+
+OVN Controller (ovn-controller) tự lập trình Geneve tunnel trực tiếp vào br-int
+Không cần bridge trung gian
+Logic L2/L3 được định nghĩa ở Logical Switch / Logical Router trong OVN Northbound DB, rồi compile xuống OpenFlow
+
+
+Kiến trúc đầy đủ
+┌─────────────────────────────────────────┐
+│  OVN Northbound DB                      │
+│  (Logical Switch, Logical Router, ACL)  │
+└──────────────┬──────────────────────────┘
+               │ ovn-northd compile
+┌──────────────▼──────────────────────────┐
+│  OVN Southbound DB                      │
+│  (Logical Flow, Binding, MAC binding)   │
+└──────────────┬──────────────────────────┘
+               │ ovn-controller đọc & lập trình
+┌──────────────▼──────────────────────────┐
+│  OVS (trên mỗi compute node)            │
+│                                         │
+│  br-int                                 │
+│   ├─ tap_vm1, tap_vm2, ...              │
+│   └─ geneve port (tunnel tới node khác) │
+│                                         │
+│  br-ex                                  │
+│   ├─ patch port tới br-int              │
+│   └─ physical NIC (eth1)               │
+└─────────────────────────────────────────┘
+
+So sánh nhanh số lượng bridge
+DriverBridges cần cóLinux Bridgebrq-<id> × N network + vxlan interfaceOVS Legacybr-int + br-tun + br-exOVNbr-int + br-ex
+
+br-ex trong OVN có gì đặc biệt?
+OVN dùng khái niệm "localnet port" — một logical port đặc biệt nối Logical Switch với physical network thông qua br-ex.
+OVN Logical Switch
+ └─ localnet port "physnet1"
+      └─ map tới br-ex (qua ovn-bridge-mappings)
+            └─ eth1 (physical NIC)
+Cấu hình trên mỗi node:
+bashovs-vsctl set open . \
+  external-ids:ovn-bridge-mappings="physnet1:br-ex"
+
+Tóm lại: OVN vẫn là OVS bridge, chỉ là ít bridge hơn và logic được quản lý tập trung thay vì mỗi agent tự viết flows. 
+
+==========================
+
+<img width="801" height="485" alt="image" src="https://github.com/user-attachments/assets/7fb7196d-4f15-4d01-b385-13de01f15b1f" />
+
+#### Điểm khác biệt giữa L3 Neutron và OVN backend network
+##### L3 Neutron
+
 
 
 ##### OVN
