@@ -114,6 +114,7 @@ CNI trong K8s gồm 2 phần tách biệt là CNI plugin và CNI agent
   - Packet đi qua veth pair vào bridge
   - Bridge tra FDB theo MAC đích
   - Forward ra đúng port → vào veth pair của container B. Toàn bộ quá trình xảy ra trong kernel memory, không ra NIC vật lý
+- Linux bridge là một interface trong host network namespace, giống như bất kỳ interface nào khác (eth0, lo...). Khi liệt kê interface bằng lệnh `ip link show` sẽ thấy cni0/docker0 nằm chung với eth0, lo, flannel.1...
 - Các lệnh làm việc với Bridge:
   - Tạo bridge: `ip link add name br0 type bridge && ip link set br0 up`
   - Liệt kê các bridge hiện có: `ip link show type bridge`
