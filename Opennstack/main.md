@@ -69,6 +69,14 @@ OpenStack chia các chức năng ra nhiều node để tách biệt tải và tr
 - Một network có thể thuộc các loại khác nhau tuỳ thuộc vào cách triển khai phía dưới: VXLAN, VLAN, GRE, hay flat.
 - Network tự nó chưa có thông tin IP — nó chỉ là "dây dẫn". Để có địa chỉ IP, cần tạo subnet gắn vào network đó (ví dụ 10.0.0.0/24). Một network có thể có nhiều subnet với dải IP khác nhau vẫn hợp lệ
 - Tất cả các VM, router, agent thuộc cùng network có thể giao tiếp Layer 2 với nhau
+- Các loại Network:
+  - Provider Network: Được tạo bởi admin, ánh xạ trực tiếp đến một hạ tầng mạng vật lý có sẵn. VM gắn vào provider network có thể dùng floating IP hoặc fixed IP trực tiếp
+  - Project/Tenant Network: Được tạo bởi user thường, hoàn toàn ảo, isolated giữa các project.
+  - External Network: Một loại network đặc biệt, đại diện cho mạng bên ngoài (internet hoặc corporate network). Router ảo dùng network này làm gateway (SNAT ra ngoài) Floating IP được cấp phát từ pool của external network
+
+**Luồng traffic điển hình**
+
+<img width="535" height="418" alt="image" src="https://github.com/user-attachments/assets/3627254b-f863-424e-af29-933a24d520b2" />
 
 ### 3.2. Port
 - Là một điểm kết nối logic vào network — tương đương với một cổng trên switch ảo. Mỗi port có:
@@ -397,3 +405,102 @@ Output sẽ cho biết VM đang nằm ở compute node nào:
 - List tất cả server kèm host `openstack server list --all-projects --long -c Name -c Status -c Host`
 - Sau khi biết VM ở node nào, SSH vào compute node đó và kiểm tra bằng virsh (libvirt/KVM) `sudo virsh list --all`. Output sẽ thấy instance tương ứng
 
+---
+
+Neutron sử dụng kiến trúc plugin, chia làm 2 lớp chính: Core Plugin và Service Plugin.
+
+1. Core Plugin (ML2 - Modular Layer 2)
+ML2 là core plugin tiêu chuẩn hiện nay, gồm 2 loại driver con là:
+- Type Drivers dùng để định nghĩa loại network (như flat, vlan, vxlan, gre, geneve)
+- Mechanism Drivers — quyết định cách thực thi
+  - OVS (Open vSwitch): Truyền thống, dùng ovs-agent
+  - OVN (Open Virtual Network):Hiện đại, thay thế OVS agent + L3 agent bằng control plane phân tán
+  - LinuxBridge: Đơn giản, dùng Linux bridge thuần
+  - SR-IOV: Bypass hypervisor, gắn VF trực tiếp vào VM
+  - MacVTap:Tương tự SR-IOV nhưng dùng macvtap interface
+
+3. L3 / Service Plugins
+- L3 Agent (router): Router namespace truyền thống, dùng với OVS/LinuxBridge
+- OVN L3: L3 tích hợp trong OVN, không cần L3 agent riêng
+- FWaaS: Firewall-as-a-Service
+- LBaaS / Octavia: Load Balancer — Octavia là backend hiện đại thay LBaaS v2
+- VPNaaS: VPN-as-a-Service
+
+3. IPAM Drivers
+Quản lý địa chỉ IP:
+
+- Internal (default) — IPAM nội bộ của Neutron
+- Infoblox — tích hợp với Infoblox DDI
+
+---
+Sự khác nhau giữa 3 mechanism driver ovs/ ovn /và linux bridge
+
+1. LinuxBridge — Đơn giản nhất
+```
+VM1 ──tap─┐
+          ├── brqXXX (linux bridge) ── eth0 (physical)
+VM2 ──tap─┘
+```
+
+Cách hoạt động:
+- Mỗi network tạo 1 Linux bridge (brq<network-id>)
+- VM gắn vào bridge qua tap interface
+- VLAN dùng eth0.100 (vlan subinterface)
+- VXLAN dùng vxlan-<vni> interface
+
+Agent: neutron-linuxbridge-agent chạy trên mỗi compute node, lắng nghe RPC từ Neutron server, gọi brctl/ip link để cấu hình.
+Ưu điểm: Dễ debug, không cần phần mềm thêm.
+Nhược điểm: Không có flow-based forwarding, không hỗ trợ DVR, kém scale.
+
+2. OVS (Open vSwitch) + Agent — Truyền thống
+```
+VM1 ──tap─┐
+          ├── br-int ──patch──  br-tun ── VXLAN tunnel
+VM2 ──tap─┘              └──patch── br-ex ── physical NIC
+```
+Cách hoạt động:
+- 3 bridge chính: br-int (integration), br-tun (tunnel), br-ex (external)
+- Forwarding dựa trên OpenFlow rules trong OVS
+- Agent (neutron-openvswitch-agent) dịch Neutron intent → OpenFlow rules
+- L3 Agent tạo network namespace (qrouter-xxx, qdhcp-xxx) cho router/DHCP
+
+Agent stack:
+```
+Neutron Server
+     │ RPC (AMQP)
+     ▼
+neutron-openvswitch-agent   ← cấu hình OVS flows
+neutron-l3-agent            ← tạo qrouter namespace
+neutron-dhcp-agent          ← tạo qdhcp namespace
+```
+Ưu điểm: Flow-based, hỗ trợ DVR, phổ biến, nhiều tài liệu.
+Nhược điểm: Agent-based → mỗi thay đổi phải đi qua RPC → agent → OVS. Latency cao khi scale lớn. L3 agent là single point of failure nếu không dùng DVR/HA.
+
+3. OVN (Open Virtual Network) — Hiện đại nhất
+```
+Neutron Server
+     │ (ML2/OVN driver ghi trực tiếp)
+     ▼
+OVN Northbound DB  (logical: switches, routers, ACLs)
+     │ ovn-northd
+     ▼
+OVN Southbound DB  (physical: flows, chassis info)
+     │
+     ├── ovn-controller (compute node 1) → OVS flows
+     └── ovn-controller (compute node 2) → OVS flows
+```
+Cách hoạt động:
+- Không có neutron agent riêng trên compute node
+- ML2/OVN driver ghi logical network vào OVN Northbound DB
+- ovn-northd compile logical → physical flows vào Southbound DB
+- ovn-controller trên mỗi node tự đọc Southbound DB và lập trình OVS
+- Router, DHCP, NAT xử lý trong OVS datapath — không cần namespace
+
+Ưu điểm:
+
+Distributed hoàn toàn — không có L3 agent, không có qrouter namespace
+Floating IP, SNAT xử lý tại compute node (như DVR nhưng native)
+Scale tốt hơn nhiều
+DHCP trả lời trực tiếp từ OVN logical port (không cần qdhcp)
+
+Nhược điểm: Khó debug hơn, cần hiểu 2 tầng DB (NB/SB).
