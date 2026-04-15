@@ -628,3 +628,123 @@ Scale tốt hơn nhiều
 DHCP trả lời trực tiếp từ OVN logical port (không cần qdhcp)
 
 Nhược điểm: Khó debug hơn, cần hiểu 2 tầng DB (NB/SB).
+
+----
+
+
+OpenStack có hai thế giới cần nối với nhau:
+
+Thế giới logic (trong Neutron): Khi bạn tạo một external network hay provider network, bạn khai báo kiểu như --provider-physical-network physnet1. Cái tên physnet1 này hoàn toàn là một label logic — Neutron không biết và không quan tâm nó tương ứng với cái gì trên host thật.
+
+Trên mỗi compute/network node có thể có các các bridge OVS như br-ex, br-provider gắn với một NIC vật lý thật (ví dụ eth1, ens192...) để ra được mạng bên ngoài.
+
+Khi một VM cần gửi traffic ra mạng external (ví dụ dùng floating IP), traffic đi từ br-int (bridge nội bộ của OVS) và cần thoát ra ngoài qua một NIC vật lý. Nhưng OVS agent trên host đó làm sao biết traffic cần ra mạng ngoài phải đi qua bridge nào, khi nó chỉ được cho biết tên logic là physnet1
+OVS agent cần biết: physnet1 tương ứng với bridge nào trên node này? Nó nhìn vào bridge_mappings. bridge_mappings chính là bảng tra cứu để dịch từ tên logic sang bridge thật.
+
+bridge_mappings = physnet1:br-ex
+=> Dòng này nói rằng: "Trên node này, mạng logic tên physnet1 hãy đi ra qua bridge br-ex."
+
+Giả sử bạn có hạ tầng như sau:
+Trên Node A, NIC eth1 nối vào switch vật lý, đi ra internet. Bạn tạo bridge br-ex và add eth1 vào br-ex: `ovs-vsctl add-port br-ex eth1`
+Trong file cấu hình OVS agent trên Node A:
+```
+[ovs]
+bridge_mappings = physnet1:br-ex
+```
+Trong Neutron, bạn tạo external network:
+```
+openstack network create ext-net \
+  --provider-network-type flat \
+  --provider-physical-network physnet1 \
+  --external
+```
+Lúc này chuỗi kết nối hoàn chỉnh là: `VM → tap → br-int → [patch port] → br-ex → eth1 → mạng vật lý`
+
+Patch port ở giữa được tạo tự động nhờ bridge_mappings cho OVS biết physnet1 = br-ex.
+
+Nếu không có bridge_mappings thì OVS agent không biết physnet1 map với bridge nào → không tạo patch port → traffic từ br-int không có đường ra br-ex → floating IP không hoạt động, provider network không thông.
+
+br-ex (External Bridge) là bridge hướng ra ngoài, gắn với NIC vật lý (ví dụ eth1) để ra mạng external/internet. Nó chỉ phục vụ việc đẩy traffic ra khỏi node.
+
+br-int kết nối với br-ex qua một cặp patch port — giống như một sợi dây ảo nối hai bridge lại:
+```
+br-int                          br-ex
+┌──────────┐                   ┌──────────┐
+│  VM1-tap │                   │   eth1   │ → mạng vật lý
+│  VM2-tap │                   │          │
+│          │                   │          │
+│ patch-to-ex ──────────── patch-to-int   │
+└──────────┘                   └──────────┘
+```
+
+Hai patch port này được OVS agent tự động tạo khi nó đọc bridge_mappings = physnet1:br-ex. Nếu không có bridge_mappings, hai bridge này tồn tại độc lập, không nối nhau, traffic không đi được.
+
+Tách riêng để phân tách chức năng rõ ràng. br-int dùng chung cho mọi loại mạng (tenant network, provider network, VXLAN...). br-ex chỉ dành cho traffic ra ngoài. Nhờ tách ra, OVS có thể áp các flow rule khác nhau trên mỗi bridge — ví dụ trên br-int thì xử lý VLAN tagging nội bộ, security group, còn trên br-ex thì xử lý NAT, floating IP.
+
+Ngoài ra, một node có thể có nhiều bridge external khác nhau (ví dụ br-ex cho mạng internet, br-provider cho mạng nội bộ công ty), mỗi cái map với một physical network khác nhau trong bridge_mappings: `bridge_mappings = physnet1:br-ex, physnet2:br-provider`
+
+Các loại network trong OpenStack:
+- Cần bridge_mappings: flat network và VLAN network (gọi chung là provider network). Đây là các mạng mà traffic phải đi ra NIC vật lý thật, nên OVS cần phải có bridge_mappings để OVS biết đi ra bridge nào . `VM → tap → br-int → patch port → br-ex/br-provider → NIC vật lý`
+- Không cần bridge_mappings: VXLAN, GRE, Geneve (gọi chung là overlay/tunnel network). Đây là các tenant network thông thường (loại phổ biến nhất khi bạn tạo openstack network create my-net mà không chỉ định provider). Traffic được đóng gói (encapsulate) rồi gửi qua tunnel giữa các node, đi qua IP của chính các node — không cần bridge riêng, không cần map gì cả. OVS agent biết dùng IP của node (cấu hình trong local_ip) để thiết lập tunnel. Không liên quan gì đến bridge_mappings.
+- External network thực chất cũng là một flat hoặc VLAN network, chỉ khác là được đánh dấu --external để Neutron biết đây là mạng dùng cho floating IP và router gateway. Nên nó cũng cần bridge_mappings — không phải vì nó "external" mà vì nó là flat/VLAN.
+
+Tóm lại: config bridge_mappings dành cho bất kỳ network nào cần đi ra NIC vật lý — tức flat và VLAN. Overlay network (VXLAN/GRE/Geneve) thì không cần vì traffic đi qua tunnel, không cần bridge riêng.
+
+Trường mapping này phải tự khai báo. OpenStack không tự biết NIC nào trên host dùng cho mạng nào.
+Cấu hình ở đâu tùy vào backend bạn dùng:
+- Với OVS agent (ML2/OVS): file /etc/neutron/plugins/ml2/openvswitch_agent.ini
+- Với OVN: file /etc/neutron/plugins/ml2/ml2_conf.ini hoặc cấu hình trực tiếp trên ovn-controller qua ovs-vsctl: `ovs-vsctl set open . external-ids:ovn-bridge-mappings="physnet1:br-ex"`
+
+Trước khi khai báo bridge_mappings, bạn phải tự tạo bridge và add NIC vật lý vào,OpenStack không làm bước này cho bạn.:
+```
+ovs-vsctl add-br br-ex
+ovs-vsctl add-port br-ex eth1
+```
+
+Ngoài ra còn phải khai báo phía Neutron server: Trong /etc/neutron/plugins/ml2/ml2_conf.ini trên controller node, bạn cần cho Neutron biết physical network nào cho phép loại mạng nào:
+```
+[ml2_type_flat]
+flat_networks = physnet1
+
+[ml2_type_vlan]
+network_vlan_ranges = physnet2:100:200
+```
+
+Đây là khai báo phía server (Neutron biết có những physical network nào). Còn bridge_mappings là khai báo phía agent trên mỗi node (mỗi node biết physical network đó map với bridge nào của mình).
+
+Tại sao không tự động: Vì mỗi node có thể có cấu hình mạng vật lý khác nhau — node A có eth1 cho external, node B có ens192, node C thậm chí không cần kết nối external. OpenStack không thể đoán được, nên bạn phải khai báo rõ trên từng node.
+
+
+Bạn chỉ cần khai báo một lần cho mỗi physical network, không phải mỗi lần tạo network.
+
+Phân biệt hai khái niệm:
+- Physical network (physnet1, physnet2...): là label đại diện cho một hạ tầng mạng vật lý thật. Số lượng rất ít, thường chỉ 1-2 cái. Cái này bạn khai báo trong config.
+- OpenStack network: là mạng logic bạn tạo bằng openstack network create. Số lượng có thể rất nhiều. Cái này bạn chỉ cần trỏ vào physical network đã khai báo sẵn.
+
+Ví dụ thực tế
+Bạn cấu hình một lần trên mỗi node: `bridge_mappings = physnet1:br-ex, physnet2:br-provider`
+
+Sau đó bạn tạo bao nhiêu network cũng được, chỉ cần trỏ vào physical network đã có:
+```
+Tạo external network → dùng physnet1
+openstack network create ext-net \
+  --provider-physical-network physnet1 \
+  --provider-network-type flat \
+  --external
+
+# Tạo thêm VLAN network cho team A → cũng dùng physnet2
+openstack network create team-a-net \
+  --provider-physical-network physnet2 \
+  --provider-network-type vlan \
+  --provider-segment 100
+
+# Tạo thêm VLAN network cho team B → vẫn dùng physnet2
+openstack network create team-b-net \
+  --provider-physical-network physnet2 \
+  --provider-network-type vlan \
+  --provider-segment 101
+```
+Ba network khác nhau, nhưng không cần sửa config gì thêm. Vì physnet1 và physnet2 đã được map sẵn rồi.
+Còn với overlay network (VXLAN/Geneve) thì càng đơn giản hơn — tạo bao nhiêu cũng được, không liên quan gì đến bridge_mappings
+
+Tóm lại: Bạn chỉ cấu hình bridge_mappings khi thay đổi hạ tầng vật lý — thêm một đường mạng mới, thêm NIC mới. Còn tạo network logic trong OpenStack thì cứ tạo thoải mái, không cần động vào config.
