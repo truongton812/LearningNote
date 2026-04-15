@@ -1014,6 +1014,7 @@ Terraform-project/
 │   ├── compute/
 │   │   ├── main.tf
 │   │   ├── variables.tf
+│   │   ├── terraform.tfvars #lưu ý file này ko có tác dụng, module không load file này
 │   │   └── outputs.tf
 │   ├── vpc/
 │   │   ├── main.tf
