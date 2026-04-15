@@ -23,6 +23,7 @@ Terraform hoạt động qua các phases:
 - `Terraform destroy` : dùng để xóa tất cả resource. Tuy nhiên best practice là comment các resource muốn xóa và apply lại
 - `Terraform graph` : visualize ra mối quan hệ dependencies giữa các resource (cần phải cài phần mềm đọc format dot)
 - `terraform console`: Provides an interactive shell for evaluating and experimenting with expressions and variable values within your configuration. 
+- `terraform state mv`: di chuyển resource trong file state từ địa chỉ cũ sang địa chỉ mới, giúp Terraform tiếp tục quản lý đúng resource thực tế mà không cần xóa/tạo lại. VD `terraform state mv aws_ecs_service.postgres aws_ecs_service.admin`
 
 ## 2. Hashicorp Configuration Language
 
