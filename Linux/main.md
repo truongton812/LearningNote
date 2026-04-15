@@ -168,6 +168,29 @@ Lưu ý bổ sung: Cần kích hoạt PubkeyAuthentication yes trong /etc/ssh/ss
 
 Lưu ý không thể làm ngược lại (đặt private key ở máy local còn public key ở máy remote) do SSH authentication yêu cầu private key luôn ở client (máy local) và public key ở server (máy remote). Private key phải bí mật, chỉ client giữ. Server chỉ lưu public key để verify, không bao giờ expose private key.
 
+Để phân biệt key SSH, đặt tên key rõ ràng và sử dụng alias host. Cách này giúp SSH tự chọn key đúng mà không cần flag -i mỗi lần kết nối, rất tiện cho DevOps quản lý nhiều server AWS/Kubernetes.
+- Tạo key với tên cụ thể: `ssh-keygen -t ed25519 -f ~/.ssh/id_rsa_server1 -C "user@server1".` Thêm public key (id_rsa_server1.pub) vào ~/.ssh/authorized_keys trên server tương ứng. Lặp lại cho từng server, tránh dùng chung key để tăng bảo mật.
+- Tạo/chỉnh sửa file ~/.ssh/config (quyền 600) với cấu trúc sau:
+```
+Host server1 #Alias dễ nhớ (ssh server1).
+    HostName 192.168.1.100  # hoặc domain/IP
+    User ubuntu
+    IdentityFile ~/.ssh/id_rsa_server1 #Chỉ định private key chính xác.
+    IdentitiesOnly yes #Tránh thử key khác từ ssh-agent.
+
+Host server2
+    HostName server2.example.com
+    User ec2-user
+    IdentityFile ~/.ssh/id_rsa_server2
+    IdentitiesOnly yes
+```
+
+
+Khi tạo ec2 instance có option để tạo keypair. Key pair tạo khi launch EC2 instance chính là cặp SSH key chuẩn (public/private key), hoạt động hoàn toàn giống SSH key tạo bằng ssh-keygen. 
+
+Khi chọn "Create new key pair" lúc tạo EC2, AWS tự động tạo cặp RSA/ED25519 và inject public key vào ~/.ssh/authorized_keys trên instance (Amazon Linux dùng user ec2-user, Ubuntu dùng ubuntu). Private key (.pem) được tải về máy bạn dùng để SSH: ssh -i my-key.pem ec2-user@ec2-public-ip.
+
+
 ##### 14. Lệnh để xem log ứng dụng systemd
 `journalctl --since "2026-01-10 05:30" | grep -E "varnish|systemctl|Stopping varnish"`
 
