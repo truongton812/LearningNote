@@ -206,6 +206,8 @@ Type Drivers dùng để định nghĩa loại network vật lý được dùng 
           Interface qg-xxxx
   ```
 ###### 4.2.1.2.3. OVN (Open Virtual Network) driver
+<img width="1440" height="1546" alt="image" src="https://github.com/user-attachments/assets/bc077f60-97aa-432b-9770-54f851405fea" />
+
 - Hiện đại nhất, vẫn sử dụng OVS bridge bên dưới, nhưng bỏ br-tun đi. OVN Controller tự lập trình Geneve tunnel thẳng vào br-int, không cần một bridge riêng để xử lý tunnel (VXLAN/GRE) nữa. Logic L2/L3 được định nghĩa tập trung trong Northbound DB rồi compile xuống, routing phân tán (distributed) mặc định.
 ```
 Neutron Server
@@ -234,13 +236,8 @@ OVN Southbound DB  (physical: flows, chassis info)
 
 - Nhược điểm: Khó debug hơn, cần hiểu 2 tầng DB (NB/SB).
 
-
-
-
-
-- 
 ##### 4.2.1.3. Extension Driver
-các tính năng tùy chọn gắn thêm vào port/network như QoS, port security, DNS. Không liên quan đến data plane.
+Là các tính năng tùy chọn gắn thêm vào port/network như QoS, port security, DNS. Không liên quan đến data plane.
 
 #### 4.2.2. Service Plugin
 - Service Plugin chuyên xử lý router, firewall, VPN, LB… mỗi plugin là một API extension độc lập.
@@ -252,35 +249,27 @@ các tính năng tùy chọn gắn thêm vào port/network như QoS, port securi
   - VPNaaS: VPN-as-a-Service
 
 
-Những cái dưới đây sẽ thuộc  #### 4.2.2. Service Plugin
-#### 4.1.1. Neutron truyền thống (L3 Agent)
+##### 4.2.2.1. L3 Agent
 <img width="788" height="530" alt="image" src="https://github.com/user-attachments/assets/e6fe716b-3d02-4c76-93ad-f9778025bedb" />
 
-- Neutron truyền thống dùng các agent chạy ở userspace trên Network node. Khi bạn tạo 1 virtual router, L3 agent sẽ tạo ra 1 Linux network namespace (qrouter-xxx) với iptables rules và ip route riêng. 10 router = 10 namespace = 10 iptables chain. Traffic đi qua userspace nên chậm hơn và tốn CPU.
+- Là agent dùng với OVS/LinuxBridge driver, chạy ở userspace trên Network node. Khi bạn tạo 1 virtual router, L3 agent sẽ tạo ra 1 Linux network namespace (qrouter-xxx) với iptables rules và ip route riêng. 10 router = 10 namespace = 10 iptables chain. Traffic đi qua userspace nên chậm hơn và tốn CPU.
 - Mỗi virtual router tạo ra một qrouter-* namespace độc lập trên Network node, mỗi network tạo ra một qdhcp-* namespace. 100 router = 100 namespace.
 - Routing xử lý ở userspace (iptables), tốn tài nguyên và khó scale.
 
-#### 4.1.2. OVN (Open Virtual Network)
+##### 4.2.2.2. OVN L3
 
 <img width="800" height="523" alt="image" src="https://github.com/user-attachments/assets/f8c0ca68-9c2a-4e8c-83e1-223b84f509b4" />
-
+- L3 tích hợp trong OVN, không cần L3 agent riêng
 - ovn-northd trên Controller đọc logical config từ NB DB (Northbound Database), dịch nó thành OVS flow rules, rồi ghi vào SB DB (Southbound Database).
 - Sau đó ovn-controller trên mỗi node (network01, compute01) đọc SB DB và lập trình trực tiếp vào OVS kernel flow tables.
 - Không có namespace, không có iptables — routing xảy ra trong kernel thông qua OVS, nhanh hơn nhiều.
 
 
-
-
-
-
-===========================================================================================
-
 #### 4.3. Agents: Chạy trên Network Node và Compute Node, lắng nghe message queue và thực thi cấu hình thực tế trên OS:
-
-dhcp-agent → quản lý dnsmasq trong network namespace
-l3-agent → tạo router namespace, cấu hình iptables NAT/floating IP
-ovs-agent → lập trình OVS flow table
-metadata-agent → proxy 169.254.169.254 → Nova
+- dhcp-agent → quản lý dnsmasq trong network namespace
+- l3-agent → tạo router namespace, cấu hình iptables NAT/floating IP
+- ovs-agent → lập trình OVS flow table
+- metadata-agent → proxy 169.254.169.254 → Nova
 
 #### 4.4. Data Plane: Packet thực sự chạy qua đây. Với OVS:
 VM tap → br-int (integration bridge) → br-tun (tunnel bridge) → VXLAN/GRE → remote host
@@ -288,10 +277,6 @@ VM tap → br-int (integration bridge) → br-tun (tunnel bridge) → VXLAN/GRE 
 
 Một điểm quan trọng: OVN vs OVS agent
 Nếu dùng ML2/OVN (kiến trúc mới hơn), ovs-agent và l3-agent bị thay bằng ovn-controller + ovn-northd. Thay vì mỗi agent RPC riêng lẻ, OVN dùng OVSDB để sync state tập trung — không còn message bus cho data plane nữa.
-
-
-
-
 
 
 
