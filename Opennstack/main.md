@@ -74,6 +74,136 @@ OpenStack chia các chức năng ra nhiều node để tách biệt tải và tr
   - Project/Tenant Network: Được tạo bởi user thường, hoàn toàn ảo, isolated giữa các project.
   - External Network: Một loại network đặc biệt, đại diện cho mạng bên ngoài (internet hoặc corporate network). Router ảo dùng network này làm gateway (SNAT ra ngoài) Floating IP được cấp phát từ pool của external network
 
+#### 3.1.2. Project/Tenant Network
+- Do người dùng thường tạo, không cần biết gì về hạ tầng bên dưới. Mạng này là overlay, hoàn toàn cô lập — hai project khác nhau có thể dùng cùng dải IP 10.0.0.0/24 mà không xung đột, vì traffic được đóng gói trong tunnel riêng.
+- VM trong project network không thể ra ngoài trừ khi gắn vào một router ảo mà router đó nối với external/provider network. Muốn truy cập từ ngoài vào thì cần floating IP.
+
+#### 3.1.2. Provider Network
+- Provider network do admin tạo và ánh xạ trực tiếp xuống hạ tầng mạng vật lý bên dưới.
+- VD: `openstack network create --provider-network-type vlan --provider-physical-network physnet1 --provider-segment 100 provider-net` -> nghĩa là tạo 1 provider network tên provider-net, dùng VLAN 100, trên physical network physnet1 (tương ứng một bridge/interface thật trên host). VM gắn vào network này sẽ nằm cùng broadcast domain với hạ tầng vật lý bên ngoài — giống như cắm thẳng máy vào switch vật lý ở VLAN 100. Đặc điểm chính: VM có thể nhận IP từ DHCP server bên ngoài hoặc từ Neutron DHCP, và truy cập mạng bên ngoài trực tiếp mà không cần router ảo hay floating IP. Loại mạng thường là flat hoặc VLAN.
+- Trong một deployment điển hình, cả hai loại cùng tồn tại. Provider network thường đóng vai trò external network — admin tạo nó, map vào VLAN trên uplink switch, rồi user tạo router gắn gateway vào đó. Project network là mạng nội bộ của từng tenant. Luồng traffic: `VM → project network (VXLAN tunnel) → router ảo trên network node → provider/external network (VLAN/flat) → ra ngoài.`
+
+
+
+
+Note:  physnet1 trong trường --provider-physical-network là một label cấu hình.  physical network không phải là một thiết bị hay resource cụ thể — nó đơn giản là một cái tên (label) mà admin đặt để đại diện cho một đường kết nối vật lý ra bên ngoài.
+Hãy hình dung thế này: trên mỗi host có thể có nhiều NIC vật lý, mỗi NIC nối vào một mạng vật lý khác nhau (ví dụ một NIC nối vào switch cho mạng public, một NIC nối vào switch cho mạng storage). Neutron cần một cách để đặt tên cho từng đường ra đó, và đó chính là physical network label.
+Ví dụ thực tế: Tuna có một server với hai NIC — eth0 nối vào switch mạng public, eth1 nối vào switch mạng internal. Tuna tạo hai OVS bridge:
+
+br-ex gắn eth0 → đặt tên là physnet-public
+br-int-ext gắn eth1 → đặt tên là physnet-internal
+
+Cấu hình sẽ là:
+```
+bridge_mappings = physnet-public:br-ex, physnet-internal:br-int-ext
+```
+Từ đó khi tạo provider network, Tuna chọn --provider-physical-network physnet-public nghĩa là traffic sẽ đi qua br-ex → eth0 → switch public. Còn --provider-physical-network physnet-internal thì đi qua br-int-ext → eth1 → switch internal.
+
+Bản chất chuỗi mapping là: label → OVS bridge → NIC vật lý → switch/mạng thật. Physical network chỉ là mắt xích đầu tiên — cái tên mà Neutron dùng để trỏ tới cả chuỗi phía sau. Tuna muốn đặt tên gì cũng được (physnet1, public, datacenter-lan…), miễn là nhất quán giữa config ML2 và config agent trên tất cả các node.
+
+
+
+Để mình giải thích từ góc nhìn hạ tầng vật lý trước.
+Bắt đầu từ thực tế
+Tuna có một datacenter, trong đó có các switch vật lý. Các switch này tạo ra các mạng vật lý — ví dụ:
+
+Mạng công ty 192.168.1.0/24 trên VLAN 100
+Mạng internet public trên VLAN 200
+Mạng storage 10.0.0.0/24 trên VLAN 300
+
+Đây là những mạng có thật, tồn tại trên switch, trên dây cáp, trước khi OpenStack được cài đặt. Máy chủ vật lý (compute node) cắm dây mạng vào các switch này.
+Vấn đề cần giải quyết
+Khi OpenStack chạy, VM bên trong cần kết nối ra các mạng vật lý đó. Nhưng Neutron không biết hạ tầng vật lý của Tuna trông như thế nào — nó không biết eth0 nối vào mạng nào, eth1 nối vào mạng nào.
+Vì vậy admin phải "giới thiệu" cho Neutron biết, bằng cách đặt tên cho từng đường ra:
+"physnet1"  →  nghĩa là đường ra mạng internet public
+"physnet2"  →  nghĩa là đường ra mạng storage
+Tên này hoàn toàn do Tuna tự đặt. Rồi trên mỗi host, Tuna nói cho Neutron biết tên đó ứng với bridge/NIC nào:
+inibridge_mappings = physnet1:br-ex
+Câu này nghĩa là: "cái mạng vật lý mà tôi gọi là physnet1, trên host này nó đi ra qua bridge br-ex".
+Một phép so sánh đơn giản
+Hãy tưởng tượng một toà nhà có nhiều cửa ra. Mỗi cửa dẫn ra một con đường khác nhau. "Physical network" giống như Tuna dán nhãn lên mỗi cửa: cửa này gọi là "đường-ra-internet", cửa kia gọi là "đường-ra-storage". Khi VM cần ra internet, Neutron nhìn nhãn, biết phải đi qua cửa nào.
+Bản thân cái nhãn không tạo ra con đường — con đường (NIC, switch, cáp) đã có sẵn. Nhãn chỉ giúp Neutron biết đường nào là đường nào.
+Việc Tuna cần làm là khai báo bridge_mappings trong file cấu hình của ovs/ovn trên mỗi node, để Neutron biết label physnet1 tương ứng với bridge/interface vật lý nào trên host.
+
+trên ML2 config:
+```
+[ml2_type_flat]
+flat_networks = physnet1
+
+[ml2_type_vlan]
+network_vlan_ranges = physnet1:100:200 #Dòng network_vlan_ranges nói Neutron được phép dùng VLAN 100–200 trên physnet1.
+```
+
+Tóm lại quy trình
+- Bước 1: tạo OVS bridge br-ex, gắn NIC vật lý vào.
+- Bước 2: khai báo bridge_mappings = physnet1:br-ex trong config.
+- Bước 3: khai báo physnet1 trong flat_networks hoặc network_vlan_ranges của ML2.
+- Bước 4: restart service. Sau đó khi --provider-physical-network physnet1 xuất hiện trong lệnh tạo network, Neutron biết chính xác phải đẩy traffic ra bridge nào trên host nào.
+
+
+
+
+
+
+đường đi của traffic từ VM ra ngoài sẽ như thế nào
+Mình sẽ giải thích cho cả hai trường hợp: provider network và project network.
+Trường hợp 1: VM gắn trực tiếp vào provider network
+Đường đi rất ngắn, giống như cắm máy thật vào switch:
+VM → tap interface → br-int (OVS) → br-ex (OVS) → NIC vật lý (eth0) → switch vật lý → ra ngoài
+Ở đây br-int và br-ex được nối với nhau qua patch port. Traffic từ VM đi ra ngoài mang đúng VLAN mà admin đã chỉ định khi tạo provider network. Không có tunnel, không có NAT, không có router ảo — VM nằm cùng broadcast domain với mạng vật lý bên ngoài.
+Trường hợp 2: VM trong project network (VXLAN) muốn ra ngoài
+Đây là trường hợp phức tạp hơn. VM không nằm trên mạng vật lý, mà nằm trong một overlay network cô lập. Để ra ngoài, traffic phải đi qua router ảo.
+Với kiến trúc truyền thống (L3 agent trên network node)
+Trên compute node:
+VM → tap → br-int → đóng gói VXLAN → NIC vật lý → qua mạng vật lý đến network node
+Trên network node:
+NIC vật lý → tháo VXLAN → br-int → vào router namespace → SNAT (đổi IP private thành IP trên external subnet) → br-ex → NIC vật lý → switch → ra ngoài
+Nếu VM có floating IP, traffic đến từ ngoài sẽ đi ngược: vào br-ex → router namespace → DNAT (đổi floating IP thành IP private) → đóng VXLAN → gửi về compute node → VM.
+Điểm quan trọng: tất cả traffic north-south đều phải đi qua network node, nên network node dễ thành bottleneck.
+Với DVR (Distributed Virtual Router)
+Floating IP traffic được xử lý ngay trên compute node, không cần đi vòng qua network node:
+VM → tap → br-int → router namespace trên chính compute node → DNAT/SNAT → br-ex → NIC vật lý → ra ngoài
+Chỉ traffic SNAT (VM không có floating IP) mới phải đi về network node.
+Với ML2/OVN
+OVN làm distributed routing mặc định, tương tự DVR nhưng không dùng Linux namespace. ovn-controller trên mỗi compute node cài OVS flow để xử lý routing và NAT ngay tại chỗ. Đường đi:
+VM → tap → br-int (OVS flow xử lý routing + NAT) → br-ex → NIC vật lý → ra ngoài
+Không có router namespace, không có L3 agent — mọi thứ là OVS flow do ovn-controller lập trình từ Southbound DB.
+Tóm lại sự khác biệt cốt lõi
+Provider network: VM → bridge → NIC → ra ngoài (đường thẳng, không NAT).
+Project network: VM → tunnel đến nơi có router → NAT → ra ngoài. "Nơi có router" là network node (truyền thống), hoặc chính compute node (DVR/OVN).
+Tuna muốn mình đi sâu vào phần nào, ví dụ flow cụ thể trên OVS, hay cách floating IP hoạt động trong OVN?
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 **Luồng traffic điển hình**
 
 <img width="535" height="418" alt="image" src="https://github.com/user-attachments/assets/3627254b-f863-424e-af29-933a24d520b2" />
@@ -645,118 +775,3 @@ Với ML2/OVN (mà Tuna đang tìm hiểu), mô hình hơi khác. OVN mechanism 
 
 ---
 
-phân biệt project network và provider network: Đây là hai loại network cơ bản trong Neutron, khác nhau ở ai tạo, ai quản lý, và cách nó ánh xạ xuống hạ tầng vật lý.
-
-Provider Network:
-Provider network do admin tạo và ánh xạ trực tiếp xuống hạ tầng mạng vật lý bên dưới. Khi tạo, admin phải chỉ định rõ các tham số vật lý:
-```
-openstack network create --provider-network-type vlan \
-  --provider-physical-network physnet1 \
-  --provider-segment 100 \
-  provider-net
-```
-Ở đây admin nói rõ: dùng VLAN 100, trên physical network physnet1 (tương ứng một bridge/interface thật trên host). VM gắn vào network này sẽ nằm cùng broadcast domain với hạ tầng vật lý bên ngoài — giống như cắm thẳng máy vào switch vật lý ở VLAN 100. Đặc điểm chính: VM có thể nhận IP từ DHCP server bên ngoài hoặc từ Neutron DHCP, và truy cập mạng bên ngoài trực tiếp mà không cần router ảo hay floating IP. Loại mạng thường là flat hoặc VLAN.
-
-
-Project Network (Tenant Network)
-Project network do người dùng thường tạo, không cần biết gì về hạ tầng bên dưới. Mạng này là overlay, hoàn toàn cô lập — hai project khác nhau có thể dùng cùng dải IP 10.0.0.0/24 mà không xung đột, vì traffic được đóng gói trong tunnel riêng.
-VM trong project network không thể ra ngoài trừ khi gắn vào một router ảo mà router đó nối với external/provider network. Muốn truy cập từ ngoài vào thì cần floating IP.
-
-So sánh nhanh
-- Provider network chia sẻ hạ tầng vật lý (VLAN), nên số lượng giới hạn bởi VLAN ID (4094). Project network dùng overlay (VXLAN hỗ trợ ~16 triệu VNI), cô lập hoàn toàn giữa các tenant.
-- Truy cập bên ngoài: Provider network có sẵn. Project network phải qua router + floating IP.
-- Performance: Provider network thường nhanh hơn vì không có overhead đóng gói tunnel. Project network có thêm VXLAN/GRE header (~50 byte), và traffic phải đi qua network node nếu cần ra ngoài (trừ khi bật DVR).
-
-Kiến trúc thực tế
-Trong một deployment điển hình, cả hai loại cùng tồn tại. Provider network thường đóng vai trò external network — admin tạo nó, map vào VLAN trên uplink switch, rồi user tạo router gắn gateway vào đó. Project network là mạng nội bộ của từng tenant. Luồng traffic: `VM → project network (VXLAN tunnel) → router ảo trên network node → provider/external network (VLAN/flat) → ra ngoài.`
-
-Với ML2/OVN mà Tuna đang làm việc, logic tương tự nhưng router ảo được xử lý phân tán bởi ovn-controller trên mỗi compute node (distributed routing mặc định), nên traffic east-west và cả north-south với floating IP không cần đi vòng qua network node riêng.
-
-
-
-Không cần "tạo" physnet1 theo nghĩa chạy lệnh OpenStack nào cả — physnet1 là một label cấu hình, không phải một resource trong Neutron DB.
-Việc Tuna cần làm là khai báo bridge_mappings trong file cấu hình của ovs/ovn trên mỗi node, để Neutron biết label physnet1 tương ứng với bridge/interface vật lý nào trên host.
-
-trên ML2 config:
-```
-[ml2_type_flat]
-flat_networks = physnet1
-
-[ml2_type_vlan]
-network_vlan_ranges = physnet1:100:200 #Dòng network_vlan_ranges nói Neutron được phép dùng VLAN 100–200 trên physnet1.
-```
-
-Tóm lại quy trình
-- Bước 1: tạo OVS bridge br-ex, gắn NIC vật lý vào.
-- Bước 2: khai báo bridge_mappings = physnet1:br-ex trong config.
-- Bước 3: khai báo physnet1 trong flat_networks hoặc network_vlan_ranges của ML2.
-- Bước 4: restart service. Sau đó khi --provider-physical-network physnet1 xuất hiện trong lệnh tạo network, Neutron biết chính xác phải đẩy traffic ra bridge nào trên host nào.
-
-
-Trong ngữ cảnh OpenStack Neutron, physical network không phải là một thiết bị hay resource cụ thể — nó đơn giản là một cái tên (label) mà admin đặt để đại diện cho một đường kết nối vật lý ra bên ngoài.
-Hãy hình dung thế này: trên mỗi host có thể có nhiều NIC vật lý, mỗi NIC nối vào một mạng vật lý khác nhau (ví dụ một NIC nối vào switch cho mạng public, một NIC nối vào switch cho mạng storage). Neutron cần một cách để đặt tên cho từng đường ra đó, và đó chính là physical network label.
-Ví dụ thực tế: Tuna có một server với hai NIC — eth0 nối vào switch mạng public, eth1 nối vào switch mạng internal. Tuna tạo hai OVS bridge:
-
-br-ex gắn eth0 → đặt tên là physnet-public
-br-int-ext gắn eth1 → đặt tên là physnet-internal
-
-Cấu hình sẽ là:
-```
-bridge_mappings = physnet-public:br-ex, physnet-internal:br-int-ext
-```
-Từ đó khi tạo provider network, Tuna chọn --provider-physical-network physnet-public nghĩa là traffic sẽ đi qua br-ex → eth0 → switch public. Còn --provider-physical-network physnet-internal thì đi qua br-int-ext → eth1 → switch internal.
-
-Bản chất chuỗi mapping là: label → OVS bridge → NIC vật lý → switch/mạng thật. Physical network chỉ là mắt xích đầu tiên — cái tên mà Neutron dùng để trỏ tới cả chuỗi phía sau. Tuna muốn đặt tên gì cũng được (physnet1, public, datacenter-lan…), miễn là nhất quán giữa config ML2 và config agent trên tất cả các node.
-
-
-
-Để mình giải thích từ góc nhìn hạ tầng vật lý trước.
-Bắt đầu từ thực tế
-Tuna có một datacenter, trong đó có các switch vật lý. Các switch này tạo ra các mạng vật lý — ví dụ:
-
-Mạng công ty 192.168.1.0/24 trên VLAN 100
-Mạng internet public trên VLAN 200
-Mạng storage 10.0.0.0/24 trên VLAN 300
-
-Đây là những mạng có thật, tồn tại trên switch, trên dây cáp, trước khi OpenStack được cài đặt. Máy chủ vật lý (compute node) cắm dây mạng vào các switch này.
-Vấn đề cần giải quyết
-Khi OpenStack chạy, VM bên trong cần kết nối ra các mạng vật lý đó. Nhưng Neutron không biết hạ tầng vật lý của Tuna trông như thế nào — nó không biết eth0 nối vào mạng nào, eth1 nối vào mạng nào.
-Vì vậy admin phải "giới thiệu" cho Neutron biết, bằng cách đặt tên cho từng đường ra:
-"physnet1"  →  nghĩa là đường ra mạng internet public
-"physnet2"  →  nghĩa là đường ra mạng storage
-Tên này hoàn toàn do Tuna tự đặt. Rồi trên mỗi host, Tuna nói cho Neutron biết tên đó ứng với bridge/NIC nào:
-inibridge_mappings = physnet1:br-ex
-Câu này nghĩa là: "cái mạng vật lý mà tôi gọi là physnet1, trên host này nó đi ra qua bridge br-ex".
-Một phép so sánh đơn giản
-Hãy tưởng tượng một toà nhà có nhiều cửa ra. Mỗi cửa dẫn ra một con đường khác nhau. "Physical network" giống như Tuna dán nhãn lên mỗi cửa: cửa này gọi là "đường-ra-internet", cửa kia gọi là "đường-ra-storage". Khi VM cần ra internet, Neutron nhìn nhãn, biết phải đi qua cửa nào.
-Bản thân cái nhãn không tạo ra con đường — con đường (NIC, switch, cáp) đã có sẵn. Nhãn chỉ giúp Neutron biết đường nào là đường nào.
-
-
-
-đường đi của traffic từ VM ra ngoài sẽ như thế nào
-Mình sẽ giải thích cho cả hai trường hợp: provider network và project network.
-Trường hợp 1: VM gắn trực tiếp vào provider network
-Đường đi rất ngắn, giống như cắm máy thật vào switch:
-VM → tap interface → br-int (OVS) → br-ex (OVS) → NIC vật lý (eth0) → switch vật lý → ra ngoài
-Ở đây br-int và br-ex được nối với nhau qua patch port. Traffic từ VM đi ra ngoài mang đúng VLAN mà admin đã chỉ định khi tạo provider network. Không có tunnel, không có NAT, không có router ảo — VM nằm cùng broadcast domain với mạng vật lý bên ngoài.
-Trường hợp 2: VM trong project network (VXLAN) muốn ra ngoài
-Đây là trường hợp phức tạp hơn. VM không nằm trên mạng vật lý, mà nằm trong một overlay network cô lập. Để ra ngoài, traffic phải đi qua router ảo.
-Với kiến trúc truyền thống (L3 agent trên network node)
-Trên compute node:
-VM → tap → br-int → đóng gói VXLAN → NIC vật lý → qua mạng vật lý đến network node
-Trên network node:
-NIC vật lý → tháo VXLAN → br-int → vào router namespace → SNAT (đổi IP private thành IP trên external subnet) → br-ex → NIC vật lý → switch → ra ngoài
-Nếu VM có floating IP, traffic đến từ ngoài sẽ đi ngược: vào br-ex → router namespace → DNAT (đổi floating IP thành IP private) → đóng VXLAN → gửi về compute node → VM.
-Điểm quan trọng: tất cả traffic north-south đều phải đi qua network node, nên network node dễ thành bottleneck.
-Với DVR (Distributed Virtual Router)
-Floating IP traffic được xử lý ngay trên compute node, không cần đi vòng qua network node:
-VM → tap → br-int → router namespace trên chính compute node → DNAT/SNAT → br-ex → NIC vật lý → ra ngoài
-Chỉ traffic SNAT (VM không có floating IP) mới phải đi về network node.
-Với ML2/OVN
-OVN làm distributed routing mặc định, tương tự DVR nhưng không dùng Linux namespace. ovn-controller trên mỗi compute node cài OVS flow để xử lý routing và NAT ngay tại chỗ. Đường đi:
-VM → tap → br-int (OVS flow xử lý routing + NAT) → br-ex → NIC vật lý → ra ngoài
-Không có router namespace, không có L3 agent — mọi thứ là OVS flow do ovn-controller lập trình từ Southbound DB.
-Tóm lại sự khác biệt cốt lõi
-Provider network: VM → bridge → NIC → ra ngoài (đường thẳng, không NAT).
-Project network: VM → tunnel đến nơi có router → NAT → ra ngoài. "Nơi có router" là network node (truyền thống), hoặc chính compute node (DVR/OVN).
-Tuna muốn mình đi sâu vào phần nào, ví dụ flow cụ thể trên OVS, hay cách floating IP hoạt động trong OVN?
