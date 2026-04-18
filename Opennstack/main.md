@@ -69,53 +69,23 @@ OpenStack chia các chức năng ra nhiều node để tách biệt tải và tr
 - Một network có thể thuộc các loại khác nhau tuỳ thuộc vào cách triển khai phía dưới: VXLAN, VLAN, GRE, hay flat.
 - Network tự nó chưa có thông tin IP — nó chỉ là "dây dẫn". Để có địa chỉ IP, cần tạo subnet gắn vào network đó (ví dụ 10.0.0.0/24). Một network có thể có nhiều subnet với dải IP khác nhau vẫn hợp lệ
 - Tất cả các VM, router, agent thuộc cùng network có thể giao tiếp Layer 2 với nhau
+- Khi bạn tạo VM và gán network vào VM, Neutron sẽ tạo ra một port trên network đó và attach vào VM. Port là đối tượng trung gian đại diện cho "điểm kết nối" giữa VM và network, có IP, MAC và security group. Một VM có thể thuộc nhiều network. Mỗi lần bạn "gán thêm network" = tạo thêm một port mới trên network đó và attach vào VM. Thứ tự network được add vào sẽ tương ứng với thứ tự interface trong VM (eth0, eth1, ...). Lưu ý cũng có thể tạo port thủ công rồi attach vào VM, dùng khi bạn cần IP tĩnh hoặc cần cấu hình port nâng cao (allowed-address-pairs, disable port security, v.v.).
 - Các loại Network:
   - Provider Network: Được tạo bởi admin, ánh xạ trực tiếp đến một hạ tầng mạng vật lý có sẵn. VM gắn vào provider network có thể dùng floating IP hoặc fixed IP trực tiếp
   - Project/Tenant Network: Được tạo bởi user thường, hoàn toàn ảo, isolated giữa các project.
   - External Network: Một loại network đặc biệt, đại diện cho mạng bên ngoài (internet hoặc corporate network). Router ảo dùng network này làm gateway (SNAT ra ngoài) Floating IP được cấp phát từ pool của external network
 
-#### 3.1.2. Project/Tenant Network
+#### 3.1.1. Project/Tenant Network
 - Do người dùng thường tạo, không cần biết gì về hạ tầng bên dưới. Mạng này là overlay, hoàn toàn cô lập — hai project khác nhau có thể dùng cùng dải IP 10.0.0.0/24 mà không xung đột, vì traffic được đóng gói trong tunnel riêng.
 - VM trong project network không thể ra ngoài trừ khi gắn vào một router ảo mà router đó nối với external/provider network. Muốn truy cập từ ngoài vào thì cần floating IP.
 
 #### 3.1.2. Provider Network
 - Provider network do admin tạo và ánh xạ trực tiếp xuống hạ tầng mạng vật lý bên dưới.
 - VD: `openstack network create --provider-network-type vlan --provider-physical-network physnet1 --provider-segment 100 provider-net` -> nghĩa là tạo 1 provider network tên provider-net, dùng VLAN 100, trên physical network physnet1 (tương ứng một bridge/interface thật trên host). VM gắn vào network này sẽ nằm cùng broadcast domain với hạ tầng vật lý bên ngoài — giống như cắm thẳng máy vào switch vật lý ở VLAN 100. Đặc điểm chính: VM có thể nhận IP từ DHCP server bên ngoài hoặc từ Neutron DHCP, và truy cập mạng bên ngoài trực tiếp mà không cần router ảo hay floating IP. Loại mạng thường là flat hoặc VLAN.
+
+Note:  `--provider-physical-network physnet1` để chỉ định traffic của mạng `provider-net` nếu muốn đi ra ngoài thì dùng physical network `physnet1` (physnet1 chỉ là một tên label, đặt là gì cũng được). Do compute node có thể có nhiều physical NIC, mỗi NIC kết nối vào một physical network khác nhau nên cần phải khai báo `bridge_mappings` trong OVS agent config trên compute node tại `/etc/neutron/plugins/ml2/openvswitch_agent.ini` 
+
 - Trong một deployment điển hình, cả hai loại cùng tồn tại. Provider network thường đóng vai trò external network — admin tạo nó, map vào VLAN trên uplink switch, rồi user tạo router gắn gateway vào đó. Project network là mạng nội bộ của từng tenant. Luồng traffic: `VM → project network (VXLAN tunnel) → router ảo trên network node → provider/external network (VLAN/flat) → ra ngoài.`
-
-
-
-
-Note:  physnet1 trong trường --provider-physical-network là một label cấu hình.  Physical network không phải là một thiết bị hay resource cụ thể, nó chỉ là tên (label) mà admin đặt để đại diện cho một đường kết nối vật lý ra bên ngoài. Ví dụ: có một server vật lý với hai NIC — eth0 nối vào switch mạng public, eth1 nối vào switch mạng internal. Admin sẽ tạo hai OVS bridge: br-ex gắn eth0 và đặt tên là physnet-public, br-int-ext gắn eth1 và đặt tên là physnet-internal
-
-Cấu hình sẽ là: `bridge_mappings = physnet-public:br-ex, physnet-internal:br-int-ext`
-
-Từ đó khi tạo provider network, chọn --provider-physical-network physnet-public nghĩa là traffic sẽ đi qua br-ex → eth0 → switch public. Còn --provider-physical-network physnet-internal thì đi qua br-int-ext → eth1 → switch internal.
-
-
-VD trong một datacenter có các switch vật lý. Các switch này tạo ra các mạng vật lý như:
-- Mạng công ty 192.168.1.0/24 trên VLAN 100
-- Mạng internet public trên VLAN 200
-- Mạng storage 10.0.0.0/24 trên VLAN 300
-
-Đây là những mạng có thật, tồn tại trên switch, trên dây cáp, trước khi OpenStack được cài đặt. Máy chủ vật lý (compute node) cắm dây mạng vào các switch này.
-Khi OpenStack chạy, VM bên trong cần kết nối ra các mạng vật lý đó. Nhưng Neutron không biết hạ tầng vật lý thực sự như thế nào — nó không biết eth0 nối vào mạng nào, eth1 nối vào mạng nào.
-Admin cần phải quy ước cho Neutron biết, bằng cách đặt tên cho từng đường ra:
-"physnet1"  →  nghĩa là đường ra mạng internet public
-"physnet2"  →  nghĩa là đường ra mạng storage
-
-Rồi trên mỗi host, Tuna nói cho Neutron biết tên đó ứng với bridge/NIC nào bằng mapping `bridge_mappings = physnet1:br-ex` -> nghĩa là: "cái mạng vật lý mà tôi gọi là physnet1, trên host này nó đi ra qua bridge br-ex".
-
-
-
-Tóm lại quy trình
-- Bước 1: tạo OVS bridge br-ex, gắn NIC vật lý vào.
-- Bước 2: khai báo bridge_mappings = physnet1:br-ex trong config.
-- Bước 3: khai báo physnet1 trong flat_networks hoặc network_vlan_ranges của ML2.
-- Bước 4: restart service. Sau đó khi --provider-physical-network physnet1 xuất hiện trong lệnh tạo network, Neutron biết chính xác phải đẩy traffic ra bridge nào trên host nào.
-
-
-
 
 **Luồng traffic điển hình**
 
@@ -134,7 +104,7 @@ Tóm lại quy trình
   - DHCP agent phục vụ subnet → Neutron tạo port loại network:dhcp
 - Port cũng có thể được tạo thủ công bằng Neutron API
 - Flow hoạt động khi boot một VM:
-  - Neutron tạo một port trên network VM thuộc về, cấp MAC + IP,. Lúc này Neutron port chỉ là bản ghi logical trong database, chưa có gì trên host
+  - Neutron tạo một port trên network VM thuộc về, cấp MAC + IP. Lúc này Neutron port chỉ là bản ghi logical trong database, chưa có gì trên host
   - OVN controller trên compute node watch thông tin từ OVN Northbound DB, tạo ra OVS port thực sự trên br-int của host. Virtual NIC của VM (tap interface) được map vào OVS port
 
 ### 3.3 Bridge
