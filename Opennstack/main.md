@@ -102,11 +102,9 @@ OpenStack chia các chức năng ra nhiều node để tách biệt tải và tr
   - Điểm áp dụng security group — với Linux Bridge agent, iptables rules được đặt trên tap interface trước khi frame vào bridge, để filter traffic theo security group của từng VM.
 - Lưu ý khi VM muốn giao tiếp với VM ở subnet khác, packet phải rời bridge, đi lên router (qrouter namespace, OVN logical router), rồi mới được forward sang subnet đích.
 
-  - Còn 2 driver macvtap và sriovnicswitch không sử dụng bridge
 
 ## 4. Neutron
 
-<img width="701" height="590" alt="image" src="https://github.com/user-attachments/assets/b7160aff-001d-4047-9e1e-20ff47ce3d0b" />
 <img width="672" height="575" alt="image" src="https://github.com/user-attachments/assets/d515a1d2-0de0-4d7d-b9f9-319cc5bb23bd" />
 
 Neutron là networking service của OpenStack
@@ -134,8 +132,8 @@ Type Drivers dùng để định nghĩa loại network vật lý được dùng 
   - LinuxBridge: Đơn giản, dùng Linux bridge thuần
   - OVS (Open vSwitch): Truyền thống, dùng ovs-agent
   - OVN (Open Virtual Network): Hiện đại, thay thế OVS agent + L3 agent bằng control plane phân tán. Hầu hết các installer hiện đại (Kolla-AnsibleOVN, OpenStack-AnsibleOVN, Canonical MicroStack,...) đều mặc định dùng OVN vì đó là hướng phát triển chính của OpenStack từ khoảng bản Yoga (2022) trở đi
-  - SR-IOV: bypass hoàn toàn OVS/kernel networking, VM được cấp virtual function (VF) của NIC vật lý. Dùng khi cần performance cực cao (telco, HPC).
-  - MacVTap: Tương tự SR-IOV nhưng dùng macvtap interface
+  - SR-IOV: bypass hoàn toàn OVS/kernel networking, VM được cấp virtual function (VF) của NIC vật lý. Dùng khi cần performance cực cao (telco, HPC). Không sử dụng bridge
+  - MacVTap: Tương tự SR-IOV nhưng dùng macvtap interface. Không sử dụng bridge
  
 ###### 4.2.1.2.1. Linuxbridge driver
   <img width="670" height="324" alt="image" src="https://github.com/user-attachments/assets/3ced1bba-1f2d-4b26-86b5-ce39c7f0ee0d" />
@@ -209,18 +207,6 @@ Type Drivers dùng để định nghĩa loại network vật lý được dùng 
 <img width="1440" height="1546" alt="image" src="https://github.com/user-attachments/assets/bc077f60-97aa-432b-9770-54f851405fea" />
 
 - Hiện đại nhất, vẫn sử dụng OVS bridge bên dưới, nhưng bỏ br-tun đi. OVN Controller tự lập trình Geneve tunnel thẳng vào br-int, không cần một bridge riêng để xử lý tunnel (VXLAN/GRE) nữa. Logic L2/L3 được định nghĩa tập trung trong Northbound DB rồi compile xuống, routing phân tán (distributed) mặc định.
-```
-Neutron Server
-     │ (ML2/OVN driver ghi trực tiếp)
-     ▼
-OVN Northbound DB  (logical: switches, routers, ACLs)
-     │ ovn-northd
-     ▼
-OVN Southbound DB  (physical: flows, chassis info)
-     │
-     ├── ovn-controller (compute node 1) → OVS flows
-     └── ovn-controller (compute node 2) → OVS flows
-```
 - Cách hoạt động:
   - Không có neutron agent riêng trên compute node
   - ML2/OVN driver ghi logical network vào OVN Northbound DB
