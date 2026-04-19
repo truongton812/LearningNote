@@ -6,13 +6,21 @@ project/
 ├── terragrunt.hcl                    ← config chung, viết 1 lần
 │
 ├── environments/
+│   ├── configuration/
+│   │   ├── dev/
+│   │   │   ├── us-east-1/
+│   │   │   │   └── network/
+│   │   │   │       └── terraform.tfvars
+│   │   │   ├── us-west-1/
+│   │   │   │   └── network/
+│   │   │   │       └── terraform.tfvars
+│   │   ├── prod/
+│   │   │   ├── us-east-1/
+│   │   │   │   └── network/
+│   │   │   ├── us-west-1/
 │   ├── dev/
-│   │   ├── env.hcl                   ← env = "dev"
 │   │   ├── us-east-1/
-│   │   │   ├── network/
-│   │   │   │   └── terragrunt.hcl
-│   │   │   └── app/
-│   │   │       └── terragrunt.hcl
+│   │   │   └── terragrunt.hcl
 │   │   └── us-west-1/
 │   │       ├── network/
 │   │       │   └── terragrunt.hcl
@@ -62,7 +70,7 @@ terraform { #config how terragrunt interacts with terraform
       "refresh"
     ]
     # Bắt buộc phải tồn tại file variable này, nếu ko sẽ lỗi. File này được load vào module
-    required_var_files = ["../env.tfvars"]
+    required_var_files = ["${get_parent_terragrunt_dir()}/configuration/${basename(dirname(dirname(get_terragrunt_dir())))}/${basename(dirname(get_terragrunt_dir()))}/${basename(get_terragrunt_dir())}/network.tfvars"]
     # Automatically load these tfvars files if they exist
     optional_var_files = [
       "${get_terragrunt_dir()}/../common.tfvars",
@@ -89,3 +97,13 @@ remote_state { #block để set remote state
   }
 }
 ```
+
+
+## Các built-in fuction của terraform (đưa vào bài terraform thì đúng hơn)
+- basename("path/to/file") -> return last portion of path. VD basename("env/dev/us-east-1") sẽ trả về us-east-1
+- dirname("path") -> remove last portion. VD dir("env/dev/us-east-1") sẽ trả về "env/dev"
+- mix 2 fc trên lại sẽ lấy đc phần giữa. VD basename(dirname("env/dev/us-east-1")) trả về dev
+
+## Built-in fc của teragrunt
+- get_parent_terragrunt_dir() -> trả về đường dẫn tuyệt đối chứa file terragrunt cha (dựa theo include). Ở VD trên sẽ trả về C:/project/terragrunt/environment (do trong thư mục environment có file common.hcl)
+- get_terragrunt_dir() -> trả về đường dẫn tuyệt đối của thư mục chứa file terragrunt.hcl hiện tại
