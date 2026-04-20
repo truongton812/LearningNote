@@ -1472,3 +1472,31 @@ contexts:
     user: apiserver
 current-context: webhook-context
 ```
+### Question 12
+#### A Pod in the namespace dev-ops is mounting /var/run/docker.sock from the host. This gives the container privileged access to the host’s Docker daemon, which is a serious security risk. Identify the Pod(s) mounting docker.sock and update their Deployment(s) to remove the volume mount.
+
+Đáp án:
+- xác định Pod đang mount /var/run/docker.sock
+```
+kubectl get pods -n dev-ops -o jsonpath='{range .items[*]}{.metadata.name}{" - "}{.spec.containers[*].name}{"\n"}{end}'
+kubectl get pods -n dev-ops -o yaml | grep -A 3 "hostPath.*docker.sock"
+kubectl get pods -n dev-ops -o yaml | grep -A 3 "docker.sock" #lệnh này dễ nhất
+```
+- Edit Deployment để remove /var/run/docker.sock mount
+```
+volumeMounts:
+  # remove the entry:
+  # - mountPath: /var/run/docker.sock
+  #   name: dockersock
+
+volumes:
+  # remove the entry:
+  # - name: dockersock
+  #   hostPath:
+  #     path: /var/run/docker.sock
+```
+
+- Update deployment `kubectl rollout status deploy/docker-hacker -n dev-ops`
+
+Trong thực tế nên dùng Pod Security Policies / Pod Security Admission / seccomp để ngăn mount docker.sock
+
