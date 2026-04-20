@@ -1371,3 +1371,42 @@ kubectl get pod/frontend -n prod -o yaml | grep volumeMounts -A 5
 kubectl delete --grace-period=0 --force pod app -n prod
 kubectl delete --grace-period=0 --force pod gcc -n prod
 ```
+### Question 10
+#### The cluster uses containerd with runc as the default runtime. It has been prepared to support an additional runtime handler, runsc (gVisor). Create a RuntimeClass named sandboxed using runsc, and update all Pods in the server namespace to use this runtime.
+
+Giải thích: 
+- Cluster đang dùng CRI là containerd và containerd dùng runc làm OCI runtime mặc định. runc là runtime tiêu chuẩn, chạy container như một process Linux bình thường, chia sẻ kernel với host.
+- Cluster đã được cấu hình sẵn để hỗ trợ thêm một runtime thứ hai là runsc (gVisor) - nghĩa là trên node đã được cài đặt gVisor (runsc) và containerd đã được cấu hình thêm một runtime handler tên runsc trong file config `/etc/containerd/config.toml`, kiểu như `runtime_type = "io.containerd.runsc.v1"`
+- OCI Runtime là một chương trình thực thi tuân theo chuẩn OCI Runtime Specification. Nhiệm vụ của nó là tạo ra container thực sự trên Linux (tạo namespaces, áp dụng cgroups, chạy pivot_root hoặc chroot vào filesystem của container, thiết lập security (seccomp, AppArmor, capabilities...)). Containerd sẽ chuẩn bị image và filesystem bundle, OCI runtime nhận bundle đó và thực sự tạo container. Các OCI runtime phổ biến:
+  - runc — runtime mặc định, dùng kernel features của Linux trực tiếp (namespaces, cgroups). Nhanh, nhẹ, nhưng container vẫn chia sẻ kernel với host.
+  - runsc (gVisor) —  gVisor khác runc ở chỗ nó tạo một kernel giả lập trong userspace — container không gọi syscalls vào kernel của host mà gọi vào kernel do gVisor cung cấp. Điều này tăng cường isolation/bảo mật đáng kể.
+  - kata-runtime (Kata Containers) — chạy container trong một VM nhẹ, isolation ở mức hardware.
+
+    Tất cả đều tuân theo cùng một chuẩn OCI, nên containerd có thể swap giữa chúng
+
+Đáp án:
+- Tạo RuntimeClass dùng runsc
+```
+apiVersion: node.k8s.io/v1
+kind: RuntimeClass
+metadata:
+  name: sandboxed 
+handler: runsc
+```
+- Update tất cả Pods trong server namespace để dùng runsc runtime.
+```bash
+# List all deployments in the server namespace
+kubectl get deployments -n server
+
+# Edit each deployment to add the runtimeClassName
+kubectl edit deploy -n server workload1
+
+# Within spec.template.spec of workload1 deployment
+runtimeClassName: sandboxed
+
+# Repeat for other deployments
+kubectl edit deploy -n server workload2
+kubectl edit deploy -n server workload3
+
+#Pods will be recreated automatically after updating the Deployment to use the new RuntimeClass.
+```
