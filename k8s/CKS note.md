@@ -1562,30 +1562,152 @@ Nếu bạn gửi request từ một Pod ở namespace khác mà không có side
 ### Question 14
 #### The namespace secure-team is configured with Pod Security Admission label enforcing restricted profile. You are given a Deployment manifest /home/masters/insecure-deployment.yaml that fails to start because it violates the restricted Pod Security Standard. Your task is to edit the YAML to fix each of these issues and get the Deployment running successfully in secure-team namespace.
 
-##### Giải thích
-Pod Security Standards (PSS)
-PSS là một framework của Kubernetes định nghĩa 3 mức độ bảo mật cho Pod, từ lỏng đến chặt:
-3 Profiles
-Privileged — Không hạn chế gì cả. Pod muốn làm gì cũng được. Dùng cho system-level workloads như CNI, logging agent...
-Baseline — Chặn những thứ nguy hiểm rõ ràng (hostNetwork, privileged containers, hostPath nguy hiểm...) nhưng vẫn khá thoải mái. Đủ cho hầu hết ứng dụng thông thường.
-Restricted — Nghiêm ngặt nhất. Bắt buộc best practices như non-root, drop all capabilities, seccomp profile... Dùng cho môi trường cần security cao.
-Cách áp dụng — Pod Security Admission (PSA)
-PSS chỉ là bộ quy tắc. Để Kubernetes thực thi nó, bạn dùng Pod Security Admission — một admission controller có sẵn từ Kubernetes 1.25+.
-Cách dùng rất đơn giản: gắn label lên namespace.
-yamlapiVersion: v1
+##### Giải thích:
+- Pod Security Standards (PSS) là một bộ quy tắc của Kubernetes định nghĩa 3 mức độ bảo mật cho Pod
+  - Privileged — Không hạn chế gì cả. Pod muốn làm gì cũng được. Dùng cho system-level workloads như CNI, logging agent...
+  - Baseline — Chặn những thứ nguy hiểm rõ ràng (hostNetwork, privileged containers, hostPath nguy hiểm...) nhưng vẫn khá thoải mái. Đủ cho hầu hết ứng dụng thông thường.
+  - Restricted — Nghiêm ngặt nhất. Bắt buộc best practices như non-root, drop all capabilities, seccomp profile... Dùng cho môi trường cần security cao.
+
+- Để Kubernetes thực thi PSS thì dùng Pod Security Admission — là một admission controller có sẵn từ Kubernetes 1.25+. Cách dùng rất đơn giản: gắn label lên namespace.
+```
+apiVersion: v1
 kind: Namespace
 metadata:
   name: secure-team
   labels:
-    pod-security.kubernetes.io/enforce: restricted
-    pod-security.kubernetes.io/warn: restricted
-    pod-security.kubernetes.io/audit: restricted
-3 chế độ hoạt động:
+    pod-security.kubernetes.io/enforce: restricted # Vi phạm → Pod bị từ chối tạo luôn
+    pod-security.kubernetes.io/warn: restricted # Vi phạm → Vẫn tạo được nhưng user thấy cảnh báo trên terminal
+    pod-security.kubernetes.io/audit: restricted # Vi phạm → Ghi vào audit log, Pod vẫn chạy bình thường
+```
+##### Đáp án:
+- Show label của namespace sẽ thấy `pod-security.kubernetes.io/enforce=restricted`
+- Khi apply YAML manifest message lỗi sẽ hiện lên, dựa vào đấy để fix. VD:
+```
+Error: pods "webapp-5c7f6d5c7f-xyz" is forbidden: violates PodSecurity "restricted:latest": spec.containers[0].securityContext.privileged = true
+Error: pods "webapp-5c7f6d5c7f-xyz" is forbidden: violates PodSecurity "restricted:latest": spec.containers[0].securityContext.runAsUser = 0
+Error: pods "webapp-5c7f6d5c7f-xyz" is forbidden: violates PodSecurity "restricted:latest": spec.volumes[0].hostPath = /tmp
+Error: pods "webapp-5c7f6d5c7f-xyz" is forbidden: violates PodSecurity "restricted:latest": spec.containers[0].securityContext.capabilities.add = ["NET_ADMIN"]
+```
 
-enforce — Vi phạm → Pod bị từ chối tạo luôn
-warn — Vi phạm → Vẫn tạo được nhưng user thấy cảnh báo trên terminal
-audit — Vi phạm → Ghi vào audit log, Pod vẫn chạy bình thường
+Inspect the Deployment YAML
 
-Thực tế hay kết hợp cả 3: enforce profile hiện tại, warn/audit profile cao hơn để chuẩn bị nâng lên.
-So sánh nhanh với PodSecurityPolicy (PSP)
-PSP là cơ chế cũ, đã bị deprecated từ 1.21 và xóa hoàn toàn từ 1.25. PSA/PSS là bộ thay thế chính thức — đơn giản hơn nhiều vì chỉ cần gắn label thay vì viết policy phức tạp. Đánh đổi là PSS ít linh hoạt hơn PSP (không custom từng field được), nên nếu cần fine-grained control thì người ta dùng thêm tool bên ngoài như OPA Gatekeeper hoặc Kyverno.
+
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: webapp
+  namespace: secure-team
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: webapp
+  template:
+    metadata:
+      labels:
+        app: webapp
+    spec:
+      containers:
+      - name: webapp
+        image: nginx:1.23
+        ports:
+        - containerPort: 80
+        securityContext:
+          privileged: true        # ❌ triggers: .securityContext.privileged=true
+          runAsUser: 0            # ❌ triggers: .securityContext.runAsUser=0
+          capabilities:
+            add: ["NET_ADMIN"]    # ❌ triggers: .capabilities.add=["NET_ADMIN"]
+        volumeMounts:
+        - mountPath: /data
+          name: host-data         # ❌ triggers: spec.volumes[0].hostPath = /tmp
+      volumes:
+      - name: host-data
+        hostPath:
+          path: /tmp
+
+
+Modify Deployment to comply with restricted profile
+
+
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: webapp
+  namespace: secure-team
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: webapp
+  template:
+    metadata:
+      labels:
+        app: webapp
+    spec:
+      containers:
+      - name: webapp
+        image: nginx:1.23
+        ports:
+        - containerPort: 80
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 65535
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: ["ALL"]
+        volumeMounts:
+        - mountPath: /data
+          name: empty-vol
+      volumes:
+      - name: empty-vol
+        emptyDir: {}
+
+
+Apply the modified Deployment
+
+
+
+kubectl apply -f /home/masters/insecure-deployment.yaml
+
+
+Verify the Deployment is running
+
+
+
+kubectl get deploy webapp -n secure-team
+kubectl get pods -n secure-team
+
+
+Explanation
+
+
+
+restricted Pod Security Standard forbids:
+
+Privileged containers
+
+Running as root
+
+HostPath volumes
+
+Adding capabilities
+
+Using emptyDir volume and unprivileged user satisfies the policy.
+
+Security context ensures:
+
+Non-root execution (runAsNonRoot: true, runAsUser: 65535)
+
+Read-only filesystem (readOnlyRootFilesystem: true)
+
+No privilege escalation (allowPrivilegeEscalation: false)
+
+All Linux capabilities dropped (capabilities: drop: ["ALL"])
+
+After modification, the Pod launches successfully in secure-team namespace.
+
+
