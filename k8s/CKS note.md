@@ -1410,3 +1410,6 @@ kubectl edit deploy -n server workload3
 
 #Pods will be recreated automatically after updating the Deployment to use the new RuntimeClass.
 ```
+
+### Question 11
+#### The cluster has a container image scanner webhook but its configuration is incomplete. Current configuration is in /etc/kubernetes/confcontrol directory. Enable the ImagePolicy admission plugin, set it to deny all non-compliant images (implicit deny), and test the configuration by attempting to deploy a Pod using the latest image tag.
