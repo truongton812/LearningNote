@@ -1412,4 +1412,63 @@ kubectl edit deploy -n server workload3
 ```
 
 ### Question 11
-#### The cluster has a container image scanner webhook but its configuration is incomplete. Current configuration is in /etc/kubernetes/confcontrol directory. Enable the ImagePolicy admission plugin, set it to deny all non-compliant images (implicit deny), and test the configuration by attempting to deploy a Pod using the latest image tag.
+#### The cluster has a container image scanner webhook but its configuration is incomplete. Current configuration is in /etc/kubernetes/confcontrol directory. Enable the ImagePolicy admission plugin, set it to deny all non-compliant images (implicit deny)
+
+Giải thích: 
+- Webhook Scanner là một external service chạy độc lập, có nhiệm vụ kiểm tra container image có an toàn/hợp lệ không. Ví dụ image có dùng tag latest không (không pin version = bad practice), image có chứa CVE (lỗ hổng bảo mật) không, image có đến từ registry được phép không, hoặc image có chạy root không. Dịch vụ này sẽ expose một HTTPS endpoint (webhook URL), nhận request dạng JSON, trả về "allow" hoặc "deny". 
+- ImagePolicyWebhook là một admission plugin nằm trong kube-apiserver, dùng để kiểm soát image nào được phép chạy trong cluster. Khi Pod được tạo thì ImagePolicyWebhook sẽ gọi đến webhook scanner bên ngoài để kiểm tra image. 
+
+Đáp án:
+- Enable ImagePolicyWebhook admission plugin: Mặc định plugin này chưa được bật. Cần sửa kube-apiserver manifest để thêm ImagePolicyWebhook vào flag --enable-admission-plugins, đồng thời trỏ --admission-control-config-file đến file config trong /etc/kubernetes/confcontrol.
+
+```yaml
+#/etc/kubernetes/manifests/kube-apiserver.yaml
+- kube-apiserver
+- --enable-admission-plugins=NodeRestriction,ImagePolicyWebhook
+- --admission-control-config-file=/etc/kubernetes/confcontrol/admission_configuration.yaml
+volumeMounts:
+  - name: image-policy-config
+    mountPath: /etc/kubernetes/confcontrol
+    readOnly: true
+volumes:
+  - name: image-policy-config
+    hostPath:
+      path: /etc/kubernetes/confcontrol
+      type: DirectoryOrCreate
+```
+- Tạo resource AdmissionConfiguration trong `/etc/kubernetes/confcontrol` để cung cấp cấu hình chi tiết cho từng admission plugin đã được bật (admission configuration file và kubeconfig trỏ đến webhook endpoint thường đặt trong này). Set implicit deny: mặc định nếu không set thì trong file AdmissionConfiguration sẽ cho phép image chạy khi webhook lỗi. Khi set false thì nếu webhook không trả lời được (down, timeout, lỗi) sẽ từ chối — không image nào được chạy nếu chưa qua scanner. 
+```yaml
+# /etc/kubernetes/confcontrol/admission_configuration.yaml
+
+apiVersion: apiserver.config.k8s.io/v1
+kind: AdmissionConfiguration
+plugins:
+  - name: ImagePolicyWebhook
+    configuration:
+      imagePolicy:
+        kubeConfigFile: /etc/kubernetes/confcontrol/kubeconfig.yaml #cho biết webhook scanner ở đâu
+        allowTTL: 50 # cache allow/deny bao lâu
+        denyTTL: 50
+        retryBackoff: 500
+        defaultAllow: false   # khi webhook không trả lời được sẽ từ chối tạo Pod
+
+# /etc/kubernetes/confcontrol/kubeconfig.yaml` dùng để instruction cho ImagePolicyWebhook biết webhook scanner endpoint ở đâu, tuân theo kubeconfig format)
+apiVersion: v1
+kind: Config
+clusters:
+- name: test-server
+  cluster:
+    certificate-authority: /etc/kubernetes/confcontrol/webhook.pem
+    server: https://test-server.local.8081/image_policy
+users:
+- name: apiserver
+  user:
+    client-certificate: /etc/kubernetes/confcontrol/apiserver-client.pem
+    client-key: /etc/kubernetes/confcontrol/apiserver-client-key.pem
+contexts:
+- name: webhook-context
+  context:
+    cluster: test-server
+    user: apiserver
+current-context: webhook-context
+```
