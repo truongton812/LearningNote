@@ -1558,3 +1558,34 @@ kubectl exec -it <pod1> -n payments -- curl -v http://<pod2>.<payments>.svc.clus
 
 Nếu bạn gửi request từ một Pod ở namespace khác mà không có sidecar → request bị reject. Đó là bằng chứng STRICT đang hoạt động.
 ```
+
+### Question 14
+#### The namespace secure-team is configured with Pod Security Admission label enforcing restricted profile. You are given a Deployment manifest /home/masters/insecure-deployment.yaml that fails to start because it violates the restricted Pod Security Standard. Your task is to edit the YAML to fix each of these issues and get the Deployment running successfully in secure-team namespace.
+
+##### Giải thích
+Pod Security Standards (PSS)
+PSS là một framework của Kubernetes định nghĩa 3 mức độ bảo mật cho Pod, từ lỏng đến chặt:
+3 Profiles
+Privileged — Không hạn chế gì cả. Pod muốn làm gì cũng được. Dùng cho system-level workloads như CNI, logging agent...
+Baseline — Chặn những thứ nguy hiểm rõ ràng (hostNetwork, privileged containers, hostPath nguy hiểm...) nhưng vẫn khá thoải mái. Đủ cho hầu hết ứng dụng thông thường.
+Restricted — Nghiêm ngặt nhất. Bắt buộc best practices như non-root, drop all capabilities, seccomp profile... Dùng cho môi trường cần security cao.
+Cách áp dụng — Pod Security Admission (PSA)
+PSS chỉ là bộ quy tắc. Để Kubernetes thực thi nó, bạn dùng Pod Security Admission — một admission controller có sẵn từ Kubernetes 1.25+.
+Cách dùng rất đơn giản: gắn label lên namespace.
+yamlapiVersion: v1
+kind: Namespace
+metadata:
+  name: secure-team
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/audit: restricted
+3 chế độ hoạt động:
+
+enforce — Vi phạm → Pod bị từ chối tạo luôn
+warn — Vi phạm → Vẫn tạo được nhưng user thấy cảnh báo trên terminal
+audit — Vi phạm → Ghi vào audit log, Pod vẫn chạy bình thường
+
+Thực tế hay kết hợp cả 3: enforce profile hiện tại, warn/audit profile cao hơn để chuẩn bị nâng lên.
+So sánh nhanh với PodSecurityPolicy (PSP)
+PSP là cơ chế cũ, đã bị deprecated từ 1.21 và xóa hoàn toàn từ 1.25. PSA/PSS là bộ thay thế chính thức — đơn giản hơn nhiều vì chỉ cần gắn label thay vì viết policy phức tạp. Đánh đổi là PSS ít linh hoạt hơn PSP (không custom từng field được), nên nếu cần fine-grained control thì người ta dùng thêm tool bên ngoài như OPA Gatekeeper hoặc Kyverno.
