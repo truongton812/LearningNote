@@ -1475,7 +1475,7 @@ current-context: webhook-context
 ### Question 12
 #### A Pod in the namespace dev-ops is mounting /var/run/docker.sock from the host. This gives the container privileged access to the host’s Docker daemon, which is a serious security risk. Identify the Pod(s) mounting docker.sock and update their Deployment(s) to remove the volume mount.
 
-Đáp án:
+##### Đáp án:
 - xác định Pod đang mount /var/run/docker.sock
 ```
 kubectl get pods -n dev-ops -o jsonpath='{range .items[*]}{.metadata.name}{" - "}{.spec.containers[*].name}{"\n"}{end}'
@@ -1498,5 +1498,63 @@ volumes:
 
 - Update deployment `kubectl rollout status deploy/docker-hacker -n dev-ops`
 
-Trong thực tế nên dùng Pod Security Policies / Pod Security Admission / seccomp để ngăn mount docker.sock
+##### Giải thích thêm về docker.sock
+- /var/run/docker.sock là một Unix socket — cổng giao tiếp duy nhất với Docker daemon. Khi chạy các lệnh như docker ps, docker run, v.v., thực chất CLI đang gửi HTTP request tới socket này. Ai kết nối được tới socket = có toàn quyền với docker daemon
+Phân quyền  thực tế chỉ ở tầng file permission
+Cơ chế "phân quyền" duy nhất của Docker là dựa quyền truy cập file socket. Tuy nhiên khi mount file socket vào container, container process sẽ có quyền truy cập trực tiếp file này do container process thường chạy với UID 0 (root) bên trong container. Khi kernel kiểm tra quyền truy cập file socket, nó thấy UID 0 → root → được phép. Nếu set runAsUser: 1000 trong Pod spec — process chạy UID 1000, không phải root. Lúc này kernel kiểm tra: UID 1000 có quyền ghi socket (owner root, group docker, mode 0660) không? → Không thuộc root, không thuộc group docker → bị chặn. Nhưng đây không phải cách bảo vệ đáng tin cậy vì nhiều image mặc định chạy root. Cách đúng là không mount socket vào từ đầu
+- Trong thực tế nên dùng Pod Security Policies / Pod Security Admission / seccomp để ngăn mount docker.sock
 
+### Question 13
+#### Enable Istio Mutual TLS (mTLS) in STRICT mode for all workloads in the namespace payments. Before enforcing mTLS, verify that automatic Istio Sidecar Injection is enabled for the namespace. After enforcement, confirm that all Pods communicate using mTLS.
+
+##### Giải thích:
+- Trong Kubernetes, mặc định các Pod giao tiếp với nhau qua plaintext. Nghĩa là nếu ai đó có quyền truy cập vào network (hoặc có Pod chạy trong cluster), họ có thể sniff traffic giữa các service. -> sử dụng mTLS để giải quyết vấn đề. Istio mTLS (mutual TLS) là cơ chế mã hóa giao tiếp giữa các service trong mesh, trong đó cả hai bên đều xác thực lẫn nhau bằng certificate — khác với TLS thông thường (chỉ client xác thực server). Với mTLS, cả hai phía đều trình certificate: Service A chứng minh "tôi là A" với Service B, và ngược lại Service B cũng chứng minh "tôi là B" với Service A. Cả hai đều tin tưởng nhau rồi mới trao đổi dữ liệu.
+  - Istio có component tên istiod đóng vai trò Certificate Authority (CA). Khi một Pod được inject sidecar, istiod tự động cấp cho sidecar đó một certificate (gọi là SPIFFE identity) dạng `spiffe://cluster.local/ns/payments/sa/order-service`. Certificate này xác định rõ Pod thuộc namespace nào, dùng ServiceAccount nào. Istiod tự động rotate (thay mới) certificate định kỳ, mặc định mỗi 24 giờ
+  - Khi Pod A gọi Pod B:
+    - App A gửi request plaintext đến localhost (Envoy proxy của chính nó)
+    - Envoy A mã hóa request bằng TLS, đính kèm certificate của mình
+    - Envoy B nhận request, kiểm tra certificate của A có hợp lệ không
+    - Envoy B trình certificate của mình ngược lại cho Envoy A xác minh
+    - Sau khi cả hai xác thực xong → thiết lập kênh mã hóa → truyền dữ liệu
+    - Envoy B giải mã và chuyển plaintext cho App B
+    - App A và App B vẫn nói chuyện HTTP bình thường — chúng không biết có mTLS đang xảy ra.
+  - Ba mode của mTLS trong Istio
+    - DISABLE — tắt mTLS, mọi traffic là plaintext
+    - PERMISSIVE (mặc định) — chấp nhận cả plaintext lẫn mTLS. Hữu ích khi bạn đang migrate dần, một số service chưa có sidecar
+    - STRICT — bắt buộc mTLS. Mọi request không có mTLS sẽ bị reject
+- Istio mTLS chỉ hoạt động khi mỗi Pod đều có Envoy sidecar proxy chạy bên cạnh. Sidecar này đảm nhận việc mã hóa/giải mã TLS thay cho application
+
+##### Đáp án:
+- Để Kubernetes tự động inject sidecar, namespace cần có label `istio-injection=enabled`
+```
+kubectl get namespace payments --show-labels
+
+# Nếu chưa có thì enable
+kubectl label namespace payments istio-injection=enabled --overwrite
+```
+- Sau khi label, mọi Pod mới tạo trong namespace sẽ tự động được inject thêm container istio-proxy. Lưu ý nếu đã có Pod đang chạy từ trước sẽ không có sidecars, cần restart để sidecar được inject `kubectl rollout restart deployment -n payments`
+- Enable mTLS STRICT mode: Tạo PeerAuthentication resource cho namespace
+```
+# payments-mtls.yaml
+apiVersion: security.istio.io/v1
+kind: PeerAuthentication
+metadata:
+  name: payments-mtls-strict
+  namespace: payments
+spec:
+  mtls:
+    mode: STRICT
+```
+- Verify mTLS enforcement
+```
+# List PeerAuthentication policies
+kubectl get peerauthentication -n payments
+ 
+# Confirm sidecar containers in all pods
+kubectl get pods -n payments -o jsonpath='{range .items[*]}{.metadata.name}{" - "}{.spec.containers[*].name}{"\n"}{end}'  # optional
+ 
+# Test mTLS enforcement between Pods
+kubectl exec -it <pod1> -n payments -- curl -v http://<pod2>.<payments>.svc.cluster.local
+
+Nếu bạn gửi request từ một Pod ở namespace khác mà không có sidecar → request bị reject. Đó là bằng chứng STRICT đang hoạt động.
+```
