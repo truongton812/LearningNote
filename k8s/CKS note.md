@@ -1180,7 +1180,69 @@ spec:
 - Thay đổi logic sang init container. VD init container khởi chạy và ghi dữ liệu vào volume, sau đó mới mount volume vào container chính theo kiểu read-only -> container chỉ có quyền đọc vào volume
 
 
+## 25. Kubernetes Audit Logging
+- Là tính năng ghi lại mọi request gửi đến kube-apiserver. Mỗi khi có ai (user, service account, controller...) tương tác với cluster — tạo pod, xoá secret, sửa deployment — API server đều có thể ghi lại thông tin đó.
+- Các use case chính:
+  - Bảo mật: Ai đã đọc secret? Ai đã escalate quyền RBAC?
+  - Troubleshooting: Ai đã sửa configmap khiến app crash?
+  - Compliance: Nhiều tiêu chuẩn (SOC2, PCI-DSS...) yêu cầu phải có audit trail.
+  - Phát hiện bất thường: Detect các pattern đáng ngờ như brute-force API calls.
+- Audit event là record do API server tạo ra mỗi khi nhận được một request. Mỗi event chứa các thông ti: Ai gọi (user, service account), Làm gì (GET, CREATE, DELETE...), Lên resource nào (pod X, secret Y, namespace Z), Kết quả thế nào (thành công, bị deny...), Từ IP nào, lúc mấy giờ, Request body và response body (tuỳ vào audit level)
+- Audit Levels: chỉ định mức độ chi tiết của log. Level càng cao thì càng chi tiết nhưng cũng càng tốn disk và có thể chứa dữ liệu nhạy cảm (ví dụ Request level cho secrets sẽ ghi cả giá trị secret).
+  - None — không ghi gì
+  - Metadata — chỉ ghi ai, làm gì, lúc nào (không ghi nội dung)
+  - Request — ghi thêm request body (nội dung người gọi gửi lên)
+  - RequestResponse — ghi cả request body lẫn response body
+- Audit Policy là file YAML chứa danh sách rules, đánh giá top-down first-match-wins. File này sẽ quyết định request được ghi ở level nào. Audit Backend quyết định log đi đâu (ghi ra file/external service/...)
+- Vòng đời 1 request: một request đi qua API server trải qua các stage:
+  - RequestReceived — request vừa đến, chưa xử lý gì. Thường người ta `omitStages: ["RequestReceived"]` vì stage này chưa có kết quả gì, ghi vào chỉ thêm noise.
+  - ResponseStarted — response header đã gửi, body chưa xong (chỉ có ở long-running request như watch)
+  - ResponseComplete — response đã gửi xong hoàn toàn
+  - Panic — API server bị panic (lỗi nghiêm trọng)
+- Một request có thể tạo nhiều event vì request đi qua nhiều stage, nên một request có thể sinh ra tối đa 2-3 event (ở các stage khác nhau).
 
+### Ví dụ thực tế
+- Khi chạy `kubectl delete pod nginx -n default`. API server sẽ tạo ra một audit event dạng JSON như thế này (tuỳ audit level mà event chứa nhiều hay ít thông tin, như ví dụ dưới thì audit level là RequestResponse do có cả requestObject lẫn responseObject)
+
+```json
+{
+  "apiVersion": "audit.k8s.io/v1",
+  "kind": "Event",
+  "level": "RequestResponse",
+  "stage": "ResponseComplete",
+
+  "requestURI": "/api/v1/namespaces/default/pods/nginx",
+  "verb": "delete",
+
+  "user": {
+    "username": "tuna",
+    "groups": ["system:masters"]
+  },
+
+  "sourceIPs": ["192.168.1.50"],
+  "requestReceivedTimestamp": "2026-04-21T10:30:00Z",
+  "stageTimestamp": "2026-04-21T10:30:00Z",
+
+  "objectRef": {
+    "resource": "pods",
+    "namespace": "default",
+    "name": "nginx",
+    "apiGroup": "",
+    "apiVersion": "v1"
+  },
+
+  "responseStatus": {
+    "code": 200
+  },
+
+  "requestObject": { "...nội dung request body..." },
+  "responseObject": { "...nội dung response body..." }
+}
+```
+
+
+
+================
 
 ​
 
