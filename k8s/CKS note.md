@@ -1616,3 +1616,34 @@ File hoàn chỉnh
       - name: empty-vol
         emptyDir: {}
 ```
+
+### Question 16
+#### Cluster security monitoring revealed that a malicious container is attempting to access /dev/mem, which represents direct access to physical memory. Use Falco (or sysdig) to detect the malicious Pod and its Deployment, then scale the Deployment replicas to 0 to stop the workload.
+
+##### Đáp án: 
+- Tạo Falco rule file
+```
+#rule.yaml:
+- rule: read write below /dev/mem
+  desc: An attempt to read or write to /dev/mem directory
+  condition: >
+    ((evt.is_open_read=true or evt.is_open_write=true) and fd.name contains /dev/mem)
+  output: "Process %proc.name accessed /dev/mem (command=%proc.cmdline user=%user.name container=%container.id image=%container.image.repository pod_name=%k8s.pod.name namespace=%k8s.ns.name)"
+  priority: WARNING
+  tags: [security]
+```
+
+Giải thích:
+  - Falco rules dùng system call fields để lọc events. Trong đó:
+    - evt.is_open_read=true → matches syscalls like open, openat, openat2, open_by_handle_at with read flag. evt.is_open_read exists only for open-related syscalls, not for read/write syscalls.
+    - evt.is_open_write=true → same syscalls but with write flag.
+
+- Run Falco manually với custom rule file: `falco -r rule.yaml  | grep -i 'dev/mem'`
+- Check Falco output/logs. VD alert: `23:15:42.567890: Warning Process evil-binary accessed /dev/mem (command=evil-binary user=root container=abc123 image=malicious/image pod_name=mem-hacker-7d89d9c7f8-xyz namespace=default)` → Pod: mem-hacker-7d89d9c7f8-xyz ở Namespace: default → kiểm tra Deployment `mem-hacker`. Hoặc nếu chỉ có container id thì map từ container sang Pod bằng command:
+```
+crictl ps -id abc123 #  liệt kê các container đang chạy (running) mà có container ID bắt đầu bằng abc123
+crictl pods -id <pod_id>
+```
+- Scale Deployment replicas xuống 0: `kubectl scale deployment mem-hacker --replicas=0 -n default`
+
+
