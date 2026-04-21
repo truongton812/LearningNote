@@ -1582,38 +1582,16 @@ metadata:
 ##### Đáp án:
 - Show label của namespace sẽ thấy `pod-security.kubernetes.io/enforce=restricted`
 - Khi apply YAML manifest message lỗi sẽ hiện lên, dựa vào đấy để fix. VD:
-```
-Error: pods "webapp-5c7f6d5c7f-xyz" is forbidden: violates PodSecurity "restricted:latest": spec.containers[0].securityContext.privileged = true
-Error: pods "webapp-5c7f6d5c7f-xyz" is forbidden: violates PodSecurity "restricted:latest": spec.containers[0].securityContext.runAsUser = 0
-Error: pods "webapp-5c7f6d5c7f-xyz" is forbidden: violates PodSecurity "restricted:latest": spec.volumes[0].hostPath = /tmp
-Error: pods "webapp-5c7f6d5c7f-xyz" is forbidden: violates PodSecurity "restricted:latest": spec.containers[0].securityContext.capabilities.add = ["NET_ADMIN"]
-```
-- Cách fix: 
-Inspect the Deployment YAML
-
-
-        - containerPort: 80
-        securityContext:
-          privileged: true        # ❌ triggers: .securityContext.privileged=true
-          runAsUser: 0            # ❌ triggers: .securityContext.runAsUser=0
-          capabilities:
-            add: ["NET_ADMIN"]    # ❌ triggers: .capabilities.add=["NET_ADMIN"]
-        volumeMounts:
-        - mountPath: /data
-          name: host-data         # ❌ triggers: spec.volumes[0].hostPath = /tmp
-      volumes:
-      - name: host-data
-        hostPath:
-          path: /tmp
-
-
-- Sửa securityContext:
+  - `Error: pods "webapp-5c7f6d5c7f-xyz" is forbidden: violates PodSecurity "restricted:latest": spec.containers[0].securityContext.privileged = true` → Restricted PSS không cho chạy Privileged containers
+  - `Error: pods "webapp-5c7f6d5c7f-xyz" is forbidden: violates PodSecurity "restricted:latest": spec.containers[0].securityContext.runAsUser = 0` → Restricted PSS không cho chạy dưới dạng root
+  - `Error: pods "webapp-5c7f6d5c7f-xyz" is forbidden: violates PodSecurity "restricted:latest": spec.volumes[0].hostPath = /tmp` → Restricted PSS không cho dùng HostPath volumes
+  - `Error: pods "webapp-5c7f6d5c7f-xyz" is forbidden: violates PodSecurity "restricted:latest": spec.containers[0].securityContext.capabilities.add = ["NET_ADMIN"]` → Restricted PSS không cho thêm capabilities
+- Cách fix: Sửa securityContext:
   - privileged: false → không cho container toàn quyền như root trên node. Nếu set true thì container sẽ thấy tất cả device của node (/dev/sda, /dev/net/tun...), có thể load/unload kernel module, thay đổi network config của node, và bỏ qua mọi cơ chế isolation (AppArmor, SELinux, seccomp đều bị tắt). Nói đơn giản, container chạy privileged gần như thoát khỏi sandbox, không khác gì một process chạy trực tiếp trên node. Chỉ set true khi dùng cho CNI plugin, kube-proxy, storage driver — những thứ thực sự cần thao tác hardware/kernel.
   - runAsNonRoot: true và runAsUser: 65535. Mặc định khi không có User Namespace (hầu hết cluster production hiện tại đều không có) UID 0 trong container chính là UID 0 trên host. Tức là process root trong container, nếu thoát được sandbox (qua lỗ hổng kernel, misconfigured volume mount...), nó sẽ là root thật trên node. Đây là lý do profile restricted bắt buộc runAsNonRoot: true — để giảm thiểu hậu quả nếu xảy ra container escape.
   - allowPrivilegeEscalation: false → không cho phép process bên trong container tự nâng quyền lên cao hơn quyền của process cha
-  - readOnlyRootFilesystem: true. Khi set readOnlyRootFilesystem: true, toàn bộ root filesystem (/) của container trở thành read-only. Mọi thao tác ghi vào filesystem đều bị từ chối. Do nếu attacker exploit được ứng dụng trong container, việc đầu tiên họ thường làm là ghi file — ví dụ tải malware vào /tmp, sửa config, cài backdoor, hoặc chèn web shell vào /var/www. Tuy nhiên trong thực tế hầu hết app đều cần ghi vào một vài thư mục (log, cache, temp file...). Giải pháp là mount emptyDir vào đúng những chỗ cần ghi, phần còn lại giữ read-only
-  - capabilities: drop: ["ALL"]. 
-Container đang thêm capability NET_ADMIN (quyền thao tác network của node). Restricted chỉ cho phép thêm duy nhất NET_BIND_SERVICE, ngoài ra phải drop ALL.
+  - readOnlyRootFilesystem: true. Khi set readOnlyRootFilesystem: true, toàn bộ root filesystem (/) của container trở thành read-only. Mọi thao tác ghi vào filesystem đều bị từ chối. Tuy nhiên trong thực tế hầu hết app đều cần ghi vào một vài thư mục (log, cache, temp file...). Giải pháp là mount emptyDir vào đúng những chỗ cần ghi, phần còn lại giữ read-only. Ví dụ một web app cần ghi vào /tmp và /var/cache/app thì bạn cần mount emptyDir đè lên đúng 2 thư mục đấy. (emptyDir là một volume tạm — Kubernetes tạo một thư mục trống trên node, rồi mount đè lên một đường dẫn trong container. Phần được mount đè đó sẽ writable do bản chất mount là đặt một filesystem khác lên trên một đường dẫn, che đi nội dung cũ, không còn liên quan gì đến root filesystem nữa)
+  - capabilities: drop: ["ALL"]. Container đang thêm capability NET_ADMIN (quyền thao tác network của node). Restricted chỉ cho phép thêm duy nhất NET_BIND_SERVICE, ngoài ra phải drop ALL.
   - volumes: emptyDir: {}
 
 File hoàn chỉnh
@@ -1638,65 +1616,3 @@ File hoàn chỉnh
       - name: empty-vol
         emptyDir: {}
 ```
-
-yamlcontainers:
-- name: app
-  securityContext:
-    readOnlyRootFilesystem: true
-  volumeMounts:
-  - name: tmp
-    mountPath: /tmp
-  - name: cache
-    mountPath: /var/cache/app
-volumes:
-- name: tmp
-  emptyDir: {}
-- name: cache
-  emptyDir: {}
-Như vậy app vẫn ghi được vào /tmp và /var/cache/app, nhưng attacker không thể ghi vào bất kỳ chỗ nào khác như /usr/bin, /etc, hay /var/www.
-Có bắt buộc trong restricted profile không?
-Không. PSS restricted không yêu cầu readOnlyRootFilesystem. Đây là best practice thêm, thuộc về hardening. Nhiều tổ chức dùng OPA Gatekeeper hoặc Kyverno để enforce thêm rule này ngoài PSS.
-Apply the modified Deployment
-
-
-
-kubectl apply -f /home/masters/insecure-deployment.yaml
-
-
-Verify the Deployment is running
-
-
-
-kubectl get deploy webapp -n secure-team
-kubectl get pods -n secure-team
-
-
-Explanation
-
-
-
-restricted Pod Security Standard forbids:
-
-Privileged containers
-
-Running as root
-
-HostPath volumes
-
-Adding capabilities
-
-Using emptyDir volume and unprivileged user satisfies the policy.
-
-Security context ensures:
-
-Non-root execution (runAsNonRoot: true, runAsUser: 65535)
-
-Read-only filesystem (readOnlyRootFilesystem: true)
-
-No privilege escalation (allowPrivilegeEscalation: false)
-
-All Linux capabilities dropped (capabilities: drop: ["ALL"])
-
-After modification, the Pod launches successfully in secure-team namespace.
-
-
