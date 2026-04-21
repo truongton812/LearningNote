@@ -1790,3 +1790,26 @@ rules:
   - apps/v1 → group apps
   - networking.k8s.io/v1 → group networking.k8s.io
   - rbac.authorization.k8s.io/v1 → group rbac.authorization.k8s.io
+###  Question 3
+#### Scan two container images for high and critical vulnerabilities using Trivy and save the results. Only consider vulnerabilities with severity HIGH or CRITICAL. Store the scan output in /opt/trivy-vulnerable.txt
+
+Đáp án:
+```
+# Display Trivy help (optional)
+trivy image --help
+ 
+# Scan ubuntu:18.04 for HIGH and CRITICAL vulnerabilities and save output
+trivy image --severity HIGH,CRITICAL --output /opt/trivy-vulnerable.txt ubuntu:18.04
+ 
+# Scan kube-apiserver image and append output to the same file
+trivy image --severity HIGH,CRITICAL registry.k8s.io/kube-apiserver:v1.24.0 >> /opt/trivy-vulnerable.txt
+ 
+# Scan kube-scheduler image and append output to the same file
+trivy image --severity HIGH,CRITICAL registry.k8s.io/kube-scheduler:v1.23.0 >> /opt/trivy-vulnerable.txt
+ 
+# Scan postgres image and append output to the same file
+trivy image --severity HIGH,CRITICAL postgres:12 >> /opt/trivy-vulnerable.txt
+ 
+# Scan apache httpd image and append output to the same file
+trivy image --severity HIGH,CRITICAL httpd:2.4.49 >> /opt/trivy-vulnerable.txt
+```
