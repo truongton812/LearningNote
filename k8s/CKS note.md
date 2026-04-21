@@ -1750,3 +1750,43 @@ metadata:
 
 ### Question 2
 #### Enable and configure Kubernetes audit logging with specific retention, size, and logging policies: Store audit logs at /var/log/kubernetes-logs.log / Retain logs for 12 days and keep a maximum of 8 old log files / Rotate logs when they reach 200MB / Extend the audit policy to log: Namespace changes at RequestResponse level, Request body of secret changes in the kube-system namespace, All other resources in core and extensions at Request level, "pods/portforward" and "services/proxy" at Metadata level, Omit the stage RequestReceived, Default all other requests at Metadata level.
+```
+apiVersion: audit.k8s.io/v1
+kind: Policy
+omitStages:
+  - "RequestReceived"
+rules:
+  # 1. Log namespace changes at RequestResponse level
+  - level: RequestResponse
+    resources:
+      - group: ""   # core API group
+        resources: ["namespaces"]
+ 
+  # 2. Log request body of secret changes in kube-system
+  - level: Request
+    namespaces: ["kube-system"]
+    resources:
+      - group: ""
+        resources: ["secrets"]
+ 
+  # 3. Log all other core and extensions resources at Request level
+  - level: Request
+    resources:
+      - group: ""           # core
+      - group: "extensions" # deprecated API group
+ 
+  # 4. Log pods/portforward, services/proxy at Metadata level
+  - level: Metadata
+    resources:
+      - group: "" 
+        resources: ["pods/portforward", "services/proxy"]
+ 
+  # 5. Default: all other requests at Metadata level
+  - level: Metadata
+```
+
+Để biết resource thuộc group nào thì dùng lệnh `kubectl api-resources` -> Dựa vào cột APIVERSION để biết group. Quy tắc đọc: phần trước dấu / là group, phần sau là version. Nếu chỉ có v1 không có / thì đó là core group.
+  - v1 → core group (group rỗng "")
+  - apps/v1 → group apps
+  - networking.k8s.io/v1 → group networking.k8s.io
+  - rbac.authorization.k8s.io/v1 → group rbac.authorization.k8s.io
