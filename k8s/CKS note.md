@@ -1646,4 +1646,45 @@ crictl pods -id <pod_id>
 ```
 - Scale Deployment replicas xuống 0: `kubectl scale deployment mem-hacker --replicas=0 -n default`
 
+## Bộ đề 2
+### Question 1
+#### Enforce a prepared AppArmor profile on a Kubernetes Pod: Apply the nginx-deny AppArmor profile on a worker node. Modify the Pod manifest to use this profile.
 
+Giải thích: 
+- AppArmor là một cơ chế bảo mật dựa trên kernel Linux, cho phép định nghĩa các policy chi tiết để giới hạn quyền truy cập của ứng dụng hoặc container vào hệ thống. AppArmor sử dụng các profile để chỉ định ứng dụng được phép làm gì, ví dụ như truy cập file, network hay các tài nguyên hệ thống. AppArmor hoạt động trên cùng một kernel với host và không tạo môi trường cô lập riêng biệt.
+- AppArmor được cài đặt sẵn trên Ubuntu
+- Xem các profile của AppArmor ở `/etc/apparmor.d`
+- Load AppArmor profile `apparmor_parser -q /etc/apparmor.d/<profile>`
+- Verify that the profile is active `aa-status | grep -i <proffile>`
+- Sử dụng profile trong Pod:
+  - Đối với Kubernetes ≥1.30, chỉ định bằng Security Context
+  - Đối với Kubernetes <1.30, chỉ định bằng annotations
+
+Đáp án:
+- SSH vào cluster node để deploy AppArmor profile
+- Kiểm tra AppArmor profile `head /etc/apparmor.d/nginx_apparmor`
+- Load AppArmor profile `apparmor_parser -q /etc/apparmor.d/nginx_apparmor`
+- Kiểm tra xem profile được load chưa `aa-status | grep -i nginx-deny`
+- Áp profile vào Pod bằng security context
+```
+spec:
+  containers:
+  - name: nginx-pod
+    image: nginx:1.19.0
+    ports:
+    - containerPort: 80
+    securityContext:
+      appArmorProfile:
+        type: Localhost
+        localhostProfile: nginx-deny
+```
+- Áp profile vào Pod bằng annotation
+```
+metadata:
+  name: nginx-pod
+  annotations:
+    container.apparmor.security.beta.kubernetes.io/nginx-pod: localhost/nginx-deny
+```
+
+### Question 2
+#### Enable and configure Kubernetes audit logging with specific retention, size, and logging policies: Store audit logs at /var/log/kubernetes-logs.log / Retain logs for 12 days and keep a maximum of 8 old log files / Rotate logs when they reach 200MB / Extend the audit policy to log: Namespace changes at RequestResponse level, Request body of secret changes in the kube-system namespace, All other resources in core and extensions at Request level, "pods/portforward" and "services/proxy" at Metadata level, Omit the stage RequestReceived, Default all other requests at Metadata level.
