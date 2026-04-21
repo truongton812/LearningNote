@@ -1128,7 +1128,7 @@ Ví dụ sử dụng /proc để đọc secret lưu trong etcd:
 - Rules mặc định phát hiện threat phổ biến: unauthorized shell, outbound connection lạ, privilege escalation. Khi Falco phát hiện rule vi phạm (ví dụ: shell spawn trong container, ghi vào file trong /etc, chạy lệnh liên quan đến package management trong container), nó gửi alert qua stdout, syslog hoặc tích hợp Prometheus/SIEM.
 - Cấu hình của Falco nằm trong /etc/falco/falco.yaml
 - Log của Falco nằm trong /var/log/syslog
-​- Ví dụ rule detect shell in container:
+- Ví dụ rule detect shell in container:
 ```
 - rule: Detect shell in container
   desc: Alert on shell spawn in container
