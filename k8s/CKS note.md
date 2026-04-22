@@ -19,10 +19,27 @@ Ngoài namespace, container còn sử dụng cgroup để giới hạn tài nguy
 Từ sau bản k8s 1.28, dùng lệnh docker ps sẽ ko thấy container, phải dùng lệnh crictl ps
 
 Lưu ý 
-- docker là container runtime + tool để manage container và image
-- containerd là container runtime
-- podman là tool để manage container và image
+- docker là container runtime + tool để manage container và image. Docker là một all-in-one package gồm:
+  - docker CLI: tool để bạn gõ lệnh
+  - Docker Daemon (dockerd):  xử lý network/volume/port mapping/image build.  network: tạo docker0 bridge, veth pair, iptables rules, DNS. volume:  tạo/mount volume, quản lý volume lifecycle. port mapping: iptables DNAT rules. image build: xử lý Dockerfile (docker build)
+  - containerd (runtime): là container runtime được nhúng trong dockerd
+  - runc (low-level): runc là low-level container runtime — tầng thấp nhất, thứ thực sự tạo ra container bằng cách gọi trực tiếp vào Linux kernel. runc là implementation chuẩn của OCI Runtime Spec (Open Container Initiative) (OCI định nghĩa "container phải được tạo ra như thế nào" — runc là bản hiện thực hóa chuẩn đó. Vì vậy bất kỳ tool nào (containerd, podman, cri-o...) đều có thể dùng runc) .runc nhận vào một OCI bundle (filesystem + config.json) và gọi kernel để tạo Linux Namespaces, tạo cgroups, mount filesystem, set capabilities (drop privileges), exec process  (chạy entrypoint). Chỉ vậy thôi — không build image, không pull image, không quản lý gì cả. Ngoài runc còn có alternatives crun, kata-container, gVisor (runsc)
+ 
+→ Lý do Kubernetes bỏ Docker: K8s chỉ cần runtime, dùng containerd trực tiếp là đủ, không cần mang theo cả Docker daemon nặng nề. Khi bỏ dockerd thì containerd không tự xử lý network/volume — nó cần các plugin/tool bên ngoài. VD Network do CNI plugins (flannel, calico, bridge...) thực hiện, Volume do  CSI plugins thực hiện (hoặc mount thủ công). DNS do CNI plugin tự lo
+
+
+
+
+- containerd là container runtime ở tầng trung gian — quản lý lifecycle. Nhiệm vụ của containerd là containerd pull image từ registry, quản lý image storage, tạo OCI bundle (filesystem + config.json), gọi runc để tạo container, quản lý vòng đời container (start/stop/delete), cung cấp API cho cấp trên (Docker, K8s)
+- podman là tool để manage container và image. Tool là để người dùng tương tác: build image, pull/push image, run/stop container, xem logs... Podman làm đúng vai trò này — nó gọi xuống runtime (như runc) để chạy container, nhưng bản thân nó là tool quản lý.
 - crictl là cli cho cri-compatible container runtime. Ta có thể dùng crictl để tương tác với docker/podman/containerd tùy ý, chỉ cần config runtime endpoint trong /etc/crictl.yaml
+
+So sánh flow
+```
+Docker:    CLI → dockerd → containerd → containerd-shim → runc → process
+Containerd:CLI →          containerd → containerd-shim → runc → process
+Podman:    CLI →                       conmon           → runc → process
+```
 
 ## 4. Network policy
 - Trong Kubernetes, mặc định mọi Pod đều có thể truy cập mọi Pod
