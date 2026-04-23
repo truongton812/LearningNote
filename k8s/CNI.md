@@ -110,10 +110,13 @@ CNI trong K8s gồm 2 phần tách biệt là CNI plugin và CNI agent
 ## 3. Bridge 
 - Là một virtual network switch được implement trong Linux kernel, có chức năng giống như một switch vật lý Layer 2 nhưng hoàn toàn bằng software. Thay vì port vật lý, bridge có các network interface gắn vào làm port. Đối với host Linux bridge xuất hiện là một interface trong host network namespace, giống như bất kỳ interface nào khác (eth0, lo...). Có thể show bằng lệnh `ip link show` → Sẽ thấy cni0/docker0 nằm chung với eth0, lo, flannel.1...
 - Docker và K8s sử dụng Linux bridge để implement network vì nó có sẵn trong kernel, không cần cài thêm gì. Trong Docker bridge thường có tên là `docker0` do Docker daemon tạo ra. Còn trong Kubernetes thì bridge do CNI tạo và có tên là `cni0`. Openstack sử dụng OVS làm bridge
-    
+
+
+
+
 ### 3.1. Linux bridge
-- Các CNI plugin phổ biến tạo bridge cni0 trong host network namespace.
-- Khi 1 pod trong cụm k8s được tạo ra thì interface của nó sẽ được gắn vào bridge. Show trên host sẽ thấy các veth
+- Các CNI plugin phổ biến tạo Linux Bridge tên cni0 trên mỗi node. Bridge này hoạt động như một virtual switch Layer 2, kết nối các veth pair của tất cả pod trên cùng node lại với nhau.
+- Khi 1 pod trong cụm k8s được tạo ra thì CNI plugin tạo một veth pair — một đầu gắn vào network namespace của pod, đầu còn lại (là các veth trên host) gắn vào bridge cni0.
 - Linux bridge là một interface trong host network namespace, giống như bất kỳ interface nào khác (eth0, lo...). Khi liệt kê interface bằng lệnh `ip link show` sẽ thấy cni0/docker0 nằm chung với eth0, lo, flannel.1...
 - Cách hoạt động: Bridge duy trì một Forwarding Database (FDB) —  là bảng ánh xạ MAC address → port, giống MAC table của switch thật. Khi container A gửi packet đến container B trong cùng mạng
   - Packet đi qua veth pair vào bridge
@@ -126,7 +129,8 @@ CNI trong K8s gồm 2 phần tách biệt là CNI plugin và CNI agent
   - Đặt IP cho bridge (để host giao tiếp được): `ip addr add 192.168.1.1/24 dev br0`
   - Gắn interface vào bridge (làm "port"): `ip link set veth0 master br0`
   - Xem port nào đang gắn vào bridge: `ip link show master cni0`
-- Lưu ý có các plugin không dùng bridge. VD Calico gắn veth trực tiếp vào routing table của host (cần kernel xử lý L3 routing cho từng pod)
+- Ngoài cni0 trong K8s có thể có cni1, cni2 nếu dùng Multus CNI cho phép pod có nhiều network interface. Khi đó bạn có thể define nhiều NetworkAttachmentDefinition, mỗi cái trỏ tới một bridge plugin config với tên bridge khác nhau
+- Lưu ý không phải CNI plugin nào cũng dùng bridge. Ví dụ Calico gắn veth trực tiếp vào routing table của host (cần kernel xử lý L3 routing cho từng pod). Cilium thì dùng eBPF, có thể bypass bridge hoàn toàn. Với OVS-based CNI traffic đi qua OVS bridge thay vì Linux bridge
 
 ### 3.2 OVS
 <img width="1121" height="627" alt="image" src="https://github.com/user-attachments/assets/882c2207-21f8-4749-acd1-53c4e73574ea" />
