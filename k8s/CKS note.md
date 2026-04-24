@@ -92,7 +92,7 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: default deny
+  name: default-deny
   namespace: default
 spec:
   podSelector: {}
@@ -100,7 +100,7 @@ spec:
   - Ingress
   - Egress
   egress:
-  - to:
+  - to: # có thể bỏ đi cũng được
     ports:
     - port: 53
       protocol: TCP
