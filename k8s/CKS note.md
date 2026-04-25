@@ -214,13 +214,14 @@ Trong Kubernetes có 3 loại identity chính: User, Group và ServiceAccount.
 
 #### 6.1.1. User
 - ​User đại diện cho người dùng hoặc external identities (như IAM users từ AWS/Azure/GCP). Kubernetes không quản lý user accounts trực tiếp mà dựa vào . Kubernetes không có database user và cũng không có API kiểu như `kubectl create user` mà nó dựa vào external authentication (certificates, OIDC, webhooks) để xác định identity của request
-- Client certificate là cách phổ biến nhất. Nguyên lý hoạt động là K8s API server được cấu hình để trust một Certificate Authority (CA) (thông qua trường --client-ca-file trong apiserver manifest). Bất kỳ certificate nào được ký bởi CA đó đều được API server chấp nhận. Thông tin identity nằm trong certificate: Username trong Kubernetes được định nghĩa thông qua trường Common Name (CN) trong phần subject của X.509 client certificate, ví dụ /CN=username sẽ được dùng làm tên người dùng khi xác thực với API server, group được định nghĩa thông qua trường Organization (O). Quản trị viên sử dụng kubectl để tương tác với cụm k8s sẽ được xác thực bằng certificate đấy. Cách tạo client certificate: có thể làm thủ công hoặc dùng resource CertificateSigningRequest trong K8S
+- Client certificate là cách thông dụng. Nguyên lý hoạt động là K8s API server được cấu hình để trust một Certificate Authority (CA) (thông qua trường --client-ca-file trong apiserver manifest). Bất kỳ certificate nào được ký bởi CA đó đều được API server chấp nhận. Thông tin identity nằm trong certificate: Username trong Kubernetes được định nghĩa thông qua trường Common Name (CN) trong phần subject của X.509 client certificate, ví dụ /CN=username sẽ được dùng làm tên người dùng khi xác thực với API server, group được định nghĩa thông qua trường Organization (O). Quản trị viên sử dụng kubectl để tương tác với cụm k8s sẽ được xác thực bằng certificate đấy. Cách tạo client certificate: có thể làm thủ công hoặc dùng resource CertificateSigningRequest trong K8S
   - Thủ công: tạo CSR rồi dùng CA để ký, sau đó down CRT về để sử dụng. Nhược điểm: phức tạp, không quản lý tập trung
   - Quản lý bằng resource CertificateSigningRequest trong K8S
     - User tạo key (có thể dùng openssl hoặc bất kỳ tool nào khác)
     - từ key user tạo CSR và gửi cho admin
     - Admin tạo CertificateSigningRequest resource trong cụm k8s bằng thông tin CSR user gửi (lưu ý cần mã hóa base64), sau đó admin approve bằng lệnh `kubectl certificate approve <ten_csr>`
     - User download cert và thêm vào trong kubeconfig để sử dụng
+- Nhược điểm của client certificate là không revoke được, một khi cert đã ký, nó hợp lệ cho đến khi hết hạn. Nếu cert bị leak, lựa chọn duy nhất là rotate toàn bộ cluster CA, ký lại cert cho tất cả user và component. Với production nghiêm túc, chuyển sang OIDC hoặc EKS IAM mapping vì token có thể revoke được từ phía IdP.
 - External Identity Provider (OIDC, LDAP, ...): K8s API server không tự xác thực user mà ủy quyền (delegate) cho một hệ thống bên ngoài (cần cấu hình API Server để trust IdP đó). Khi user đăng nhập vào Identity Provider (IdP) sẽ nhận được token. User gửi token đó kèm theo mỗi request đến K8s API server. k8s API server thực verify token với IdP, nếu hợp lệ, extract ra username và groups → chuyển sang RBAC để phân quyền
   - Cách cấu hình API server trust IDP trong manifest
     ```
@@ -233,7 +234,7 @@ Trong Kubernetes có 3 loại identity chính: User, Group và ServiceAccount.
 - Các lệnh làm việc với kubeconfig
   - `kubectl config view`: xem file kubeconfig. Thêm option `--raw` để xem data (nếu không sẽ thấy DATA-OMIITED)
   - `kubectl config set-credentials <user_name> --client-key=<key> --client-certificate=<cert>`:  thêm/update thông tin authentication của một user vào kubeconfig. Thêm option `--embed-certs` để include vào
-  - `kubectl config set-context <context_name> --user=<user_name> --cluster=<cluster_name>`: thêm/sửa một context (là sự kết hợp giữa user, cluster, và namespace mặc định - giúp kubectl biết cần kết nối đến cluster nào với user nào khi chạy lệnh)
+  - `kubectl config set-context <context_name> --user=<user_name> --cluster=<cluster_name> --namespace=<namespace>`: thêm/sửa một context (là sự kết hợp giữa user, cluster, và namespace mặc định - giúp kubectl biết cần kết nối đến cluster nào với user nào khi chạy lệnh)
 - Lưu ý không thể invaliadte 1 certificate. Trong trường hợp certificate bị leak thì xử lý bằng cách:
   - Remove tất cả access bằng RBAC
   - Tạo CA mới và issue lại tất cả các cert
