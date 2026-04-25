@@ -31,6 +31,23 @@ PKI của một cluster K8s nằm trong /etc/kubernetes/pki/ trên control plane
 │
 └── sa.key / sa.pub          # ServiceAccount token signing key
 ```
+Giải thích ý nghĩ các cert:
+- Kubernetes CA (ca.crt / ca.key): Root CA chính của cluster. Tất cả cert dưới đây đều được ký bởi CA này.
+- apiserver.crt + apiserver.key: Server cert của API server. API server xuất trình apiserver.crt để chứng minh nó đúng là apiserver. Client (kubectl, kubelet, scheduler, controller) sẽ verify bằng ca.crt
+- apiserver-kubelet-client.crt + .key: client cert để API server gọi vào Kubelet. API server dùng cert này để authenticate. Kubelet verify bằng ca.crt. Tương ứng signerName kubernetes.io/kube-apiserver-client-kubelet
+- apiserver-etcd-client.crt + .key: Client cert để API server gọi vào etcd. API server dùng cert này để authenticate. Etcd verify bằng etcd/ca.crt
+- Kubelet (kubelet.crt + kubelet.key): Server cert của Kubelet — khi API server gọi vào. Kubelet xuất trình kubelet.crt để chứng minh nó đúng là kubelet, API server verify bằng ca.crt
+- Client.crt của kubelet, kubectl, scheduler, controller để authenticate với API server
+- etcd CA (etcd/ca.crt / etcd/ca.key): etcd có CA riêng biệt, độc lập hoàn toàn với Kubernetes CA.
+- etcd/server.crt + .key: Server cert của etcd — khi nhận connection từ API server hoặc etcdctl
+- etcd/peer.crt + .key: Cert cho etcd cluster communication — các etcd node nói chuyện với nhau
+- etcd/healthcheck-client.crt + .key: Client cert để etcdctl hoặc health check probe kết nối vào etcd
+
+Lưu ý Cert phải đi kẻm private key mới chứng minh được client/server thực sự sở hữu cert đó. Do nếu chỉ có cert, ai cũng có thể copy cert của người khác và giả mạo danh tính.
+
+Khi client muốn thiết lập TLS handshake thì server sẽ gửi challenge và yêu cầu client ký bằng private key → gửi lại signature. Server verify signature bằng public key trong cert, nếu đúng thì chứng minh đc client thực sự sở hữu cert này
+
+Sau khi verify xong, private key tham gia vào quá trình trao đổi session key để mã hóa toàn bộ traffic
 
 Chú ý cluster có nhiều CA khác nhau, mỗi cái trust một phạm vi riêng:
 - ca.crt/ca.key: CA chính — dùng cho API server TLS và client authentication
