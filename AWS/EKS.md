@@ -448,3 +448,140 @@ spec:
 | **Scalability**       | Tốt hơn (agent-based)              | Giới hạn token size                 |
 
 
+---
+
+EKS Authentication với AWS IAM
+Bức tranh tổng quan
+EKS không dùng OIDC theo kiểu truyền thống để xác thực user. Thay vào đó, nó dùng AWS IAM identity (IAM User hoặc IAM Role) làm nguồn xác thực, rồi map sang K8s username/group thông qua một ConfigMap tên aws-auth.
+Flow chi tiết
+kubectl get pods
+      |
+      v
+(1) kubectl exec aws eks get-token
+      |
+      v
+(2) AWS STS: "Tôi là arn:aws:iam::123456:user/tuna, 
+              cho tôi presigned URL để gọi GetCallerIdentity"
+      |
+      v
+(3) Token = base64(presigned URL) → gửi kèm request đến EKS API server
+      |
+      v
+(4) EKS API server nhận token
+      → gọi aws-iam-authenticator (chạy sẵn trên control plane)
+      → authenticator decode presigned URL
+      → gọi STS GetCallerIdentity để verify
+      → STS trả về: "Đây là arn:aws:iam::123456:user/tuna"
+      |
+      v
+(5) Authenticator tra bảng aws-auth ConfigMap
+      → tìm ARN này map sang username/group nào
+      |
+      v
+(6) Trả về cho API server: username=tuna, groups=[devops]
+      → API server chạy RBAC bình thường
+Điểm mấu chốt: token không phải là password hay JWT thông thường — nó là một presigned STS URL được encode lại. EKS dùng URL đó để hỏi AWS "identity này là ai?" mà không cần biết secret key của user.
+Cấu hình kubeconfig
+Khi bạn chạy aws eks update-kubeconfig, nó sinh ra kubeconfig kiểu này:
+yamlusers:
+- name: arn:aws:eks:ap-southeast-1:123456789:cluster/my-cluster
+  user:
+    exec:
+      apiVersion: client.authentication.k8s.io/v1beta1
+      command: aws
+      args:
+        - eks
+        - get-token
+        - --cluster-name
+        - my-cluster
+        - --region
+        - ap-southeast-1
+Mỗi lần kubectl chạy, nó exec aws eks get-token → lấy token (presigned URL) → gắn vào header Authorization: Bearer <token> → gửi đến API server.
+aws-auth ConfigMap — bảng mapping
+Đây là trung tâm của toàn bộ cơ chế. Nằm ở namespace kube-system:
+yamlapiVersion: v1
+kind: ConfigMap
+metadata:
+  name: aws-auth
+  namespace: kube-system
+data:
+  mapRoles: |
+    # Node join cluster — bắt buộc phải có
+    - rolearn: arn:aws:iam::123456789:role/eks-node-role
+      username: system:node:{{EC2PrivateDNSName}}
+      groups:
+        - system:bootstrappers
+        - system:nodes
+
+    # IAM Role cho team devops
+    - rolearn: arn:aws:iam::123456789:role/devops-role
+      username: "{{SessionName}}"
+      groups:
+        - devops
+
+    # IAM Role cho dev team — quyền hạn chế hơn
+    - rolearn: arn:aws:iam::123456789:role/dev-role
+      username: "{{SessionName}}"
+      groups:
+        - developers
+
+  mapUsers: |
+    # Map trực tiếp IAM User
+    - userarn: arn:aws:iam::123456789:user/tuna
+      username: tuna
+      groups:
+        - devops
+        - system:masters
+Giải thích:
+
+mapRoles: map IAM Role ARN → K8s username + groups. {{SessionName}} sẽ tự động thay bằng tên session khi user assume role (giúp phân biệt ai đang dùng cùng một role).
+mapUsers: map trực tiếp IAM User ARN → K8s username + groups.
+system:masters là group đặc biệt — tương đương cluster-admin, toàn quyền.
+
+Ví dụ thực tế: team ở New Wave
+Giả sử bạn có 3 loại người cần access cluster:
+CI/CD pipeline (dùng IAM Role của CodeBuild):
+yaml- rolearn: arn:aws:iam::123456789:role/codebuild-deploy-role
+  username: ci-bot
+  groups:
+    - deployers
+DevOps team (assume role qua SSO hoặc aws sts assume-role):
+yaml- rolearn: arn:aws:iam::123456789:role/devops-role
+  username: "{{SessionName}}"
+  groups:
+    - devops
+Developer (chỉ xem log, exec vào pod ở namespace của họ):
+yaml- rolearn: arn:aws:iam::123456789:role/dev-role
+  username: "{{SessionName}}"
+  groups:
+    - developers
+Rồi tạo RBAC tương ứng:
+yaml# Deployers — chỉ được deploy ở namespace production
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: deployer-binding
+  namespace: production
+subjects:
+- kind: Group
+  name: deployers
+roleRef:
+  kind: ClusterRole
+  name: edit
+---
+# Developers — chỉ đọc ở namespace dev
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: dev-readonly
+  namespace: dev
+subjects:
+- kind: Group
+  name: developers
+roleRef:
+  kind: ClusterRole
+  name: view
+Lưu ý quan trọng
+Người tạo cluster (IAM entity gọi eksctl create cluster hoặc aws eks create-cluster) tự động được gán system:masters và không xuất hiện trong aws-auth. Đây là identity duy nhất có quyền ban đầu. Nếu mất access vào IAM user/role đó, recovery khá phức tạp.
+aws-auth đang dần bị thay thế. AWS đã ra EKS Access Entries (API-based) — cho phép quản lý mapping qua AWS API/Terraform thay vì edit ConfigMap thủ công. Cách mới an toàn hơn vì tránh được tình huống edit sai ConfigMap → lock hết mọi người ra khỏi cluster.
+Bạn muốn mình đi sâu vào phần EKS Access Entries mới, hay phần nào khác?
