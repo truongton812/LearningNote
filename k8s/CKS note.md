@@ -407,6 +407,21 @@ Trong Kubernetes có 3 loại identity chính: User, Group và ServiceAccount.
     - từ key user tạo CSR và gửi cho admin
     - Admin tạo CertificateSigningRequest resource trong cụm k8s bằng thông tin CSR user gửi (lưu ý cần mã hóa base64), sau đó admin approve bằng lệnh `kubectl certificate approve <ten_csr>`
     - User download cert và thêm vào trong kubeconfig để sử dụng
+    - VD:
+      ```
+      apiVersion: certificates.k8s.io/v1
+      kind: CertificateSigningRequest
+      metadata:
+        name: john-csr
+      spec:
+        request: <base64-encoded-csr>
+        signerName: kubernetes.io/kube-apiserver-client
+        expirationSeconds: 86400
+        usages:
+        - client auth
+      ```
+     - Trong đó singerName dùng để kiểm soát policy, nếu không có signerName, ai cũng có thể xin cert với bất kỳ usage nào. Các built-in singerName trong k8s gồm: kubernetes.io/kube-apiserver-client dùng để tọo cert để client authenticate với API server, chỉ cho phép client auth. kube-apiserver-client-kubelet dùng để tạo cert để Kubelet authenticate với API server, cũng chỉ cho phép client auth (Bắt buộc CN=system:node:<nodeName>, O=system:nodes). kubernetes.io/kubelet-serving dùng để tạo cert để Kubelet làm server — khi API server gọi vào Kubelet (metrics, logs, exec), chỉ cho phép server auth
+
 - Nhược điểm của client certificate là không revoke được, một khi cert đã ký, nó hợp lệ cho đến khi hết hạn. Nếu cert bị leak, lựa chọn duy nhất là rotate toàn bộ cluster CA, ký lại cert cho tất cả user và component. Với production nghiêm túc, chuyển sang OIDC hoặc EKS IAM mapping vì token có thể revoke được từ phía IdP.
 - External Identity Provider (OIDC, LDAP, ...): K8s API server không tự xác thực user mà ủy quyền (delegate) cho một hệ thống bên ngoài (cần cấu hình API Server để trust IdP đó). Khi user đăng nhập vào Identity Provider (IdP) sẽ nhận được token. User gửi token đó kèm theo mỗi request đến K8s API server. k8s API server thực verify token với IdP, nếu hợp lệ, extract ra username và groups → chuyển sang RBAC để phân quyền
   - Cách cấu hình API server trust IDP trong manifest
