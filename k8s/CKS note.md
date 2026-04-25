@@ -213,16 +213,23 @@ Dùng lệnh `docker run --pid=host -v /etc:/etc:ro -v /var:/var:ro -t docker.io
 Trong Kubernetes có 3 loại identity chính: User, Group và ServiceAccount.
 
 #### 6.1.1. User
-- ​User đại diện cho người dùng hoặc external identities (như IAM users từ AWS/Azure/GCP). Kubernetes không quản lý user accounts trực tiếp mà dựa vào external authentication (certificates, OIDC, webhooks).
-- Ví dụ quản trị viên sử dụng kubectl để tương tác với cụm k8s, được xác thực qua certificates và tokens. Certificate của user (hay còn gọi là client certificate) phải được signed bởi cluster's certificate authority (CA).
-- Username trong Kubernetes được định nghĩa trong certificate thông qua trường Common Name (CN) trong phần subject của X.509 client certificate, ví dụ /CN=username sẽ được dùng làm tên người dùng khi xác thực với API server.
-- Cách tạo client certificate: có thể làm thủ công hoặc dùng resource CertificateSigningRequest trong K8S
+- ​User đại diện cho người dùng hoặc external identities (như IAM users từ AWS/Azure/GCP). Kubernetes không quản lý user accounts trực tiếp mà dựa vào . Kubernetes không có database user và cũng không có API kiểu như `kubectl create user` mà nó dựa vào external authentication (certificates, OIDC, webhooks) để xác định identity của request
+- Client certificate là cách phổ biến nhất. Nguyên lý hoạt động là K8s API server được cấu hình để trust một Certificate Authority (CA) (thông qua trường --client-ca-file trong apiserver manifest). Bất kỳ certificate nào được ký bởi CA đó đều được API server chấp nhận. Thông tin identity nằm trong certificate: Username trong Kubernetes được định nghĩa thông qua trường Common Name (CN) trong phần subject của X.509 client certificate, ví dụ /CN=username sẽ được dùng làm tên người dùng khi xác thực với API server, group được định nghĩa thông qua trường Organization (O). Quản trị viên sử dụng kubectl để tương tác với cụm k8s sẽ được xác thực bằng certificate đấy. Cách tạo client certificate: có thể làm thủ công hoặc dùng resource CertificateSigningRequest trong K8S
   - Thủ công: tạo CSR rồi dùng CA để ký, sau đó down CRT về để sử dụng. Nhược điểm: phức tạp, không quản lý tập trung
   - Quản lý bằng resource CertificateSigningRequest trong K8S
     - User tạo key (có thể dùng openssl hoặc bất kỳ tool nào khác)
     - từ key user tạo CSR và gửi cho admin
     - Admin tạo CertificateSigningRequest resource trong cụm k8s bằng thông tin CSR user gửi (lưu ý cần mã hóa base64), sau đó admin approve bằng lệnh `kubectl certificate approve <ten_csr>`
     - User download cert và thêm vào trong kubeconfig để sử dụng
+- External Identity Provider (OIDC, LDAP, ...): K8s API server không tự xác thực user mà ủy quyền (delegate) cho một hệ thống bên ngoài (cần cấu hình API Server để trust IdP đó). Khi user đăng nhập vào Identity Provider (IdP) sẽ nhận được token. User gửi token đó kèm theo mỗi request đến K8s API server. k8s API server thực verify token với IdP, nếu hợp lệ, extract ra username và groups → chuyển sang RBAC để phân quyền
+  - Cách cấu hình API server trust IDP trong manifest
+    ```
+    --oidc-issuer-url=https://keycloak.example.com/realms/myrealm #URL của IdP, API server dùng để lấy public key (qua .well-known/openid-configuration) và verify JWT signature
+    --oidc-client-id=kubernetes #client ID đã đăng ký trên IdP — token phải chứa aud (audience) khớp với giá trị này
+    --oidc-username-claim=email #field nào trong JWT sẽ được dùng làm username (thường là email hoặc sub)
+    --oidc-groups-claim=groups #field nào chứa danh sách groups → dùng cho RBAC group binding
+    --oidc-ca-file=/etc/kubernetes/pki/oidc-ca.crt
+    ```
 - Các lệnh làm việc với kubeconfig
   - `kubectl config view`: xem file kubeconfig. Thêm option `--raw` để xem data (nếu không sẽ thấy DATA-OMIITED)
   - `kubectl config set-credentials <user_name> --client-key=<key> --client-certificate=<cert>`:  thêm/update thông tin authentication của một user vào kubeconfig. Thêm option `--embed-certs` để include vào
@@ -310,6 +317,8 @@ Kubernetes định nghĩa bốn đối tượng RBAC chính: Role, ClusterRole, 
       namespace: foo
   ```​
 
+Lưu ý khi tạo RoleBinding, subjects cho phép chỉ định namespace của ServiceAccount. Việc này giusp ServiceAccount ở 1 namespace khác có quyền trong namespace của RoleBinding. Nhưng chiều ngược lại không hoạt động — bạn không thể tạo một Role ở namespace-b rồi reference nó trong RoleBinding ở namespace-a. roleRef luôn phải trỏ đến Role cùng namespace với RoleBinding (hoặc trỏ đến ClusterRole)
+
 - ClusterRoleBinding: Gán ClusterRole cho identity​
   ```
   apiVersion: rbac.authorization.k8s.io/v1
@@ -330,7 +339,10 @@ Kubernetes định nghĩa bốn đối tượng RBAC chính: Role, ClusterRole, 
 #### 6.2.2. Gán quyền (binding) trong Kubernetes
 - Role + RoleBinding: gán quyền cho user thao tác với tài nguyên trong 1 namespace cụ thể. Role được tạo riêng cho namespace đó, chỉ dùng được trong namespace tương ứng. Phải tạo Role riêng cho mỗi namespace nếu cần quyền tương tự.
 - ClusterRole + ClusterRoleBinding: User có quyền trên toàn bộ namespace và các non-namespaced resources
-- ClusterRole + RoleBinding: gán quyền cho user thao tác với tài nguyên trong 1 namespace cụ thể. ClusterRole là template cluster-wide (không thuộc namespace nào), có thể tái sử dụng cho nhiều RoleBinding ở các namespace khác nhau. Đây là pattern phổ biến để tránh duplicate rules.
+- ClusterRole + RoleBinding: gán quyền cho user thao tác với tài nguyên trong 1 namespace cụ thể. ClusterRole là template cluster-wide (không thuộc namespace nào), có thể tái sử dụng cho nhiều RoleBinding ở các namespace khác nhau. Đây là pattern phổ biến để tránh duplicate rules. Giả sử bạn có 3 namespace: dev, staging, production. Cả 3 đều cần một role cho phép đọc pods và logs. Nếu dùng Role, bạn phải tạo 3 Role giống hệt nhau. Khi cần sửa quyền (ví dụ thêm services vào resources) thì phải sửa cả 3. Để giải quyết vấn đề thì chỉ cần tạo 1 ClusterRole dùng chung, sau đó tạo RoleBinding ở từng namespace và reference đến ClusterRole đó. ClusterRole ở đây chỉ đóng vai trò template định nghĩa quyền, còn Binding quyết định quyền đó áp dụng ở đâu và cho ai.
+  - ClusterRole + ClusterRoleBinding → quyền trên toàn bộ cluster, mọi namespace
+  - ClusterRole + RoleBinding (ở namespace X) → quyền chỉ trong namespace X
+  - Thực tế K8s cũng dùng pattern này. K8s có sẵn một số ClusterRole built-in như `view`, `edit`, `admin`. Bạn không cần tự định nghĩa quyền mà chỉ cần bind chúng vào namespace cần thiết:
 - Role + ClusterRoleBinding: Không thể thực hiện được
 
 #### 6.2.3 Test quyền
