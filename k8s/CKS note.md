@@ -120,6 +120,54 @@ Tạo cert thường
 - Tạo CSR (Certificate Signing Request) `openssl req -new -key tuna.key -out tuna.csr -subj "/CN=tuna/O=devops"` -> tạo CSR trước
 - Ký bằng CA `openssl x509 -req -in tuna.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out tuna.crt -days 365` -> nhờ CA ký. Cert này không tự ký mà phụ thuộc vào CA.
 
+
+Để kiểm tra 1 cert có phải do CA ký không thì dùng lệnh `openssl verify -CAfile /etc/kubernetes/pki/ca.crt /etc/kubernetes/pki/apiserver.crt`. Openssl sẽ thực hiện:
+- Lấy public key từ ca.crt
+- Dùng public key đó để giải mã chữ ký trong apiserver.crt
+- So sánh với hash của cert content
+→ Nếu khớp → CA đó thực sự đã ký (vì chỉ CA đó mới có private key tương ứng)
+
+Không nên chỉ so sánh Subject của CA với Issuer trong cert vì có thể giả mạo được
+
+---
+#### Cấu trúc của một cert X.509.
+- Một file .crt chứa 2 phần chính
+  - Public key → là của owner (ví dụ API server). Ai cũng có thể dùng để encrypt data gửi cho API server, hoặc verify chữ ký do API server tạo ra
+  - Signature → là của CA. CA dùng private key của CA để ký lên toàn bộ TBSCertificate. Chứng minh: "CA xác nhận public key này đúng là của subject này"
+ 
+```
+┌─────────────────────────────────────┐
+│         TBSCertificate              │  ← "To Be Signed" data
+│  - Version                          │
+│  - Serial Number                    │
+│  - Issuer (CA nào ký)               │
+│  - Validity (thời hạn)              │
+│  - Subject (cert này là của ai)     │
+│  - Subject Public Key  ◄────────────┼── public key của OWNER
+│  - Extensions (SAN, ...)            │
+├─────────────────────────────────────┤
+│         Signature Algorithm         │
+├─────────────────────────────────────┤
+│         Signature Value  ◄──────────┼── chữ ký của CA
+└─────────────────────────────────────┘
+```
+
+- Quá trình CA ký cert
+  - API server tạo keypair: apiserver.key (private) + apiserver.pub (public)
+  - Tạo CSR (Certificate Signing Request): CSR = { Subject, Public Key, ... }
+  - Gửi CSR cho CA
+  - CA ký: hash = SHA256(TBSCertificate), signature = encrypt(hash, ca.key)  ← dùng private key của CA
+  - CA trả về cert: cert = { TBSCertificate + signature }
+
+- Quá trình verify cert
+  - Lấy public key từ ca.crt
+  - decrypt(signature, ca_public_key) → hash_from_sig
+  - SHA256(TBSCertificate) → hash_from_content
+  - So sánh: hash_from_sig == hash_from_content → OK
+    
+Nếu ai đó giả mạo cert (sửa Subject, SAN...) → hash_from_content thay đổi → không khớp → fail.
+
+
 ---
 
 Container under the hood
