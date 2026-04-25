@@ -2,6 +2,124 @@ Học lại về hạ tầng pki, rất hay
 
 <img width="1024" height="576" alt="image" src="https://github.com/user-attachments/assets/15448756-d5b1-43dd-89ed-4157f4c36ece" />
 
+Khi cài K8s cluster, quá trình bootstrap tạo ra một cặp CA key + CA cert. API server được truyền flag --client-ca-file trỏ đến CA cert đó. API server đọc file CA cert này khi khởi động, load public key của CA vào memory, và dùng nó để verify mọi client cert gửi đến. Từ đó, bất kỳ client certificate nào được ký bởi CA này đều được API server trust.
+
+PKI của một cluster K8s nằm trong /etc/kubernetes/pki/ trên control plane node:
+```
+/etc/kubernetes/pki/
+├── ca.crt                  # Cluster CA cert (public) — được trust
+├── ca.key                  # Cluster CA key (private) — dùng để ký
+│
+├── apiserver.crt           # API server's own TLS cert (ký bởi ca.key)
+├── apiserver.key           # API server's TLS private key
+│
+├── apiserver-kubelet-client.crt   # cert để API server gọi kubelet
+├── apiserver-kubelet-client.key
+│
+├── front-proxy-ca.crt      # CA riêng cho aggregation layer
+├── front-proxy-ca.key
+├── front-proxy-client.crt
+├── front-proxy-client.key
+│
+├── etcd/
+│   ├── ca.crt              # Etcd có CA riêng
+│   ├── ca.key
+│   ├── server.crt
+│   ├── server.key
+│   ├── peer.crt
+│   └── peer.key
+│
+└── sa.key / sa.pub          # ServiceAccount token signing key
+```
+
+Chú ý cluster có nhiều CA khác nhau, mỗi cái trust một phạm vi riêng:
+- ca.crt/ca.key: CA chính — dùng cho API server TLS và client authentication
+- etcd/ca.crt: CA riêng cho etcd cluster, tách biệt hoàn toàn
+- front-proxy-ca.crt: CA cho API aggregation (custom API server)
+
+
+Khi kubectl gửi request với client certificate thì quá trình TLS handshake diễn ra như sau:
+```
+kubectl (client)                         API server
+     |                                       |
+     |-------- TLS ClientHello ------------->|
+     |<------- TLS ServerHello --------------|
+     |<------- Server cert (apiserver.crt) --|
+     |                                       |
+     | (kubectl verify server cert           |
+     |  bằng cluster CA trong kubeconfig)    |
+     |                                       |
+     |-------- Client cert (tuna.crt) ------>|
+     |                                       |
+     |         API server verify tuna.crt:   |
+     |         1. Cert có được ký bởi CA     |
+     |            trong --client-ca-file?    |
+     |         2. Cert đã hết hạn chưa?      |
+     |         3. Nếu OK → extract CN, O     |
+     |            → username=tuna            |
+     |            → groups=[devops]          |
+     |                                       |
+     |<------- Response (nếu RBAC cho phép) -|
+```
+
+Lưu ý đây là quá trình mutual TLS (mTLS) — cả 2 phía đều verify certificate của nhau:
+- Client verify server bằng CA cert (lưu trong kubeconfig, field certificate-authority-data)
+- Server verify client bằng CA cert (từ --client-ca-file).
+
+Thường thì CA cert của client và server giống nhau. Về mặt crypto thì client/server sẽ dùng public key trong ca.crt để verify chữ ký trên tuna.crt/apiserver.crt
+
+Khi kubeadm init tạo cluster, thực chất nó sẽ:
+- Generate CA key + cert → lưu vào /etc/kubernetes/pki/ca.{key,crt}
+- Dùng ca.key (private key) ký cert cho API server (apiserver.crt), kubelet client (apiserver-kubelet-client.crt), scheduler (scheduler.crt (nằm trong scheduler.conf)), controller-manager (controller-manager.crt (nằm trong controller-manager.conf)), admin.crt (nằm trong admin.conf)
+- Cấu hình API server pod với --client-ca-file=/etc/kubernetes/pki/ca.crt
+- Tạo kubeconfig cho admin user (cert với CN=kubernetes-admin, O=system:masters). Có thể xem cert của admin mà kubeadm tạo bằng `kubectl config view --raw -o jsonpath='{.users[0].user.client-certificate-data}' | base64 -d | openssl x509 -noout -subject` -> output: `subject= /O=system:masters/CN=kubernetes-admin` (system:masters là group đặc biệt được hard-code bind với cluster-admin — đó là lý do admin kubeconfig có toàn quyền ngay sau khi tạo cluster)
+
+
+#### Tại sao kubeconfig cần cả client key
+
+Khi kubectl gửi request đến API server, trong TLS handshake có bước chứng minh mình sở hữu certificate. Chỉ có cert thôi là không đủ. Do cert tuna.crt là public, ai cũng có thể đọc được. Nếu API server chỉ cần nhìn thấy cert để trust, thì bất kỳ ai copy được file tuna.crt đều có thể giả danh user tuna.
+
+Trong quá trình mTLS, sau khi client gửi cert, server tạo một challenge:
+```
+API server                              kubectl
+    |                                      |
+    |  "Đây là cert của tôi (tuna.crt)"   |
+    |<-------------------------------------|
+    |                                      |
+    |  Server tạo random data              |
+    |  "Ký cái này cho tôi xem"            |
+    |------------------------------------->|
+    |                                      |
+    |         kubectl dùng tuna.key        |
+    |         để ký random data đó         |
+    |                                      |
+    |  "Đây, signature của tôi"            |
+    |<-------------------------------------|
+    |                                      |
+    |  Server verify signature bằng        |
+    |  public key trong tuna.crt           |
+    |  → khớp → đúng là chủ cert           |
+```
+
+Cơ chế crypto: cert chứa public key, key file chứa private key. Chỉ private key mới tạo được signature mà public key verify thành công. Đây là bản chất của asymmetric cryptography.
+
+---
+
+Cách tạo CA key + cert thủ công
+- Tạo CA private key: `openssl genrsa -out ca.key 4096`
+- Tạo CA cert (self-signed): `openssl req -x509 -new -nodes -key ca.key -sha256 -days 3650 -out ca.crt -subj "/CN=my-custom-k8s-ca/O=my-company"` -> CA cert dùng flag -x509 khiến openssl tạo cert tự ký chính nó (self-signed). Không cần ai ký cho, vì nó là gốc của trust chain.
+
+
+Về mặt format thì CA cert cũng giống các loại cert khác, đều là X.509 certificate, cùng format PEM, cùng cấu trúc. Cái khác nhau nằm ở nội dung bên trong — cụ thể là vài field quyết định cert đó làm được gì.
+- Cert của cluster CA có `CA:TRUE` (cho phép cert này ký cert khác) và `Key Usage: Certificate Sign` (quyền ký cert). 
+- Cert thường có `CA:FALSE` và `Key Usage: Digital Signature` (chỉ dùng chứng minh ownership). Nếu bạn dùng tuna.crt (có CA:FALSE) để ký cert khác, bất kỳ hệ thống nào verify chain đều sẽ reject.
+- Mặc định openssl req -x509 sẽ set CA:TRUE, còn x509 -req sẽ set CA:FALSE
+
+Tạo cert thường
+- openssl genrsa -out tuna.key 2048
+- Tạo CSR (Certificate Signing Request) `openssl req -new -key tuna.key -out tuna.csr -subj "/CN=tuna/O=devops"` -> tạo CSR trước
+- Ký bằng CA `openssl x509 -req -in tuna.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out tuna.crt -days 365` -> nhờ CA ký. Cert này không tự ký mà phụ thuộc vào CA.
+
 ---
 
 Container under the hood
