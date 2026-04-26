@@ -43,7 +43,7 @@ Giải thích ý nghĩ các cert:
 - etcd/peer.crt + .key: Cert cho etcd cluster communication — các etcd node nói chuyện với nhau
 - etcd/healthcheck-client.crt + .key: Client cert để etcdctl hoặc health check probe kết nối vào etcd
 
-Lưu ý Cert phải đi kẻm private key mới chứng minh được client/server thực sự sở hữu cert đó. Do nếu chỉ có cert, ai cũng có thể copy cert của người khác và giả mạo danh tính.
+Lưu ý Cert phải đi kèm private key mới chứng minh được client/server thực sự sở hữu cert đó. Do nếu chỉ có cert, ai cũng có thể copy cert của người khác và giả mạo danh tính.
 
 Khi client muốn thiết lập TLS handshake thì server sẽ gửi challenge và yêu cầu client ký bằng private key → gửi lại signature. Server verify signature bằng public key trong cert, nếu đúng thì chứng minh đc client thực sự sở hữu cert này
 
@@ -91,7 +91,10 @@ Khi kubeadm init tạo cluster, thực chất nó sẽ:
 - Cấu hình API server pod với --client-ca-file=/etc/kubernetes/pki/ca.crt
 - Tạo kubeconfig cho admin user (cert với CN=kubernetes-admin, O=system:masters). Có thể xem cert của admin mà kubeadm tạo bằng `kubectl config view --raw -o jsonpath='{.users[0].user.client-certificate-data}' | base64 -d | openssl x509 -noout -subject` -> output: `subject= /O=system:masters/CN=kubernetes-admin` (system:masters là group đặc biệt được hard-code bind với cluster-admin — đó là lý do admin kubeconfig có toàn quyền ngay sau khi tạo cluster)
 
+#### etcd
+<img width="647" height="416" alt="image" src="https://github.com/user-attachments/assets/a27b4224-090f-4973-a4bb-54652fb90574" />
 
+Etcd có 2 loại kết nối hoàn toàn độc lập: client ↔ etcd và etcd ↔ etcd (peer). Mỗi loại có bộ cert riêng.
 #### Tại sao kubeconfig cần cả client key
 
 Khi kubectl gửi request đến API server, trong TLS handshake có bước chứng minh mình sở hữu certificate. Chỉ có cert thôi là không đủ. Do cert tuna.crt là public, ai cũng có thể đọc được. Nếu API server chỉ cần nhìn thấy cert để trust, thì bất kỳ ai copy được file tuna.crt đều có thể giả danh user tuna.
@@ -2099,3 +2102,58 @@ trivy image --severity HIGH,CRITICAL httpd:2.4.49 >> /opt/trivy-vulnerable.txt
                  port:
                    number: 80
   ```
+
+### Question 11
+#### --authorization-mode=Node trong Kubernetes
+
+Đây là một authorization mode dành riêng cho kubelet, kiểm soát quyền truy cập API của các node vào kube-apiserver.
+
+Vấn đề cần giải quyết: Trong K8s, mỗi kubelet chạy trên node cần gọi kube-apiserver để:
+- Lấy Pod spec được assign cho node đó
+- Đọc Secret/ConfigMap mà Pod cần
+- Cập nhật trạng thái Node và Pod
+- Ghi Events
+
+Nếu không có Node Authorizer, tất cả kubelet phải dùng chung một service account với quyền rộng — rất nguy hiểm nếu một node bị compromise.
+
+Khi bật --authorization-mode=Node, kube-apiserver kích hoạt Node Authorizer — một plugin đặc biệt chỉ cho phép kubelet đọc/ghi tài nguyên liên quan trực tiếp đến node mà nó quản lý. VD kubelet chỉ được get/list/watch các pods scheduled trên node đó hay chỉ get được Secrets, ConfigMaps được mount bởi pods trên node đó
+
+
+<img width="665" height="384" alt="image" src="https://github.com/user-attachments/assets/5a0dc3eb-8bb0-44f3-9194-a1db1a92f716" />
+
+
+Điều kiện để Node Authorizer hoạt động: Kubelet phải authenticate bằng certificate với Common Name (CN) theo format `system:node:<node-name>` và thuộc Group `system:nodes`. Nếu CN không đúng format → Node Authorizer không nhận diện được → từ chối.
+
+
+
+#### Webhook Authentication trong KubeletConfiguration
+Đây là cơ chế kubelet dùng kube-apiserver để xác thực các request đến chính nó
+
+Khi ai đó gọi kublet endpoint thì kubelet sẽ "nhờ" kube-apiserver xác thực xem đấy là ai
+
+Kubelet expose các HTTPS endpoint, ví dụ: 
+- /exec → kubectl exec
+- /logs → kubectl logs
+- /portforward → kubectl port-forward
+- /metrics → Prometheus scrape
+- /pods → Liệt kê pods đang chạy
+
+Khi bạn chạy `kubectl exec -it pod -- bash`, request đi theo luồng: kubectl → kube-apiserver → kubelet:/exec. kube-apiserver sẽ là "client" gọi vào kubelet endpoint.
+
+Thường kết hợp với `anonymous: false` để không cho phép request không có token. Nếu anonymous: true mà không có webhook → bất kỳ ai cũng có thể gọi /metrics, /pods, /exec mà không cần xác thực.
+
+### /etc/kubernetes/manifests/etcd.yaml (flags section)
+- --cert-file=/etc/kubernetes/pki/etcd/server.crt
+- --key-file=/etc/kubernetes/pki/etcd/server.key
+- --client-cert-auth=true         # ✅ Enforce client cert auth
+- --peer-cert-file=/etc/kubernetes/pki/etcd/peer.crt
+- --peer-key-file=/etc/kubernetes/pki/etcd/peer.key
+- --peer-client-cert-auth=true    # ✅ Mutual peer authentication
+- --auto-tls=false                # ❌ Do not auto-generate TLS
+
+Giải thích từng flag
+- --cert-file và --key-file: Đây là TLS server certificate của etcd — dùng khi etcd lắng nghe connection từ client (chủ yếu là kube-apiserver). Khi kube-apiserver kết nối vào etcd, etcd trình cert này ra để chứng minh "tôi đúng là etcd server, không phải kẻ giả mạo".
+- --client-cert-auth=true: Bật mutual TLS (mTLS) phía client. Không chỉ etcd phải trình cert — client (kube-apiserver) cũng phải trình cert của nó. Etcd từ chối mọi connection không có client cert hợp lệ. Đây là lý do kube-apiserver config có --etcd-certfile và --etcd-keyfile tương ứng.
+- --peer-cert-file và --peer-key-file: Đây là cert cho kênh etcd-to-etcd — dùng khi các etcd node trong cluster giao tiếp với nhau để đồng bộ data (Raft protocol). Mỗi node vừa là server vừa là client trong kênh này.
+- --peer-client-cert-auth=true: Tương tự --client-cert-auth nhưng cho peer channel — buộc mỗi etcd node phải xác thực lẫn nhau khi giao tiếp nội bộ. Không có flag này, một etcd node giả mạo có thể join cluster và nhận toàn bộ data.
+- --auto-tls=false: Nếu để true, etcd sẽ tự sinh self-signed cert tạm thời khi không tìm thấy cert file — tiện cho dev nhưng rất nguy hiểm trong production vì cert không được verify bởi CA nào. Flag này đảm bảo etcd chỉ chạy với cert được cấp đúng cách, fail ngay nếu thiếu cert.
