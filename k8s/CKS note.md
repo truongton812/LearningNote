@@ -451,7 +451,7 @@ Trong Kubernetes có 3 loại identity chính: User, Group và ServiceAccount.
     ```
 - Các lệnh làm việc với kubeconfig
   - `kubectl config view`: xem file kubeconfig. Thêm option `--raw` để xem data (nếu không sẽ thấy DATA-OMIITED)
-  - `kubectl config set-credentials <user_name> --client-key=<key> --client-certificate=<cert>`:  thêm/update thông tin authentication của một user vào kubeconfig. Thêm option `--embed-certs` để include vào
+  - `kubectl config set-credentials <user_name> --client-key=<key> --client-certificate=<cert>`:  thêm/update thông tin authentication của một user vào kubeconfig. client-key và client-certificate là cert để authenticate với apiserver. Thêm option `--embed-certs` để include vào
   - `kubectl config set-context <context_name> --user=<user_name> --cluster=<cluster_name> --namespace=<namespace>`: thêm/sửa một context (là sự kết hợp giữa user, cluster, và namespace mặc định - giúp kubectl biết cần kết nối đến cluster nào với user nào khi chạy lệnh)
 - Lưu ý không thể invaliadte 1 certificate. Trong trường hợp certificate bị leak thì xử lý bằng cách:
   - Remove tất cả access bằng RBAC
@@ -459,11 +459,13 @@ Trong Kubernetes có 3 loại identity chính: User, Group và ServiceAccount.
 
 #### 6.1.2. Group
 - Group là tập hợp các User hoặc ServiceAccount lại với nhau, cho phép gán quyền (permissions) hàng loạt. Mỗi User hoặc ServiceAccount có thể thuộc một hoặc nhiều Group
-- Kubernetes có 4 Group hệ thống mặc định:
-  - system:authenticated : user đã xác thực
-  - system:unauthenticated : user chưa xác thực
-  - system:serviceaccounts : tất cả ServiceAccount
-  - system:serviceaccounts:<namespace> : ServiceAccount trong namespace cụ thể
+- Kubernetes có các built-in group:
+  - `system:authenticated` : user đã xác thực
+  - `system:unauthenticated` : user chưa xác thực
+  - `system:serviceaccounts` : tất cả ServiceAccount
+  - `system:serviceaccounts:<namespace>` : ServiceAccount trong namespace cụ thể
+  - `system:masters`: Toàn quyền cluster (bypass RBAC)
+  - `system:nodes`: Dành cho Kubelet
 - Trong Kubernetes, Group không phải là resource có thể tạo trực tiếp như ServiceAccount mà được xác định bởi authentication plugins (OIDC, x509, LDAP...). Group được tạo và quản lý thông qua identity provider (IdP) hoặc certificate, sau đó được map vào Kubernetes thông qua RBAC. Thông tin Group được trích xuất từ token hoặc certificate trong quá trình xác thực.
 - Cách tạo Group:
   - Sử dụng OIDC (phổ biến nhất): Đây là phương pháp linh hoạt nhất cho môi trường production, đặc biệt với EKS
@@ -531,9 +533,15 @@ Kubernetes định nghĩa bốn đối tượng RBAC chính: Role, ClusterRole, 
     kind: Role # this must be Role or ClusterRole
     name: service-reader # this must match the name of the Role or ClusterRole you wish to bind to
   subjects:
-    - kind: ServiceAccount # Kind is User or ServiceAccount
-      name: default # name of the SA
-      namespace: foo
+  - kind: User
+    name: john
+    apiGroup: rbac.authorization.k8s.io
+  - kind: Group
+    name: dev-team
+    apiGroup: rbac.authorization.k8s.io
+  - kind: ServiceAccount
+    name: my-app
+    namespace: default
   ```​
 
 Lưu ý khi tạo RoleBinding, subjects cho phép chỉ định namespace của ServiceAccount. Việc này giusp ServiceAccount ở 1 namespace khác có quyền trong namespace của RoleBinding. Nhưng chiều ngược lại không hoạt động — bạn không thể tạo một Role ở namespace-b rồi reference nó trong RoleBinding ở namespace-a. roleRef luôn phải trỏ đến Role cùng namespace với RoleBinding (hoặc trỏ đến ClusterRole)
