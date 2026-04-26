@@ -960,3 +960,21 @@ Khi bật --authorization-mode=Node, kube-apiserver kích hoạt Node Authorizer
 
 
 Điều kiện để Node Authorizer hoạt động: Kubelet phải authenticate bằng certificate với Common Name (CN) theo format `system:node:<node-name>` và thuộc Group `system:nodes`. Nếu CN không đúng format → Node Authorizer không nhận diện được → từ chối.
+
+---
+
+### Webhook Authentication trong KubeletConfiguration
+Đây là cơ chế kubelet dùng kube-apiserver để xác thực các request đến chính nó
+
+Khi ai đó gọi kublet endpoint thì kubelet sẽ "nhờ" kube-apiserver xác thực xem đấy là ai
+
+Kubelet expose các HTTPS endpoint, ví dụ: 
+- /exec → kubectl exec
+- /logs → kubectl logs
+- /portforward → kubectl port-forward
+- /metrics → Prometheus scrape
+- /pods → Liệt kê pods đang chạy
+
+Khi bạn chạy `kubectl exec -it pod -- bash`, request đi theo luồng: kubectl → kube-apiserver → kubelet:/exec. kube-apiserver sẽ là "client" gọi vào kubelet endpoint.
+
+Thường kết hợp với `anonymous: false` để không cho phép request không có token. Nếu anonymous: true mà không có webhook → bất kỳ ai cũng có thể gọi /metrics, /pods, /exec mà không cần xác thực.
