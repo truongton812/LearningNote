@@ -2142,7 +2142,7 @@ Khi bạn chạy `kubectl exec -it pod -- bash`, request đi theo luồng: kubec
 
 Thường kết hợp với `anonymous: false` để không cho phép request không có token. Nếu anonymous: true mà không có webhook → bất kỳ ai cũng có thể gọi /metrics, /pods, /exec mà không cần xác thực.
 
-### /etc/kubernetes/manifests/etcd.yaml (flags section)
+#### /etc/kubernetes/manifests/etcd.yaml (flags section)
 - --cert-file=/etc/kubernetes/pki/etcd/server.crt
 - --key-file=/etc/kubernetes/pki/etcd/server.key
 - --client-cert-auth=true         # ✅ Enforce client cert auth
@@ -2157,3 +2157,23 @@ Giải thích từng flag
 - --peer-cert-file và --peer-key-file: Đây là cert cho kênh etcd-to-etcd — dùng khi các etcd node trong cluster giao tiếp với nhau để đồng bộ data (Raft protocol). Mỗi node vừa là server vừa là client trong kênh này.
 - --peer-client-cert-auth=true: Tương tự --client-cert-auth nhưng cho peer channel — buộc mỗi etcd node phải xác thực lẫn nhau khi giao tiếp nội bộ. Không có flag này, một etcd node giả mạo có thể join cluster và nhận toàn bộ data.
 - --auto-tls=false: Nếu để true, etcd sẽ tự sinh self-signed cert tạm thời khi không tìm thấy cert file — tiện cho dev nhưng rất nguy hiểm trong production vì cert không được verify bởi CA nào. Flag này đảm bảo etcd chỉ chạy với cert được cấp đúng cách, fail ngay nếu thiếu cert.
+
+### Question 13. Identify a service running on port 389, list all its open files, and remove the binary: Find the process ID (PID) of the service listening on port 389. Store the list of all open files of the process in /candidate/13/files.txt. Locate the executable binary of the process and delete it.
+
+- netstat -tulpn | grep :389 hoặc lsof -i :389
+- list all open files for the process `ls -l /proc/1234/fd` -> Lệnh này liệt kê tất cả file descriptors mà process có PID 1234 đang mở. Dùng để debug xem process đang đọc/ghi file nào
+
+Giải thích từng phần
+- /proc/1234/ — thư mục ảo (virtual filesystem) của process có PID 1234
+- /proc/1234/fd/ — chứa symlink đến tất cả file descriptor mà process đó đang giữ
+Output mẫu
+```
+lrwx------ 1 root root 64 Apr 26 10:00 0 -> /dev/pts/0 #FD 0 trỏ về stdin
+lrwx------ 1 root root 64 Apr 26 10:00 1 -> /dev/pts/0 #FD 1 trỏ về stdout
+lrwx------ 1 root root 64 Apr 26 10:00 2 -> /dev/pts/0 #FD 2 trỏ về stdout
+lr-x------ 1 root root 64 Apr 26 10:00 3 -> /var/log/app.log
+lrwx------ 1 root root 64 Apr 26 10:00 4 -> socket:[123456]
+```
+- ls -l /proc/1234/fd | awk '{print $NF}' > /candidate/13/files.txt
+- Find the path to the executable binary `readlink -f /proc/1234/exe` hoặc `ls -l /proc/1234/exe` hoặc `ps -fp 1234`
+ 
