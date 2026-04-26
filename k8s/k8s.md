@@ -938,3 +938,25 @@ prompt_k8s() {
 }
 PS1+='$(prompt_k8s)'
 ```
+
+---
+
+### --authorization-mode=Node trong Kubernetes
+
+Đây là một authorization mode dành riêng cho kubelet, kiểm soát quyền truy cập API của các node vào kube-apiserver.
+
+Vấn đề cần giải quyết: Trong K8s, mỗi kubelet chạy trên node cần gọi kube-apiserver để:
+- Lấy Pod spec được assign cho node đó
+- Đọc Secret/ConfigMap mà Pod cần
+- Cập nhật trạng thái Node và Pod
+- Ghi Events
+
+Nếu không có Node Authorizer, tất cả kubelet phải dùng chung một service account với quyền rộng — rất nguy hiểm nếu một node bị compromise.
+
+Khi bật --authorization-mode=Node, kube-apiserver kích hoạt Node Authorizer — một plugin đặc biệt chỉ cho phép kubelet đọc/ghi tài nguyên liên quan trực tiếp đến node mà nó quản lý. VD kubelet chỉ được get/list/watch các pods scheduled trên node đó hay chỉ get được Secrets, ConfigMaps được mount bởi pods trên node đó
+
+
+<img width="665" height="384" alt="image" src="https://github.com/user-attachments/assets/5a0dc3eb-8bb0-44f3-9194-a1db1a92f716" />
+
+
+Điều kiện để Node Authorizer hoạt động: Kubelet phải authenticate bằng certificate với Common Name (CN) theo format `system:node:<node-name>` và thuộc Group `system:nodes`. Nếu CN không đúng format → Node Authorizer không nhận diện được → từ chối.
