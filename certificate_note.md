@@ -214,3 +214,31 @@ Flow khi mua cert từ các bên thứ 3 (Let's Encrypt, DigiCert...):
 
 7. Bạn có: private_key (tự giữ) + cert (CA cấp)
 
+---
+
+Khi client kết nối HTTPS, traffic được mã hoá bằng TLS. Server phải có certificate + private key để:
+- Cert để chứng minh danh tính với browser
+- private key để decrypt thứ browser gửi lên.
+
+Thiếu một trong hai thì không thể thiết lập HTTPS — nên web server và Ingress Controller đều cần cả 2 để thực hiện TLS termination.
+
+```
+Browser                          Web Server / Ingress
+  │                                       │
+  │  ◄──── Certificate (.crt) ─────────── │  ← cần cert
+  │        (browser verify CA,            │    để gửi cho browser
+  │         lấy public key)               │
+  │                                       │
+  │  ──── Encrypt(pre_master,             │
+  │               public_key) ──────────► │
+  │                                       │
+  │                         Decrypt(      │  ← cần private key
+  │                           ciphertext, │    để decrypt
+  │                           private_key │    pre_master secret
+  │                         )             │
+  │                                       │
+  │  ════════ HTTPS established ══════════│
+```
+Không có cert → không gửi được cho browser → browser không verify được danh tính
+Không có private key → không decrypt được pre_master → không tính được session key → không establish được HTTPS
+
