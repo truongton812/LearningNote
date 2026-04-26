@@ -193,3 +193,24 @@ sudo certbot certonly --standalone -d yourdomain.com --preferred-challenges http
 Certbot tạo ra chứng chỉ được trình duyệt công nhận, trong khi đó, openssl tạo ra chứng chỉ tự ký (self-signed certificate) hoàn toàn thủ công, không được CA nào xác nhận nên trình duyệt sẽ báo cảnh báo không tin cậy khi truy cập. Openssl chỉ phù hợp dùng cho thử nghiệm hoặc môi trường nội bộ.
 
 
+---
+
+Flow khi mua cert từ các bên thứ 3 (Let's Encrypt, DigiCert...):
+
+1. Bạn tự generate cặp key: private_key + public_key
+
+2. Bạn tạo CSR (Certificate Signing Request):
+  - CSR = { domain, public_key, thông tin tổ chức }
+  - CSR được ký bằng private_key của bạn (để CA verify bạn đúng là người giữ private_key)
+
+3. Gửi CSR lên CA (Let's Encrypt, DigiCert...)
+
+4. CA verify bạn sở hữu domain bằng 1 trong các cách:
+- HTTP-01 Challenge: CA yêu cầu: đặt file tại `http://app.example.com/.well-known/acme-challenge/random_token`
+- DNS-01 Challenge: CA yêu cầu: tạo TXT record `_acme-challenge.app.example.com = "random_value"`
+- Email validation (DigiCert, Comodo...): CA gửi email đến admin@example.com hoặc whois contact. Bạn click confirm trong email → Chứng minh bạn là owner của domain
+
+6. CA ký và trả về Certificate (.crt)
+
+7. Bạn có: private_key (tự giữ) + cert (CA cấp)
+
