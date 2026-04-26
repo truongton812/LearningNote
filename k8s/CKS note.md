@@ -2069,3 +2069,33 @@ trivy image --severity HIGH,CRITICAL postgres:12 >> /opt/trivy-vulnerable.txt
 # Scan apache httpd image and append output to the same file
 trivy image --severity HIGH,CRITICAL httpd:2.4.49 >> /opt/trivy-vulnerable.txt
 ```
+### Question 10
+#### Deploy an Nginx Pod with TLS-enabled ingress in the testing namespace: Create a TLS Secret from bingo.crt and bingo.key. Deploy a Pod named nginx-pod in the testing namespace. Expose the Pod with a Service. Create an Ingress using TLS (bingo-tls) with host bingo.com. Redirect all HTTP traffic to HTTPS.
+
+- `kubectl create secret tls bingo-tls --cert=bingo.crt --key=bingo.key`
+- `kubectl run nginx-pod -n testing --image=nginx --expose=true --port=80`
+- ```
+     apiVersion: networking.k8s.io/v1
+     kind: Ingress
+     metadata:
+       name: tls-example-ingress
+       annotations:
+         nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+         nginx.ingress.kubernetes.io/ssl-redirect: "true"
+     spec:
+       tls:
+       - hosts:
+           - bingo.com
+         secretName: bingo-tls
+       rules:
+       - host: bingo.com
+         http:
+           paths:
+           - path: /
+             pathType: Prefix
+             backend:
+               service:
+                 name: service1
+                 port:
+                   number: 80
+  ```
