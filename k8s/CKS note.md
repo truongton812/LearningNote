@@ -480,6 +480,7 @@ Trong Kubernetes có 3 loại identity chính: User, Group và ServiceAccount.
 - Service Account là resource nằm trong namespace, mỗi namespace khi tạo ra sẽ có sẵn một ServiceAccount tên `default`​
 - Khi một Pod gọi API bằng token của Service Account, API server sẽ map token đó thành một username nội bộ có dạng system:serviceaccount:<namespace>:<serviceaccount-name>.​ Bản chất khi tạo Service Account resource, k8s sẽ tạo ra 1 secret chứa token. Token của này được tự động mount vào container tại `/var/run/secrets/kubernetes.io/serviceaccount` (hoặc dùng lệnh `mount | grep serviceaccount` để tìm vị trí mount), cho phép ứng dụng bên trong Pod thực hiện các API requests​. Có thể sử dụng token trong container để xác thực đến API server (VD `curl https://10.96.0.1 -k -H 'Authorization: Bearer $(cat token)`)
 - Ngoài ra có thể lấy token của Service account bằng lệnh `kubectl create token <sa_name>` (chỉ generate được temp token, cần dùng jwt decoder để đọc thông tin). Hoặc đọc secret rồi decode base64
+- Một ServiceAccount có thể bind với nhiều Role/ClusterRole cùng lúc thông qua nhiều RoleBinding/ClusterRoleBinding riêng biệt.
 
 
 ### 6.2. Role-Based Access Control (RBAC)
@@ -547,7 +548,7 @@ Kubernetes định nghĩa bốn đối tượng RBAC chính: Role, ClusterRole, 
     namespace: default
   ```​
 
-Lưu ý khi tạo RoleBinding, subjects cho phép chỉ định namespace của ServiceAccount. Việc này giusp ServiceAccount ở 1 namespace khác có quyền trong namespace của RoleBinding. Nhưng chiều ngược lại không hoạt động — bạn không thể tạo một Role ở namespace-b rồi reference nó trong RoleBinding ở namespace-a. roleRef luôn phải trỏ đến Role cùng namespace với RoleBinding (hoặc trỏ đến ClusterRole)
+Lưu ý khi tạo RoleBinding, subjects cho phép chỉ định namespace của ServiceAccount. Việc này giúp ServiceAccount ở 1 namespace khác có quyền trong namespace của RoleBinding. Nhưng chiều ngược lại không hoạt động — bạn không thể tạo một Role ở namespace-b rồi reference nó trong RoleBinding ở namespace-a. roleRef luôn phải trỏ đến Role cùng namespace với RoleBinding (hoặc trỏ đến ClusterRole)
 
 - ClusterRoleBinding: Gán ClusterRole cho identity​
   ```
