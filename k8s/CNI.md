@@ -197,9 +197,8 @@ Là trường hợp các container giao tiếp khác node, phức tạp hơn vì
 
 Flow hoạt động:
 - Khi pod được schedule lên VM node, kubelet tạo một network namespace mới (thực chất là một ip netns riêng biệt). Lúc này namespace đó chỉ có interface lo — hoàn toàn cô lập, không thấy gì bên ngoài.
-- CNI plugin chạy trên Openstack compute node với quyền root. Khi kubelet gọi CNI plugin (Hyperplane), plugin này chạy như một process trên host node — không phải bên trong pod. Nó có toàn quyền truy cập vào OVS, Neutron API, và tất cả network namespace trên host.
-Luồng gắn port cụ thể diễn ra thế này:
-
+- CNI plugin chạy như một process trên VM node với quyền root, có toàn quyền truy cập vào OVS br-int trong VM, ovn-controller trong VM, tất cả network namespace trong VM và Neutron API (gọi qua network)
+- Khi kubelet gọi CNI plugin (Hyperplane)
 Plugin gọi Neutron API → nhận lại thông tin port (IP, MAC, port UUID)
 Neutron agent (OVS agent) trên host tạo một OVS internal port hoặc veth pair, gắn vào br-int
 Plugin dùng lệnh kiểu ip link set <veth-end> netns <pod-namespace> để đẩy một đầu của interface vào namespace của pod
