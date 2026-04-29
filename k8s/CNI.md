@@ -177,24 +177,210 @@ Là trường hợp các container giao tiếp khác node, phức tạp hơn vì
 ### 5.2. OVS-CNI plugin
 <img width="686" height="428" alt="image" src="https://github.com/user-attachments/assets/befb0c76-9dbc-48ab-ba08-d5bbc3f889f1" />
 
-- OVS-CNI là một CNI plugin cho phép Kubernetes pod gắn network interface trực tiếp vào Open vSwitch (OVS) bridge trên node, thay vì dùng Linux bridge
-Kiến trúc cơ bản
+- OVS-CNI là một CNI plugin cho phép Kubernetes pod gắn network interface trực tiếp vào Open vSwitch (OVS) bridge, thay vì dùng Linux bridge
 - Có thể tận dụng OVS-CNI plugin để kết nối pod network với Neutron OVS backend
-- Lưu ý OVS-CNI không tự tạo OVS bridge. Nó expect bridge đã tồn tại sẵn trên **K8s node**. Không thể tận dụng OVS bridge của Openstack hypervisor bên dưới do K8s node chỉ thấy eth0 - một virtual NIC bình thường. Nó không có visibility vào lớp OpenStack hypervisor. Samsung đưa ra giải pháp là custom CNI Hyperplane - gọi Neutron API để tạo port
+- Lưu ý OVS-CNI không tự tạo OVS bridge. Nó expect bridge đã tồn tại sẵn trên **K8s node (tức VM)**. Không thể tận dụng OVS bridge của Openstack hypervisor bên dưới do K8s node chỉ thấy eth0 - một virtual NIC bình thường. Nó không có visibility vào lớp OpenStack hypervisor.
 - Khi bạn tạo một VM trên OpenStack:
   - Nova yêu cầu Neutron: "Tạo cho tôi một network interface"
   - Neutron tạo một "Port" (logical) trong database
   - Neutron agent trên hypervisor node nhận event
   - Agent gọi ovs-vsctl để tạo port thật trên OVS bridge
   - VM được cắm vào OVS bridge qua tap interface
-- Khi pod được tạo, Hyperplane plugin làm:
+- Khi pod được tạo, Hyperplane plugin (custom CNI của Samsung) làm:
   - Kubelet gọi Hyperplane CNI plugin
   - CNI plugin gọi Neutron API: "Tạo cho tôi một Port trong subnet X"
   - Neutron tạo Port, trả về: IP = 192.168.1.50, MAC = aa:bb:cc:...
   - Neutron agent trên node tạo OVS port thật (giống như tạo cho VM)
   - Plugin gắn OVS port đó vào network namespace của pod -> Pod bây giờ có IP 192.168.1.50 — chính là IP từ Neutron subnet, không phải từ IPAM của K8s. Pod bây giờ có cùng network với VM, VM-A muốn gọi Pod-1 → gọi thẳng 192.168.1.50. Packet đi qua OVS của Neutron bình thường, giống như gọi giữa 2 VM, không cần NodePort, không cần NAT, không cần overlay của K8s
 
+====================================
 
+Flow hoạt động:
+- Khi pod được schedule lên VM node, kubelet tạo một network namespace mới (thực chất là một ip netns riêng biệt). Lúc này namespace đó chỉ có interface lo — hoàn toàn cô lập, không thấy gì bên ngoài.
+- CNI plugin chạy trên Openstack compute node với quyền root. Khi kubelet gọi CNI plugin (Hyperplane), plugin này chạy như một process trên host node — không phải bên trong pod. Nó có toàn quyền truy cập vào OVS, Neutron API, và tất cả network namespace trên host.
+Luồng gắn port cụ thể diễn ra thế này:
+
+Plugin gọi Neutron API → nhận lại thông tin port (IP, MAC, port UUID)
+Neutron agent (OVS agent) trên host tạo một OVS internal port hoặc veth pair, gắn vào br-int
+Plugin dùng lệnh kiểu ip link set <veth-end> netns <pod-namespace> để đẩy một đầu của interface vào namespace của pod
+Bên trong namespace đó, plugin cấu hình IP, MAC, default route — cũng bằng ip netns exec từ host
+
+Pod không chủ động trong quá trình này. Từ góc nhìn của pod, nó "tỉnh dậy" và thấy mình đã có sẵn một interface với IP, MAC, route — giống như VM boot lên đã có NIC sẵn vậy. Pod không biết Neutron là gì, không gọi API nào, không kéo port nào cả.
+Nói cách khác: CNI plugin đóng vai trò giống như nova-compute gắn NIC vào VM — chỉ là ở đây "VM" là một network namespace của pod, và "hypervisor" là chính Linux kernel trên host.You said: trường external_ids là metadata của cái gìtrường external_ids là metadata của cái gìApr 28Claude responded: Cần thêm ngữ cảnh — external_ids xuất hiện ở nhiều chỗ khác nhau và ý nghĩa khác nhau:Cần thêm ngữ cảnh — external_ids xuất hiện ở nhiều chỗ khác nhau và ý nghĩa khác nhau:
+Trong OVS (Open vSwitch): external_ids là một trường metadata dạng key-value gắn trên các object của OVS — port, bridge, interface. Ví dụ khi chạy ovs-vsctl show hay ovs-vsctl get Interface <name> external_ids, sẽ thấy những cặp như iface-id, attached-mac… Neutron OVS agent dùng trường này để map một OVS port với một Neutron port UUID.
+Trong Neutron port: Neutron port cũng có trường external_ids hoặc tương đương (thường gọi là binding:profile, binding:vif_details…) để lưu metadata liên kết với hạ tầng bên dưới.
+Bạn đang hỏi external_ids ở đâu cụ thể — trên OVS port, trên Neutron port, hay trong một output/config nào đó? Gửi đoạn output hoặc context thì mình giải thích chính xác hơn.You said: trên ovs porttrên ovs portApr 28Claude responded: OK, vậy external_ids trên OVS port là metadata mà Neutron OVS agent ghi vào để liên kết một OVS port với một Neutron port.OK, vậy external_ids trên OVS port là metadata mà Neutron OVS agent ghi vào để liên kết một OVS port với một Neutron port.
+Bản thân OVS không quan tâm đến trường này — OVS chỉ lưu nó như một cái túi key-value. Neutron agent mới là thằng đọc/ghi và dựa vào đó để làm việc.
+Ví dụ điển hình khi chạy ovs-vsctl get Interface tap-xxx external_ids:
+{iface-id="neutron-port-uuid-abc123",
+ iface-status="active",
+ attached-mac="fa:16:3e:xx:xx:xx"}
+Ý nghĩa từng key phổ biến:
+
+iface-id — quan trọng nhất. Đây là Neutron port UUID. Neutron OVS agent dùng giá trị này để biết "OVS port này thuộc về Neutron port nào" → từ đó áp đúng security group, flow rules, VLAN/VXLAN tag…
+iface-status — trạng thái active/inactive, agent cập nhật ngược lại cho Neutron biết port đã sống hay chưa
+attached-mac — MAC address mà Neutron đã cấp cho port đó
+
+Trong ngữ cảnh Hyperplane CNI, luồng sẽ là: sau khi Neutron tạo port và trả về UUID, CNI plugin (hoặc Neutron agent) tạo OVS port trên br-int và set external_ids:iface-id=<neutron-port-uuid>. Nhờ đó OVS agent nhận ra port này, apply đúng flow rules, và báo lại Neutron rằng port đã active.
+Nói đơn giản: external_ids là cách Neutron "dán nhãn" lên OVS port để nhận ra đứa con của mình.You said: Nếu tôi dùng ovn thì ai phụ trách việc ghi đấyNếu tôi dùng ovn thì ai phụ trách việc ghi đấyApr 28Claude responded: Với OVN thì kiến trúc khác so với OVS agent truyền thống.Với OVN thì kiến trúc khác so với OVS agent truyền thống.
+ovn-controller trên mỗi node là thằng phụ trách việc này.
+Luồng cụ thể:
+
+Neutron tạo port → ghi thông tin vào OVN Northbound DB (logical switch port)
+ovn-northd dịch từ Northbound DB → Southbound DB (binding, flow rules…)
+ovn-controller trên node đọc Southbound DB, thấy có logical port cần bind trên node này
+ovn-controller tìm OVS port nào có external_ids:iface-id khớp với logical port đó → bind và cài OpenFlow rules vào br-int
+
+Nhưng ai ghi external_ids:iface-id lên OVS port? Đây là điểm hay — không phải ovn-controller ghi. Thằng ghi là bất kỳ ai tạo OVS port đó:
+
+Với VM: nova-compute (thông qua libvirt) tạo tap interface và set external_ids:iface-id=<neutron-port-uuid>
+Với Hyperplane CNI: CNI plugin tạo OVS port và set external_ids:iface-id
+
+ovn-controller chỉ đọc external_ids:iface-id, match với logical port trong Southbound DB, rồi claim binding và install flow. Nó không tự ghi trường đó.
+Tóm lại phân công rõ ràng: CNI plugin (hoặc nova) ghi nhãn, ovn-controller đọc nhãn và hành động.You said: external_ids trên OVS port là metadata mà Neutron OVS agent ghi vào để liên kết một OVS port với một Neutron port.external_ids trên OVS port là metadata mà Neutron OVS agent ghi vào để liên kết một OVS port với một Neutron port. -> ý b ghi vào là ghi vào đâuApr 28Claude responded: Đúng, câu trước mình diễn đạt dễ gây hiểu nhầm.Đúng, câu trước mình diễn đạt dễ gây hiểu nhầm.
+"Ghi vào" ở đây nghĩa là ghi vào OVSDB — cơ sở dữ liệu của Open vSwitch chạy trên chính node đó.
+Mỗi node chạy OVS đều có một ovsdb-server process, lưu toàn bộ cấu hình của OVS (bridge, port, interface, external_ids…). Khi ai đó chạy lệnh kiểu ovs-vsctl set Interface tap-xxx external_ids:iface-id=<uuid>, thực chất là ghi một record vào OVSDB trên node đó.
+Nên câu chính xác hơn phải là: Neutron OVS agent (hoặc CNI plugin, hoặc nova) ghi trường external_ids vào OVSDB trên node, để liên kết một OVS port với một Neutron port.You said: tại sao cần liên kết một OVS port với một Neutron port.tại sao cần liên kết một OVS port với một Neutron port.12:01 AMClaude responded: Vì OVS và Neutron là hai thằng riêng biệt, mỗi thằng quản lý một "thế giới" khác nhau.Vì OVS và Neutron là hai thằng riêng biệt, mỗi thằng quản lý một "thế giới" khác nhau.
+OVS chỉ biết: "tôi có một port tên tap-xxx, nó gắn vào br-int, packet vào ra qua đây." Hết. OVS không biết port đó thuộc tenant nào, subnet nào, security group nào.
+Neutron chỉ biết: "tôi có một logical port UUID abc-123, IP là 192.168.1.50, thuộc subnet X, tenant Y, áp security group Z." Nhưng Neutron không trực tiếp đụng vào dataplane — nó không tự cài flow rules.
+Nếu không liên kết, ovn-controller (hoặc OVS agent) nhìn thấy một OVS port nhưng không biết nó là ai trong "thế giới" của Neutron → không biết áp security group nào, không biết gắn vào logical switch nào, không biết VXLAN tunnel nào cần forward traffic đến. Port đó thành một cái lỗ câm trên bridge.
+Khi có external_ids:iface-id=abc-123, ovn-controller đọc được: "à, OVS port này chính là Neutron port abc-123" → tra Southbound DB → biết port thuộc logical switch nào → cài đúng OpenFlow rules → traffic đi đúng chỗ, security group được enforce, mọi thứ hoạt động.
+Nói ngắn gọn: external_ids là cầu nối giữa dataplane (OVS) và control plane (Neutron). Thiếu nó thì hai thằng không nhận ra nhau.You said: hành vi liên kết một OVS port với một Neutron port là chung hay chỉ mỗi hyperplane cni cần làmhành vi liên kết một OVS port với một Neutron port là chung hay chỉ mỗi hyperplane cni cần làm12:03 AMClaude responded: Đây là hành vi chung, ai tạo OVS port cũng phải làm.Đây là hành vi chung, ai tạo OVS port cũng phải làm.
+
+VM qua Nova: nova-compute gọi libvirt tạo tap interface → set external_ids:iface-id → ovn-controller đọc và bind
+Kuryr CNI (pod): Kuryr tạo OVS port cho pod → set external_ids:iface-id → ovn-controller đọc và bind
+Hyperplane CNI (pod): tương tự, tạo OVS port → set external_ids:iface-id
+LBaaS (Octavia): amphora VM cũng có Neutron port → cùng cơ chế
+
+Bất kỳ thứ gì muốn tham gia vào mạng của Neutron/OVN đều phải làm bước này. Đây không phải đặc thù của Hyperplane — đây là quy ước chung của kiến trúc Neutron + OVS/OVN. Không set iface-id thì ovn-controller không nhận ra port, coi như port đó không tồn tại trong thế giới Neutron.You said: Đấy có phải là cơ chế port binding koĐấy có phải là cơ chế port binding ko12:39 AMClaude responded: Đúng, đó chính là một phần của cơ chế port binding.Đúng, đó chính là một phần của cơ chế port binding.
+Nhưng port binding không chỉ là set external_ids. Nó là cả một quy trình gồm nhiều bước:
+
+Neutron tạo logical port → trạng thái DOWN, chưa bind ở đâu
+Ai đó (nova, CNI…) gọi Neutron API báo: "tôi muốn bind port này trên host X" → Neutron ghi binding:host_id=host-X vào port
+Neutron ML2 plugin chọn mechanism driver phù hợp (OVN, OVS agent, SRIOV…) để thực hiện binding ở tầng backend
+Trên node, OVS port được tạo với external_ids:iface-id → đây là bước mà ovn-controller (hoặc OVS agent) nhận ra port và hoàn tất binding
+ovn-controller claim port trong Southbound DB → Neutron cập nhật trạng thái port thành ACTIVE
+
+Nên external_ids:iface-id là bước cuối cùng trên dataplane để hoàn tất port binding — là cái "bắt tay" giữa control plane và dataplane. Còn port binding tổng thể bao gồm cả phần API, scheduling, và ML2 driver phía trên nữa.You said: OVS chỉ biết: “tôi có một port tên tap-xxx, nó gắn vào br-int, packet vào ra qua đây -> bạn giải thích cho tôi ý này.OVS chỉ biết: “tôi có một port tên tap-xxx, nó gắn vào br-int, packet vào ra qua đây -> bạn giải thích cho tôi ý này. Ovs bạn nói đến ở đây là agent hay ovs bridge1:03 AMClaude responded: Ở đây mình nói đến OVS bridge (dataplane) — tức bản thân br-int, br-ex… chạy trên node.Ở đây mình nói đến OVS bridge (dataplane) — tức bản thân br-int, br-ex… chạy trên node.
+OVS bridge thực chất là một software switch. Nó hoạt động giống switch vật lý — chỉ biết:
+
+Tôi có những port nào (tap-xxx, patch-br-ex, veth-yyy…)
+Packet vào từ port nào, match flow rule nào, forward ra port nào
+
+Nó không biết và không quan tâm: port đó thuộc tenant gì, subnet gì, security group gì. Những khái niệm đó không tồn tại ở tầng dataplane.
+Còn OVS agent (hoặc ovn-controller) là tầng trên — nó đọc thông tin từ Neutron/OVN, rồi cài flow rules xuống OVS bridge để bridge biết cách xử lý packet. Ví dụ: "packet từ port tap-xxx mà MAC không đúng thì drop" — đó là security group, nhưng bridge chỉ thấy nó như một flow rule, không biết khái niệm security group là gì.
+Tóm lại: OVS bridge là thằng chuyển packet nhưng ngu — cần OVS agent hoặc ovn-controller lập trình cho nó biết chuyển thế nào.You said: Đầu cắm vào bridge gọi là tap interface à bĐầu cắm vào bridge gọi là tap interface à b1:03 AMClaude responded: Không hẳn.Không hẳn. tap chỉ là một loại interface — không phải mọi thứ cắm vào bridge đều là tap.
+Những loại interface phổ biến gắn vào br-int:
+
+tap interface — thường dùng cho VM (libvirt tạo tap, gắn vào bridge, đầu kia nối vào QEMU process)
+veth pair — thường dùng cho container/pod (một đầu gắn vào bridge, đầu kia đẩy vào network namespace của pod)
+patch port — nối giữa hai OVS bridge với nhau (ví dụ br-int ↔ br-ex)
+internal port — OVS tự tạo, thường dùng làm gateway interface
+tunnel port (VXLAN, Geneve…) — đường hầm nối giữa các node
+
+Cái chung là tất cả đều gọi là OVS port khi đã gắn vào bridge. "Tap interface" chỉ là tên gọi một kiểu cụ thể, xuất phát từ thời VM dùng tap device trong Linux kernel.
+Trong ngữ cảnh Hyperplane CNI, khả năng cao nó dùng veth pair — không phải tap.You said: Khi có external_ids:iface-id=abc-123, ovn-controller đọc được: “à, OVS port này chính là Neutron port abc-123” → tra Southbound DB → biết port thuộc logical sw…Khi có external_ids:iface-id=abc-123, ovn-controller đọc được: “à, OVS port này chính là Neutron port abc-123” → tra Southbound DB → biết port thuộc logical switch nào -> logical switch bạn nhắc đến ở đây là gì1:09 AMClaude responded: Logical switch là khái niệm của OVN — nó là một switch ảo "tưởng tượng" tồn tại trong database, không phải trên dataplane.Logical switch là khái niệm của OVN — nó là một switch ảo "tưởng tượng" tồn tại trong database, không phải trên dataplane.
+Khi bạn tạo một Neutron network, Neutron (thông qua ML2/OVN driver) tạo tương ứng một logical switch trong OVN Northbound DB. Mỗi Neutron network = một logical switch.
+Ví dụ: bạn tạo network "app-network" subnet 192.168.1.0/24 → OVN Northbound DB có một logical switch tên tương ứng. Mọi Neutron port thuộc network đó → trở thành logical switch port gắn vào logical switch đó.
+Tại sao cần khái niệm này? Vì trên thực tế, các VM/pod nằm rải rác trên nhiều node khác nhau, mỗi node có br-int riêng. Logical switch là cách OVN nói: "dù port A ở node 1 và port B ở node 3, nhưng cả hai đều nằm trên cùng một switch ảo → chúng có thể giao tiếp L2 với nhau."
+ovn-controller trên mỗi node đọc logical switch từ Southbound DB, rồi dịch thành OpenFlow rules cài vào br-int thật trên node đó — bao gồm cả việc đóng gói Geneve tunnel để chuyển packet giữa các node nếu cần.
+Nói ngắn gọn: logical switch là bản thiết kế, br-int + flow rules là hiện thực hóa bản thiết kế đó trên từng node.You said: Tại sao các port lại nằm ở các node khác nhau được.Tại sao các port lại nằm ở các node khác nhau được. Tôi tưởng port là khái niệm trừu tượng thuộc về control plane chứ1:12 AMClaude responded: Đúng, Neutron port / logical switch port là khái niệm trừu tượng ở control plane.Đúng, Neutron port / logical switch port là khái niệm trừu tượng ở control plane. Nhưng mỗi logical port phải bind xuống một node cụ thể — vì nó đại diện cho một VM hoặc pod thật, mà VM/pod thì phải chạy trên một node nào đó.
+Ví dụ cụ thể:
+
+Pod-A chạy trên node-1 → Neutron port aaa-111 bind trên node-1 → OVS port trên br-int của node-1
+Pod-B chạy trên node-3 → Neutron port bbb-222 bind trên node-3 → OVS port trên br-int của node-3
+
+Cả hai port đều thuộc cùng một logical switch (cùng Neutron network). Ở tầng control plane thì chúng "ngồi cạnh nhau" trên cùng một switch ảo. Nhưng ở tầng dataplane, chúng hiện thực hóa trên hai node khác nhau.
+Nên khi mình nói "port nằm ở các node khác nhau", ý là phần dataplane của port (OVS port thật, veth, tap…) nằm ở các node khác nhau. Còn phần logical thì đúng như bạn nói — nó là trừu tượng, sống trong database.
+Chính vì vậy mới cần Geneve/VXLAN tunnel giữa các node — để hai OVS port trên hai br-int khác node có thể giao tiếp được với nhau, tạo ảo giác rằng chúng cùng nằm trên một switch.You said: Lệnh ovs-vsctl là để làm việc với cái gì.Lệnh ovs-vsctl là để làm việc với cái gì. Nếu dùng ovn thì thay bằng lệnh gì1:23 AMClaude responded: ovs-vsctl là để làm việc với OVSDB — tức cấu hình của OVS trên node đó (tạo bridge, thêm port, set external_ids…).ovs-vsctl là để làm việc với OVSDB — tức cấu hình của OVS trên node đó (tạo bridge, thêm port, set external_ids…).
+Khi dùng OVN, ovs-vsctl vẫn dùng vì OVN không thay thế OVS — OVN chạy phía trên OVS. Trên mỗi node vẫn có br-int, vẫn có OVSDB, vẫn cần ovs-vsctl để quản lý tầng dataplane.
+OVN thêm vào một bộ lệnh riêng để quản lý tầng logical:
+
+ovn-nbctl — làm việc với Northbound DB (logical switch, logical router, ACL, NAT…). Đây là tầng gần với Neutron, mô tả "mạng trông như thế nào."
+ovn-sbctl — làm việc với Southbound DB (port binding, datapath, flow logic…). Đây là tầng trung gian, mô tả "mạng được hiện thực hóa thế nào trên từng node."
+
+Tóm lại:
+
+Muốn xem/sửa OVS bridge, port, interface trên node → ovs-vsctl (vẫn dùng bình thường)
+Muốn xem/tạo logical switch, router, ACL → ovn-nbctl
+Muốn xem port binding, chassis, flow → ovn-sbctl
+Muốn xem OpenFlow rules thật trên bridge → ovs-ofctl (cũng vẫn dùng)
+
+OVN không thay ovs-vsctl — nó bổ sung thêm ovn-nbctl và ovn-sbctl để quản lý tầng logic phía trên.You said: Vậy nếu tôi dùng veth thì lệnh này sẽ đổi thành ovs-vsctl get Interface veth-xxx external_ids phải koVậy nếu tôi dùng veth thì lệnh này sẽ đổi thành ovs-vsctl get Interface veth-xxx external_ids phải ko1:27 AMClaude responded: Đúng, đổi tên interface thôi.Đúng, đổi tên interface thôi. Cú pháp y hệt:
+ovs-vsctl get Interface veth-xxx external_ids
+Tên interface ở đây là tên của đầu veth gắn vào br-int — đầu còn lại nằm trong network namespace của pod, không liên quan đến OVS.
+Tên cụ thể là gì thì tùy CNI plugin đặt. Có thể là veth-xxx, abcdef123, hay bất kỳ cái gì — miễn là trùng với tên port đã add vào bridge. Bạn chạy ovs-vsctl list-ports br-int sẽ thấy tên thật.You said: Nếu veth pair của pod cắm vào ovs bridge thì nó phải đi qua mấy lớp mạng à, có khả thi ko bạnNếu veth pair của pod cắm vào ovs bridge thì nó phải đi qua mấy lớp mạng à, có khả thi ko bạn12:37 PMClaude responded: Hoàn toàn khả thi và rất phổ biến.Hoàn toàn khả thi và rất phổ biến. Nhưng mình hiểu câu hỏi của bạn — bạn lo ngại veth pair cắm vào OVS bridge thì packet phải đi qua nhiều lớp xử lý.
+Thực tế thì đường đi rất ngắn:
+Pod → veth (trong namespace) → veth (trên host) → OVS br-int → flow rules xử lý → ra ngoài
+Chỉ vậy thôi. veth pair chỉ là một cái ống nối giữa hai network namespace — packet vào đầu này thì xuất hiện ngay đầu kia, không qua xử lý gì ở giữa. Nó không thêm "lớp mạng" nào cả, chỉ là cơ chế chuyển packet giữa namespace.
+So sánh với VM dùng tap: VM → tap interface → OVS br-int. Cũng một bước tương tự. veth không nặng hơn tap đáng kể.
+Cái tốn performance thật sự không phải veth mà là số lượng OpenFlow rules trên br-int — nhiều security group, nhiều ACL thì flow table lớn, lookup chậm hơn. Nhưng đó là vấn đề chung dù dùng tap hay veth.
+Nếu thật sự quan tâm performance, giải pháp là SR-IOV — bypass luôn cả OVS, gắn VF thẳng vào pod. Nhưng mất đi software-defined networking (security group, flow rules…). Đó là trade-off mà bạn đã tìm hiểu trước đó rồi.You said: Theo t nó từ veth còn phải đi qua tap interface rồi mới vào ovs brint nữa chứTheo t nó từ veth còn phải đi qua tap interface rồi mới vào ovs brint nữa chứ12:38 PMClaude responded: Không, veth không cần đi qua tap.Không, veth không cần đi qua tap. Đây là hai cơ chế riêng biệt, dùng một trong hai:
+Cách 1 — VM dùng tap:
+VM (QEMU process) → tap interface → OVS br-int
+Cách 2 — Pod dùng veth:
+Pod (network namespace) → veth end trong ns → veth end trên host → OVS br-int
+Không có chuyện veth → tap → OVS. Đầu veth trên host gắn thẳng vào br-int luôn bằng lệnh kiểu:
+ovs-vsctl add-port br-int veth-host-end
+tap interface chỉ cần khi có QEMU process — vì QEMU đọc/ghi packet thông qua file descriptor của tap device. Pod không chạy QEMU, không cần tap.
+Có thể bạn đang nhầm với một số CNI setup dùng Linux bridge làm trung gian: veth → Linux bridge → tap → OVS. Đó là kiến trúc cũ của Neutron (hybrid firewall driver) khi cần iptables cho security group. Nhưng với OVN thì không cần Linux bridge trung gian — security group được xử lý bằng OpenFlow rules ngay trên br-int, nên veth cắm thẳng vào OVS được.You said: veth end trên host thì host ở đây là VM hay compute nodeveth end trên host thì host ở đây là VM hay compute node12:39 PMClaude responded: Tùy kiến trúc của bạn.Tùy kiến trúc của bạn.
+Nếu K8s chạy bare-metal — host là compute node vật lý. veth end nằm trên root network namespace của máy vật lý đó.
+Nếu K8s chạy nested trong VM trên OpenStack — như lab của bạn đang làm — thì host là VM đóng vai trò K8s node. veth end nằm trên root network namespace của VM đó.
+Trong trường hợp nested của bạn, đường đi đầy đủ sẽ dài hơn:
+Pod → veth → OVS br-int (trong VM) → VM's NIC → OVS br-int (trên compute node vật lý) → ra ngoài
+Tức là có hai tầng OVS — một tầng trong VM, một tầng trên compute node. Đây cũng là lý do nested virtualization chậm hơn bare-metal đáng kể — packet phải đi qua hai lần OVS processing.You said: vậy khi dùng ovs cni là cắm veth vào ovs nàovậy khi dùng ovs cni là cắm veth vào ovs nào1:16 PMClaude responded: Cắm vào OVS br-int bên trong VM (VM đóng vai K8s node).Cắm vào OVS br-int bên trong VM (VM đóng vai K8s node).
+Vì CNI plugin chạy trên K8s node — mà K8s node của bạn là VM — nên nó chỉ thấy và chỉ làm việc với OVS instance bên trong VM đó. Nó không biết và không đụng được OVS trên compute node vật lý bên ngoài.
+Nhưng đây là điểm cần suy nghĩ trong lab nested của bạn: VM đó có sẵn OVS br-int không?
+
+Nếu VM chỉ là K8s node thuần — không chạy Neutron agent hay ovn-controller bên trong — thì không có sẵn OVS. CNI plugin phải tự cài OVS, tự tạo bridge.
+Nếu bạn cài cả OpenStack bên trong (nested OpenStack) hoặc cài ovn-controller trên VM đó — thì có br-int sẵn, CNI cắm vào đó được.
+
+Trong kiến trúc Hyperplane mà bạn mô tả ban đầu — pod dùng Neutron port, muốn ovn-controller bind port — thì VM (K8s node) phải chạy ovn-controller và có br-int. Lúc đó veth cắm vào br-int này, ovn-controller đọc external_ids, mọi thứ hoạt động như đã thảo luận.You said: vậy Trong kiến trúc Hyperplane mà tôi mô tả ban đầu thì sẽ có 2 ovn-controller phải ko - 1 trong VM và 1 trong openstack node, đồng thời có 2 br-int phải kovậy Trong kiến trúc Hyperplane mà tôi mô tả ban đầu thì sẽ có 2 ovn-controller phải ko - 1 trong VM và 1 trong openstack node, đồng thời có 2 br-int phải ko1:20 PMClaude responded: Đúng, trong nested setup của bạn thì đúng là 2 ovn-controller và 2 br-int.Đúng, trong nested setup của bạn thì đúng là 2 ovn-controller và 2 br-int.
+Nhưng câu hỏi quan trọng là: chúng thuộc cùng một OVN cluster hay hai cluster riêng?
+Nếu cùng một OVN cluster — ovn-controller trong VM kết nối tới cùng Southbound DB với ovn-controller trên compute node. Lúc này Neutron quản lý cả VM port lẫn pod port trong cùng một hệ thống. Pod thật sự ngang hàng với VM trên cùng logical switch. Đây là kiến trúc đúng nghĩa Hyperplane.
+Nếu hai OVN cluster riêng — ví dụ OpenStack ngoài có OVN riêng, K8s trong VM có OVN riêng — thì hai tầng br-int không biết nhau. Pod không thể ngang hàng với VM trên cùng Neutron network. Mất đi ý nghĩa của Hyperplane.
+Nên để Hyperplane hoạt động đúng trong nested setup, ovn-controller trong VM phải join vào OVN cluster của OpenStack bên ngoài — trỏ Southbound DB remote tới cùng chỗ. Lúc đó tuy có 2 br-int vật lý trên 2 tầng, nhưng chúng được điều phối bởi cùng một control plane, và pod traffic từ br-int trong VM → qua VM NIC → br-int ngoài compute node → tới đích, tất cả do cùng một OVN cluster quản lý.You said: tôi muốn chúng cùng 1 ovn cluster để pod ngang hàng với VM thì phải làm thế nàotôi muốn chúng cùng 1 ovn cluster để pod ngang hàng với VM thì phải làm thế nào1:21 PMClaude responded: Về nguyên tắc, bạn cần cài ovn-controller trong VM và trỏ nó về Southbound DB của OpenStack bên ngoài.Về nguyên tắc, bạn cần cài ovn-controller trong VM và trỏ nó về Southbound DB của OpenStack bên ngoài.
+Cụ thể:
+1. Trên VM (K8s node), cài OVS + ovn-controller:
+bashapt install ovn-host openvswitch-switch
+2. Trỏ ovn-controller về Southbound DB bên ngoài:
+bashovs-vsctl set open_vswitch . \
+  external_ids:ovn-remote=tcp:<southbound-db-ip>:6642 \
+  external_ids:ovn-encap-type=geneve \
+  external_ids:ovn-encap-ip=<VM-ip-trên-provider-network> \
+  external_ids:system-id=<unique-id-cho-VM>
+Trong đó:
+
+ovn-remote — địa chỉ Southbound DB, chạy trên controller node của OpenStack
+ovn-encap-ip — IP mà các node khác dùng để gửi Geneve tunnel tới VM này. Phải là IP mà compute node bên ngoài reach được
+system-id — chassis ID unique, để OVN nhận ra VM này là một "node" trong cluster
+
+3. Khi ovn-controller khởi động, nó tự đăng ký như một chassis mới trong Southbound DB. Từ đây OVN coi VM này ngang hàng với compute node — có thể bind logical port, nhận flow rules.
+4. CNI plugin tạo pod → gọi Neutron tạo port → tạo veth gắn vào br-int trong VM → set external_ids:iface-id → ovn-controller trong VM claim binding → pod online trên Neutron network.
+Vấn đề cần lưu ý với nested:
+Geneve tunnel lồng nhau — traffic từ pod trong VM muốn ra ngoài phải đóng Geneve (bởi ovn-controller trong VM), rồi packet đó đi qua VM NIC, tới br-int trên compute node, có thể lại đóng thêm một lớp Geneve nữa. Đây là overhead lớn nhất của nested setup. Bạn cần đảm bảo MTU đủ lớn để chứa double encapsulation, hoặc dùng provider network (flat/VLAN) cho VM để tránh lớp tunnel ngoài.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+================================
 ### 5.3 SR-IOV CNI plugin
 <img width="687" height="487" alt="image" src="https://github.com/user-attachments/assets/b0fdbb6c-d79d-4376-abdf-11c81f73b016" />
 
