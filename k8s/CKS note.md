@@ -616,9 +616,9 @@ Lưu ý permission là additive
 
 automountServiceAccountToken dùng để bật/tắt việc tự động mount token của ServiceAccount vào Pod, từ đó quyết định Pod có sẵn cred để gọi Kubernetes API hay không.​
 
-Mặc định, khi không cấu hình gì, Kubernetes sẽ tự gắn ServiceAccount (thường là default) cho Pod và tự động mount token vào thư mục như /var/run/secrets/kubernetes.io/serviceaccount/token để Pod có thể auth tới API server.​
+Mặc định, khi không cấu hình gì, Kubernetes sẽ tự gắn ServiceAccount (thường là default) cho Pod và tự động mount token vào thư mục như /var/run/secrets/kubernetes.io/serviceaccount/token để Pod có thể auth tới API server.​ Điều này tiện cho app nào cần gọi K8s API, nhưng cũng làm tăng surface tấn công nếu container bị compromise vì attacker có thể dùng token đó.​
 
-Điều này tiện cho app nào cần gọi K8s API, nhưng cũng làm tăng surface tấn công nếu container bị compromise vì attacker có thể dùng token đó.​
+Trong /var/run/secrets/kubernetes.io/serviceaccount còn có file ca.crt và namespace. Pod dùng ca.crt để xác thực danh tính của apiserver
 
 Khi đặt automountServiceAccountToken: false ở level ServiceAccount hoặc Pod, Kubernetes sẽ không mount token vào Pod nữa, Pod sẽ không có sẵn cred để gọi API server qua token đó.​
 
@@ -648,7 +648,7 @@ Use case thực tế
 - Pod không cần gọi Kubernetes API (app thuần business logic, job đơn giản, sidecar không quản lý cluster) nên disable để giảm quyền và giảm rủi ro nếu bị lộ token.​
 - Môi trường security-sensitive (production, multi-tenant, PCI, v.v.): best practice là set automountServiceAccountToken: false cho default SA và chỉ bật cho những Pod/SA thực sự cần gọi API, thậm chí kết hợp với RBAC tối thiểu (least privilege).
 
----
+
 
 
 ## 12. Workflow request đi tới API server
@@ -2179,8 +2179,79 @@ lrwx------ 1 root root 64 Apr 26 10:00 4 -> socket:[123456]
 - Find the path to the executable binary `readlink -f /proc/1234/exe` hoặc `ls -l /proc/1234/exe` hoặc `ps -fp 1234`
  
 ### Question 15
-Giải thích về `--api-audiences` trong Kubernetes
+#### Projected volume
+- Projected Volume trong Kubernetes cho phép bạn map nhiều volume sources vào cùng một thư mục duy nhất trong container. Thay vì mount từng volume riêng lẻ vào các thư mục khác nhau, bạn gộp chúng lại thành một.
+- Các sources được hỗ trợ: Secret, ConfigMap, serviceAccountToken, downwardAPI, clusterTrustBundle
+- Từ version 1.20, Kubelet tự động inject projected volume vào mọi Pod, kể cả khi bạn không khai báo gì trong spec
+- Ví dụ mount tất cả volume vào thư mục /etc/app-config:
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: my-app
+spec:
+  containers:
+  - name: app
+    image: my-app:latest
+    volumeMounts:
+    - name: all-config
+      mountPath: /etc/app-config   # Tất cả đều vào đây
+  volumes:
+  - name: all-config
+    projected:
+      sources:
+      - secret:
+          name: db-credentials       # /etc/app-config/db-password
+          items:
+          - key: password
+            path: db-password
+      - configMap:
+          name: app-config           # /etc/app-config/app.properties
+          items:
+          - key: app.properties
+            path: app.properties
+      - serviceAccountToken:         # /etc/app-config/token
+          path: token
+          expirationSeconds: 3600
+          audience: my-service
+      - downwardAPI:                 # /etc/app-config/pod-labels
+          items:
+          - path: pod-labels
+            fieldRef:
+              fieldPath: metadata.labels
+```
 
+- Nếu muốn tất cả file nằm trong /etc/app-config/ thì phải dùng projected volume hoặc subPath. Nếu dùng mouthPath thì volume sau đè lên volume trước tại cùng mountPath
+- Trường hợp thực tế hay gặp nhất là dùng projected volume để inject short-lived token do serviceAccountToken chỉ dùng được bên trong projected.sources
+
+#### Service Account Token trong Kubernetes
+- Khi Pod chạy, Kubernetes tự động tạo một token cho Service Account và inject vào Pod. Có 2 cơ chế khác nhau tùy version K8s.
+- Ở các kubernetes version cũ, K8s tự động tạo một Secret chứa token và mount vào mọi Pod ở `/var/run/secrets/kubernetes.io/serviceaccount/`. Token này là JWT tĩnh, không bao giờ expire → nếu bị leak là nguy hiểm mãi mãi.
+- Cơ chế mới (từ K8s 1.21+), K8s tự động dùng TokenRequest API để tạo token có thời hạn, và inject vào Pod qua projected volume (bạn không cần viết), mount path vẫn là /var/run/secrets/kubernetes.io/serviceaccount/
+- Khi tích hợp với hệ thống bên ngoài như Vault, Istio, AWS IRSA mà cần token với audience riêng thì trong manifest tạo Pod chỉ cần khai báo projected volume với sources là serviceAccountToken, khi đó kublet sẽ tự gọi TokenRequest API lên API Server để lấy token và ghi token vào file trong Pod. VD:
+```yaml
+apiVersion: v1
+kind: Pod
+spec:
+  serviceAccountName: my-app-sa
+  containers:
+  - name: app
+    volumeMounts:
+    - name: vault-token
+      mountPath: /var/run/secrets/vault
+
+  volumes:
+  - name: vault-token
+    projected:
+      sources:
+      - serviceAccountToken:
+          path: token
+          expirationSeconds: 600      # 10 phút
+          audience: vault             # Chỉ Vault mới accept token này
+```
+- Đặc điểm của short-lived token là nó được bind cứng vào Pod cụ thể, nghĩa là nếu Pod bị xóa → token lập tức bị invalidate dù chưa đến exp.
+
+#### --api-audiences trong Kubernetes
 - Khi một Pod chạy trong Kubernetes, nó được gắn một ServiceAccount token — về bản chất là một JWT (JSON Web Token) — để xác thực với API server.
 - JWT có cấu trúc gồm nhiều claims, trong đó có claim aud (audience). Claim là một cặp key-value bên trong JWT payload, mang thông tin về token hoặc người dùng. VD
 ```
