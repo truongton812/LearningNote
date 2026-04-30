@@ -657,9 +657,12 @@ Use case thực tế
 ## 12. Workflow request đi tới API server
 
 Khi request đi đến apiserver cần đi qua 3 bước
-- authentication
-- authorization
-- admission control (check lại xem bước này làm gì, trong bài giảng ghi là "has the limit of pods been reached"
+- authentication  ← mày là ai?
+- authorization  ← mày có quyền làm việc này không?
+- admission control ← kiểm tra nội dung request xem request này có hợp lệ không? cần sửa gì không? Admission control nhận request đã pass authn + authz và chạy qua danh sách các admission controller. Mỗi controller có thể mutate hoặc validate request. Nếu bất kỳ controller nào reject → request bị từ chối, không lưu vào etcd. Nếu tất cả pass → object được lưu. Admission Controller là các plugin (VD LimitRanger, ResourceQuota, webhook) cụ thể thực hiện admission control
+
+
+
 
 <img width="1529" height="665" alt="image" src="https://github.com/user-attachments/assets/9cbf58dd-b787-46c3-8630-e0db6e397cdf" />
 
@@ -1198,8 +1201,64 @@ Khi dùng OPA Gatekeeper, bản thân Gatekeeper chạy như một admission web
 
 
 ---
+```
+Admission Controllers
+├── Mutating
+│   ├── Built-in  (VD: ServiceAccount, DefaultStorageClass)
+│   └── Webhook   (MutatingWebhookConfiguration)
+│
+└── Validating
+    ├── Built-in  (VD: LimitRanger, ResourceQuota)
+    └── Webhook   (ValidatingWebhookConfiguration)
+```
+Phân loại theo chức năng
+- Mutating – được phép sửa object
+- Validating – chỉ được approve hoặc reject
 
-(Tìm hiểu thêm về adumission controller)
+
+Phân loại theo cách triển khai
+- Built-in: Code nằm trong k8s source, compile thẳng vào kube-apiserver. Enable bằng flag: --enable-admission-plugins=LimitRanger,ResourceQuota. Không thể thêm mới nếu không sửa k8s
+- Webhook-based (dynamic): API server gọi ra ngoài qua HTTP khi có request. Bạn tự viết HTTP server chứa logic → đây là "custom admission controller" trong thực tế. Đăng ký bằng MutatingWebhookConfiguration / ValidatingWebhookConfiguration. Không cần restart API server
+
+
+Admission controller là plugin nằm trong API server, chặn request sau khi đã authenticate + authorize nhưng trước khi object được lưu vào etcd
+
+Có hai loại admission controller:
+- Mutating – có thể sửa object trước khi lưu. Ví dụ: tự động inject sidecar container, thêm default resource limits, gán labels. Mutating luôn chạy trước Validating.
+- Validating – chỉ kiểm tra và approve/reject, không sửa. Ví dụ: reject pod không có resource limits, enforce naming convention
+
+Một số built-in admission controllers quan trọng
+- NamespaceLifecycle: Reject request vào namespace đang bị xóa
+- LimitRanger: Apply default limits từ LimitRange object
+- ResourceQuota: Enforce quota namespace
+- PodSecurity: Enforce Pod Security Standards (privileged, baseline, restricted)
+- ServiceAccount: Tự động gán SA token cho pod
+- MutatingAdmissionWebhook: Gọi webhook ngoài để mutate
+- ValidatingAdmissionWebhook: Gọi webhook ngoài để validate
+
+Hai controller MutatingAdmissionWebhook và ValidatingAdmissionWebhook cho phép viết logic tùy chỉnh bằng HTTP webhook. VD:
+```yaml
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: my-validator
+webhooks:
+  - name: validate.myapp.com
+    rules:
+      - apiGroups: [""]
+        resources: ["pods"]
+        operations: ["CREATE"]
+    clientConfig:
+      service:
+        name: my-webhook-svc
+        namespace: default
+        path: /validate
+```
+
+
+Flow: HTTP server nhận AdmissionReview request -> Decode AdmissionReview từ API server -> Trả về AdmissionResponse
+
+
 
 admission webhook là một dạng thực thi cụ thể của admission controller.
 
@@ -1215,6 +1274,25 @@ Admission webhook chính là dynamic admission controller được triển khai 
 Cụ thể, hai plugin MutatingAdmissionWebhook và ValidatingAdmissionWebhook là built‑in “khung”, còn mỗi webhook (OPA Gatekeeper, Kyverno, custom webhook bạn viết) là một instance chạy ngoài cluster control‑plane, được cấu hình bằng MutatingWebhookConfiguration/ValidatingWebhookConfiguration.
 
 Tóm lại: mọi admission webhook đều là một phần của cơ chế admission controller, nhưng không phải mọi admission controller đều là webhook (vì còn rất nhiều plugin built‑in chạy nội bộ trong apiserver).
+
+---
+2 loại admission controller
+- Built-in
+  - Compiled thẳng vào kube-apiserver
+  - Enable/disable qua flag --enable-admission-plugins=... khi start API server
+  - Ví dụ: LimitRanger, ResourceQuota, NamespaceLifecycle, PodSecurity
+
+- Dynamic (Webhook-based)
+  - Không cần chạm vào API server
+  - Đăng ký qua MutatingWebhookConfiguration hoặc ValidatingWebhookConfiguration object trong cluster
+  - API server sẽ gọi ra HTTP server của bạn khi có request phù hợp
+  - Có thể deploy/update/remove mà không cần restart API server
+
+
+Thứ tự chạy:
+> Request → Mutating (built-in) → Mutating (webhook) → Validating (built-in) → Validating (webhook) → etcd
+
+Trong thực tế hầu hết custom logic đều dùng dynamic webhook vì không cần đụng vào cluster infrastructure. Built-in thì k8s đã lo sẵn, mình chỉ enable/disable là đủ.
 
 
 ## 18. Secure image
