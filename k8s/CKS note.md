@@ -722,6 +722,33 @@ Tóm lại quy tắc quan trọng: trong cụm k8s, các thành phần phải ng
 Lưu ý Kubernetes Version Skew Policy không có ràng buộc cụ thể riêng biệt cho patch versions giữa các thành phần như kube-apiserver, kubelet hay kube-proxy. Chính sách chỉ quy định độ lệch dựa trên minor versions (ví dụ: kubelet cũ hơn tối đa 3 minor so với apiserver), trong khi patch versions (z trong x.y.z) được khuyến nghị cập nhật lên bản mới nhất trước khi nâng cấp minor để tận dụng các bản sửa lỗi và bảo mật
 
 ### 13.1 Upgrade cụm k8s
+
+Kubernetes Version Skew Policy
+
+| Component | Phép so sánh | Giới hạn so với kube-apiserver (X) |
+|---|---|---|
+| kube-apiserver | `= X` | Phiên bản chuẩn, các component khác so sánh dựa vào đây |
+| controller-manager | `≤ X`, `≥ X-1` | Chậm hơn tối đa 1 minor version |
+| kube-scheduler | `≤ X`, `≥ X-1` | Chậm hơn tối đa 1 minor version |
+| kubelet | `≤ X`, `≥ X-2` | Chậm hơn tối đa 2 minor version |
+| kube-proxy | `≤ X`, `≥ X-2` | Chậm hơn tối đa 2 minor version |
+| kubectl | `≥ X-1`, `≤ X+1` | Có thể cao hơn hoặc thấp hơn 1 minor version |
+
+Ví dụ khi kube-apiserver = 1.10
+
+| Component | Các version được phép |
+|---|---|
+| kube-apiserver | `1.10` |
+| controller-manager | `1.9`, `1.10` |
+| kube-scheduler | `1.9`, `1.10` |
+| kubelet | `1.8`, `1.9`, `1.10` |
+| kube-proxy | `1.8`, `1.9`, `1.10` |
+| kubectl | `1.9`, `1.10`, `1.11` |
+
+> **Ghi nhớ:** `kubectl` là component duy nhất được phép cao hơn `kube-apiserver` 1 version — hữu ích khi rolling upgrade cụm.
+>
+> Khi dùng k get nodes -owide → version shows ra là của kubelet
+
 Các bước cần thực hiện
 - Drain node bằng lệnh `kubectl drain`
 - Mark node as SchedulingDisabled bằng lệnh `kubectl cordon` (thực chất drain đã bao gồm cordon)
@@ -733,6 +760,17 @@ Thực hiện trên master node trước (apiserver, controller manager, schedul
 Các bước dưới còn thiếu bước update repo, tìm lại trong vở
 
 #### 13.1.1 Upgrade master node
+```
+$ apt-cache madison kubeadm   # tìm các version available của kubeadm
+                               # Note: nếu k có version mong muốn,
+                               # thì phải upgrade repo
+#Lệnh apt-cache madison kubeadm liệt kê tất cả các version của kubeadm có sẵn trong apt repo hiện tại
+$ apt-get update -y kubeadm=1.12.0-00
+$ kubeadm upgrade plan         # xem hướng dẫn
+$ kubeadm upgrade apply v1.12.0  # upgrade cả cum
+$ apt-get upgrade -y kubelet=1.12.0-00
+$ systemctl restart kubelet
+```
 - kubectl drain <node> --ignore-daemonsets
 - apt-get update
 - apt-cache show kubeadm | grep <version> -> tìm các phiên bản kubeadm khả dụng
@@ -746,7 +784,21 @@ Các bước dưới còn thiếu bước update repo, tìm lại trong vở
 - apt-get install kubelet=<version> kubectl=<version> : do kubelet và kubectl không được update = kubeadm
 - kubectl uncordon <node>
 
+Cách upgrade repo
+- curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.12/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+- echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg]  https://pkgs.k8s.io/core:/stable:/v1.12/deb/ /' | tee /etc/apt/sources.list.d/kubernetes.list (thay v1.12 bằng version muốn upgrade lên)
+
+Lưu ý: Repo của Kubernetes tổ chức theo từng minor version (v1.12, v1.13...), nên mỗi lần muốn upgrade lên minor version mới là phải đổi repo một lần.
+
 #### 13.1.2 Upgrade worker node
+```
+$ kubectl drain node1          # (master)
+$ apt-get upgrade -y kubeadm=1.12.0-00   # (master)
+$ apt-get upgrade -y kubelet=1.12.0-00
+$ kubeadm upgrade node
+$ systemctl restart kubelet
+$ kubectl uncordon node1       # (master)
+```
 - Đứng trên master node để drain/cordon worker node
 - Đứng trên worker node chạy các lệnh
 - apt-get update
@@ -762,6 +814,10 @@ Các bước dưới còn thiếu bước update repo, tìm lại trong vở
 - restart kubelet
 - uncordon node (đứng trên master node)
 
+Lưu ý
+- kubeadm và kubelet đều cài cả trên master và worker node. kubeadm để join worker node vào cụm, kubelet để communicate với kube-apiserver
+- Kubernetes recommend version của kubeadm = kubelet
+- Khi worker node chưa join vào cụm, kubelet service trên node đó sẽ ở trạng thái stop
 
 ### 13.2 Cách giúp ứng dụng của bạn “sống sót” khi nâng cấp cluster Kubernetes hoặc hạ tầng bên dưới.​
 
