@@ -2292,3 +2292,37 @@ kube-apiserver check:
 - intersection = {}  →  ❌ 401 Unauthorized
 ```
 
+## Bộ đề 3
+### Question 1
+- CiliumNetworkPolicy là custom resource của Cilium giúp mở rộng khả năng của Kubernetes NetworkPolicy tiêu chuẩn.
+- Cấu trúc cơ bản
+```yaml
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: example-policy
+  namespace: default
+spec:
+  endpointSelector:          # chọn pod bị ảnh hưởng
+    matchLabels:
+      app: backend
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            app: frontend
+      toPorts:
+        - ports:
+            - port: "8080"
+              protocol: TCP
+          rules:
+            http:
+              - method: GET
+                path: "/api/.*"
+  egress:
+    - toFQDNs:
+        - matchName: "api.example.com"
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+```
