@@ -361,10 +361,10 @@ spec:
       app: myapp
   egress:
     - to: #trường này để cho phép pod gọi đến coredns
-        - namespaceSelector: {}
+        - namespaceSelector: {} # nghĩa là chọn tất cả các namespace (selector rỗng = match all).
           podSelector:
             matchLabels:
-              k8s-app: kube-dns
+              k8s-app: kube-dns # kết hợp với namespaceSelector rỗng sẽ thành cho phép kết nối đến pod có label k8s-app: kube-dns ở bất kỳ namespace nào
       ports:
         - port: 53
           protocol: UDP
@@ -372,7 +372,10 @@ spec:
         - podSelector: {}
 ```
 
-Lưu ý: Do NetworkPolicy là namespace-scoped resource → rule `ingress.from.podSelector: {}` và `egress.to.podSelector: {}` chỉ match các pod trong `mynamespace`, do đó không cần chỉ định namespace nữa
+Lưu ý: 
+- Do NetworkPolicy là namespace-scoped resource → rule `ingress.from.podSelector: {}` và `egress.to.podSelector: {}` chỉ match các pod trong `mynamespace`, do đó không cần chỉ định namespace nữa
+- namespaceSelector: {} = match tất cả namespace, kèm podSelector: {} hoặc không kèm podSelector thì đều có nghĩa là chọn tất cả pod trong tất cả namespace đó
+- podSelector: {} có nghĩa là chọn tất cả pod nhưng chỉ trong cùng namespace với network policy
 
 ### 4.6. Network policy trong Cloud
 
