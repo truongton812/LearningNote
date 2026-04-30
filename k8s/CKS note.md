@@ -2178,3 +2178,46 @@ lrwx------ 1 root root 64 Apr 26 10:00 4 -> socket:[123456]
 - ls -l /proc/1234/fd | awk '{print $NF}' > /candidate/13/files.txt
 - Find the path to the executable binary `readlink -f /proc/1234/exe` hoặc `ls -l /proc/1234/exe` hoặc `ps -fp 1234`
  
+### Question 15
+Giải thích về `--api-audiences` trong Kubernetes
+
+- Khi một Pod chạy trong Kubernetes, nó được gắn một ServiceAccount token — về bản chất là một JWT (JSON Web Token) — để xác thực với API server.
+- JWT có cấu trúc gồm nhiều claims, trong đó có claim aud (audience). Claim là một cặp key-value bên trong JWT payload, mang thông tin về token hoặc người dùng. VD
+```
+{
+  "iss": "https://kubernetes.default.svc.cluster.local",
+  "aud": ["https://kubernetes.default.svc.cluster.local"],
+  "sub": "system:serviceaccount:default:my-sa",
+  "exp": 1234567890,
+  "kubernetes.io": {
+    "namespace": "default",
+    "serviceaccount": { "name": "my-sa" }
+  }
+}
+```
+-> các claim là iss, aud, sub, exp, kubernetes.io
+- `--api-audiences` là flag cấu hình trên kube-apiserver, dùng để khai báo danh sách các audience hợp lệ. Khi API server nhận được một token, nó sẽ kiểm tra ít nhất một giá trị trong aud của token phải khớp với một giá trị trong `--api-audiences`. Nếu không khớp → token bị từ chối.
+- Nếu không set `--api-audiences` nhưng có set `--service-account-issuer`, thì Kubernetes tự dùng issuer URL làm audience mặc định. VD nếu `--service-account-issuer = https://kubernetes.default.svc.cluster.local` thì `--api-audiences` cũng là `https://kubernetes.default.svc.cluster.local`
+
+
+Ứng dụng thực tế thường gặp là IRSA / Pod Identity (AWS, GCP, v.v.), Kube-apiserver cần set `--api-audiences=https://kubernetes.default.svc.cluster.local,sts.amazonaws.com`
+
+Flow thực tế với IRSA
+```
+1. Pod mount token (aud: sts.amazonaws.com)
+        ↓
+2. Pod gọi AWS STS: AssumeRoleWithWebIdentity
+        ↓
+3. AWS STS verify:
+   - Signature hợp lệ? (dùng OIDC public key từ cluster)
+   - aud == "sts.amazonaws.com"?  ✅
+   - iss có trong trusted list?   ✅
+        ↓
+4. STS trả về AWS credentials
+Nếu Pod đem token đó gọi thẳng vào kube-apiserver:
+kube-apiserver check:
+- aud == "sts.amazonaws.com"
+- api-audiences == ["https://kubernetes.default.svc.cluster.local"]
+- intersection = {}  →  ❌ 401 Unauthorized
+```
+
